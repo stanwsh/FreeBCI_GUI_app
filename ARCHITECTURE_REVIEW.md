@@ -42,6 +42,7 @@ USER NOTES:
 - `tools/soak_session.py` runs a longer synthetic session and reports throughput, loss, queue depth, and working-set memory; a short run holds `lost=0`, `dropped=0`, `queue=0`, ~34 MB RSS.
 - LSL sources now publish stable `FreeBCI:<name>` source ids, and starting LSL creates a `FreeBCI_Markers` string stream fed by GUI and control-plane markers.
 - The diagnostics dialog now has an automated offscreen test covering rendering and the copyable summary.
+- Real Wi-Fi hardware LSL verification: a `FreeBCI_RealTest` stream (16 channels) delivered samples with timestamps, and `marker_click()` delivered `['manual']` on `FreeBCI_Markers`.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, a control-plane start command, and application packaging (`pyproject.toml`).
 
