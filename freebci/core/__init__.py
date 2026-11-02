@@ -5,6 +5,7 @@ through a small number of data objects (``SessionConfig``, ``SampleBlock``,
 ``StateSnapshot``) and the ``SessionController`` facade.
 """
 
+from freebci.core.control import ControlClient, ControlError, ControlServer
 from freebci.core.models import (
     BoardProfile,
     SampleBlock,
@@ -16,6 +17,9 @@ from freebci.core.models import (
 
 __all__ = [
     "BoardProfile",
+    "ControlClient",
+    "ControlError",
+    "ControlServer",
     "SampleBlock",
     "SessionConfig",
     "SessionState",
