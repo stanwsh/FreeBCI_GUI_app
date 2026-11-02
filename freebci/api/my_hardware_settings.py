@@ -1,0 +1,424 @@
+import os
+import time
+import xml.dom.minidom as minidom
+from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
+from freebci.design.hardware_settings_interface import hardwareSettings_interface
+from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
+from functools import partial
+import xml.etree.ElementTree as ET
+from brainflow import board_shim, data_filter, exit_codes, ml_model
+from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
+from brainflow.data_filter import AggOperations, DataFilter, FilterTypes, WindowFunctions
+
+
+class MyHardwareSettings(hardwareSettings_interface):
+    _signal = QtCore.pyqtSignal(HardwareInfo)
+    _signal_con = QtCore.pyqtSignal(connectInfo)
+
+    def __init__(self, connect_info, hardwareInfo, Logger):
+        super(MyHardwareSettings, self).__init__(hardwareInfo)
+        self.connect_info = connect_info
+        self.board = self.connect_info.board
+        self.hardwareInfo = hardwareInfo
+        self.myLogger = Logger
+        max_samplingRate = self.connect_info.id_list[self.connect_info.board_id - 2023][5]
+        n_rateCombobox = self.rateComboBox.count() - 1
+        while n_rateCombobox >= 0:
+            if str(max_samplingRate) + ' Hz' == str(self.rateComboBox.itemText(n_rateCombobox)):
+                break
+            self.rateComboBox.removeItem(n_rateCombobox)
+            n_rateCombobox -= 1
+        self.saveButton.clicked.connect(self.saveButton_click)
+        self.loadButton.clicked.connect(self.loadButton_click)
+        self.sendButton.clicked.connect(self.sendButton_click)
+        self.isActiveSetting = [ False for i in range(self.hardwareInfo.channel_num) ]
+        self.myLogger.write(self.ischanClick)
+        for i in range(len(self.PCAGainComboBoxs)):
+            if self.ischanClick[i]:
+                self.PCAGainComboBoxs[i].activated.connect(partial(self.PCAGainComboBoxs_click, i))
+                self.InputComboBoxs[i].activated.connect(partial(self.InputComboBoxs_click, i))
+                self.BiasComboBoxs[i].activated.connect(partial(self.BiasComboBoxs_click, i))
+                self.SRB1ComboBoxs[i].activated.connect(partial(self.SRB1ComboBoxs_click, i))
+                self.SRB2comboBoxs[i].activated.connect(partial(self.SRB2ComboBoxs_click, i))
+        if self.connect_info.id_list[self.connect_info.board_id - 2023][4] == 0:
+            for i in range(len(self.PCAGainComboBoxs)):
+                self.SRB1ComboBoxs[i].setItemText(0, 'Off')
+                self.SRB1ComboBoxs[i].setEnabled(False)
+                self.SRB2comboBoxs[i].setItemText(0, 'Off')
+                self.SRB2comboBoxs[i].setEnabled(False)
+        self.parent_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.system_xml = ET.parse(self.parent_path + '\\settings\\hardware_settings' + str(self._chan) + '.xml').getroot()
+        my_file = [
+            self.parent_path + '/settings/send_settings.xml',
+            'xml files(*.xml)']
+        self.loadSendXML([
+            self.parent_path + '/settings/hardware_settings' + str(self._chan) + '.xml',
+            'xml files(*.xml)'])
+        if self.hardwareInfo.isSend == True:
+            self.loadSendXML(my_file)
+            self.saveSettings(my_file, True)
+        else:
+            self.hardwareInfo.SamplingRate = 250
+        if self.connect_info.iswifi:
+            self.hardwareInfo.sendMode = 'FreeBCI'
+            self.label_9.setVisible(0)
+            self.sendcomboBox.setVisible(0)
+            self.sendcomboBox.setEnabled(0)
+            self.baudComboBox.setVisible(0)
+            self.label_8.setVisible(0)
+            self.comboBox.setVisible(0)
+            self.label_7.setVisible(0)
+        elif self.connect_info.isbluetooth:
+            self.hardwareInfo.sendMode = 'FreeBCI'
+            self.label_9.setVisible(0)
+            self.sendcomboBox.setEnabled(0)
+            self.sendcomboBox.setVisible(0)
+            self.label_7.setVisible(0)
+            self.comboBox.setVisible(0)
+            self.baudComboBox.setVisible(0)
+            self.label_8.setVisible(0)
+        else:
+            self.hardwareInfo.sendMode = 'FreeBCI'
+            self.label_9.setVisible(0)
+            self.sendcomboBox.setVisible(0)
+            self.sendcomboBox.setEnabled(1)
+            self.label_7.setVisible(0)
+            self.comboBox.setVisible(0)
+            self.baudComboBox.setVisible(0)
+            self.label_8.setVisible(0)
+        self.SamplingRateDict = {
+            250: 0,
+            500: 1,
+            1000: 2,
+            2000: 3,
+            4000: 4,
+            8000: 5,
+            16000: 6 }
+        self.BuadRateDict = {
+            115200: 0,
+            500000: 1,
+            921600: 2,
+            1000000: 3,
+            2000000: 4,
+            3000000: 5,
+            5000000: 6,
+            6000000: 7,
+            6040000: 8 }
+        self.sendModeDict = {
+            'FreeBCI': 1,
+            'OpenBCI': 0 }
+        self.comboBox.setVisible(0)
+        self.rateComboBox.setCurrentIndex(self.SamplingRateDict[self.hardwareInfo.SamplingRate])
+        self.sendcomboBox.setCurrentIndex(self.sendModeDict[self.hardwareInfo.sendMode])
+        self.barTimer = QtCore.QBasicTimer()
+        self.step = 0
+        self.sendMode = self.sendcomboBox.currentText()
+
+    def refreshHardwareSetting(self):
+        for i in range(len(self.isActiveSetting)):
+            if self.isActiveSetting[i] == True:
+                self.change_line_color(i)
+                self.isActiveSetting[i] = False
+
+    def compareLine(self, channel):
+        if self.PCAGainComboBoxs[channel].currentText() != self.string_pre(self.system_xml[channel][0]):
+            return False
+        if self.InputComboBoxs[channel].currentText() != self.string_pre(self.system_xml[channel][1]):
+            return False
+        if self.BiasComboBoxs[channel].currentText() != self.string_pre(self.system_xml[channel][2]):
+            return False
+        if self.SRB1ComboBoxs[channel].currentText() != self.string_pre(self.system_xml[channel][4]):
+            return False
+        if self.SRB2comboBoxs[channel].currentText() != self.string_pre(self.system_xml[channel][3]):
+            return False
+        return True
+
+    def PCAGainComboBoxs_click(self, channel):
+        if self.compareLine(channel):
+            if self.isActiveSetting[channel] == True:
+                self.change_line_color(channel)
+        elif self.isActiveSetting[channel] == False:
+            self.change_line_color(channel)
+
+    def InputComboBoxs_click(self, channel):
+        if self.compareLine(channel):
+            if self.isActiveSetting[channel] == True:
+                self.change_line_color(channel)
+        elif self.isActiveSetting[channel] == False:
+            self.change_line_color(channel)
+
+    def BiasComboBoxs_click(self, channel):
+        if self.compareLine(channel):
+            if self.isActiveSetting[channel] == True:
+                self.change_line_color(channel)
+        elif self.isActiveSetting[channel] == False:
+            self.change_line_color(channel)
+        if self.BiasComboBoxs[channel].currentText() == 'Yes':
+            self.BiasComboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+        else:
+            self.BiasComboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+
+    def SRB1ComboBoxs_click(self, channel):
+        if self.compareLine(channel):
+            if self.isActiveSetting[channel] == True:
+                self.change_line_color(channel)
+        elif self.isActiveSetting[channel] == False:
+            self.change_line_color(channel)
+        if self.SRB1ComboBoxs[channel].currentText() == 'On':
+            self.SRB1ComboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+        else:
+            self.SRB1ComboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+
+    def SRB2ComboBoxs_click(self, channel):
+        if self.compareLine(channel):
+            if self.isActiveSetting[channel] == True:
+                self.change_line_color(channel)
+        elif self.isActiveSetting[channel] == False:
+            self.change_line_color(channel)
+        if self.SRB2comboBoxs[channel].currentText() == 'On':
+            self.SRB2comboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+        else:
+            self.SRB2comboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+
+    def change_line_color(self, channel):
+        if self.isActiveSetting[channel] == False:
+            self.nameButtons[channel].setStyleSheet('QPushButton {\n    width: 40px;\n    height: 40px;\n    border-radius: 20px;\n    font-size: 20px;\n    color: white;\n    background: ' + self.colors[channel % 8] + ' ; /* 默认颜色 */\n}\n')
+            self.isActiveSetting[channel] = True
+        else:
+            self.nameButtons[channel].setStyleSheet('QPushButton {\n    width: 40px;\n    height: 40px;\n    border-radius: 20px;\n    font-size: 20px;\n    color: white;\n    background: gray ; /* 默认颜色 */\n}\n')
+            self.isActiveSetting[channel] = False
+
+    def sendButton_click(self):
+        self.step = 0
+        self.progressBar.setValue(self.step)
+        self.progressBar.repaint()
+        self.sendButton.setEnabled(False)
+        self.sendButton.repaint()
+        my_file = [
+            self.parent_path + '/settings/send_settings.xml',
+            'xml files(*.xml)']
+        self.board = self.connect_info.board
+        hardwareSettingsProtocol = HardwareSettingsProtocol()
+        self.step = 10
+        self.progressBar.setValue(self.step)
+        self.progressBar.repaint()
+        self.command = ''
+        currentRateStr = str(self.hardwareInfo.SamplingRate) + ' Hz'
+        if self.rateComboBox.currentText() != currentRateStr:
+            self.command += '~'
+            self.command += str(hardwareSettingsProtocol.SamplingRateCommand[self.rateComboBox.currentText()])
+            self.myLogger.write('Send Command:' + self.command)
+            self.SamplingRate = int(hardwareSettingsProtocol.SamplingRate[self.rateComboBox.currentText()])
+            response = self.board.config_board(self.command)
+        time.sleep(1)
+        self.step = 20
+        self.progressBar.setValue(self.step)
+        self.progressBar.repaint()
+        for i in range(len(self.PCAGainComboBoxs)):
+            self.command = ''
+            self.command += 'x'
+            if self._chan > 16:
+                if i < 9:
+                    self.command += '0' + str(i + 1)
+                else:
+                    self.command += str(i + 1)
+            else:
+                self.command += str(hardwareSettingsProtocol.Channel[i + 1])
+            self.command += '0'
+            self.command += str(hardwareSettingsProtocol.PCAGainProtocol[self.PCAGainComboBoxs[i].currentText()])
+            self.command += str(hardwareSettingsProtocol.InputTypeProtocol[self.InputComboBoxs[i].currentText()])
+            self.command += str(hardwareSettingsProtocol.BiasIncludeProtocol[self.BiasComboBoxs[i].currentText()])
+            self.command += str(hardwareSettingsProtocol.SRB2Protocol[self.SRB2comboBoxs[i].currentText()])
+            self.command += str(hardwareSettingsProtocol.SRB1Protocol[self.SRB1ComboBoxs[i].currentText()])
+            self.command += 'X'
+            self.myLogger.write('sendCommand: ' + self.command)
+            channelP = [
+                40, 41, 42, 43, 44, 45, 46, 47, 32, 33, 34, 35, 36, 37, 38, 39, 56, 57, 58, 59, 60, 61, 62, 63]
+            if self._chan == 64 and i in channelP:
+                if self.command[6:9] == '100':
+                    self.command = self.command[0:7] + '1' + self.command[8:]
+            response = self.board.config_board(self.command)
+            self.step = self.step + int(80 / self._chan)
+            self.progressBar.setValue(self.step)
+            self.progressBar.repaint()
+        self.hardwareInfo.baudRate = self.connect_info.baudRate
+        self.myLogger.write(self.sendMode)
+        self.hardwareInfo.SamplingRate = int(hardwareSettingsProtocol.SamplingRate[self.rateComboBox.currentText()])
+        if self._chan == 16 and self.sendMode != 'FreeBCI':
+            self.hardwareInfo.SamplingRate = int(self.hardwareInfo.SamplingRate / 2)
+        self.myLogger.write(self.hardwareInfo.SamplingRate)
+        self.hardwareInfo.isSend = True
+        if self.connect_info.board_id == 30:
+            self.hardwareInfo.sendMode = self.sendcomboBox.currentText()
+        self.sendButton.setEnabled(True)
+        self.sendButton.repaint()
+        self.step = 100
+        self.progressBar.setValue(self.step)
+        self.progressBar.repaint()
+        self.connect_info.board = self.board
+        self._signal.emit(self.hardwareInfo)
+        self._signal_con.emit(self.connect_info)
+        my_file = [
+            self.parent_path + '/settings/send_settings.xml',
+            'xml files(*.xml)']
+        self.saveSettings(my_file, True)
+
+    def string_pre(self, s):
+        elem = str(s.text).replace(' ', '')
+        elem = elem.replace('\n', '')
+        return elem
+
+    def loadSendXML(self, load_xml_path):
+        file_path = os.path.dirname(__file__)
+        qFileDialog = QtWidgets.QFileDialog()
+        if load_xml_path[0] != '':
+            self.myLogger.write(load_xml_path[0])
+            tree = ET.parse(load_xml_path[0])
+            root = tree.getroot()
+            for row in range(len(root)):
+                if self.ischanClick[row]:
+                    combobox_index = self.PCAGainComboBoxs[row].findText(self.string_pre(root[row][0]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.PCAGainComboBoxs[row].setCurrentIndex(combobox_index)
+                    combobox_index = self.InputComboBoxs[row].findText(self.string_pre(root[row][1]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.InputComboBoxs[row].setCurrentIndex(combobox_index)
+                    combobox_index = self.BiasComboBoxs[row].findText(self.string_pre(root[row][2]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.BiasComboBoxs[row].setCurrentIndex(combobox_index)
+                    if self.BiasComboBoxs[row].currentText() == 'Yes':
+                        self.BiasComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+                    else:
+                        self.BiasComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+                    combobox_index = self.SRB2comboBoxs[row].findText(self.string_pre(root[row][3]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.SRB2comboBoxs[row].setCurrentIndex(combobox_index)
+                    if self.SRB2comboBoxs[row].currentText() == 'On':
+                        self.SRB2comboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+                    else:
+                        self.SRB2comboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+                    combobox_index = self.SRB1ComboBoxs[row].findText(self.string_pre(root[row][4]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.SRB1ComboBoxs[row].setCurrentIndex(combobox_index)
+                    if self.SRB1ComboBoxs[row].currentText() == 'On':
+                        self.SRB1ComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+                    else:
+                        self.SRB1ComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+                    if self.compareLine(row):
+                        if self.isActiveSetting[row] == True:
+                            self.change_line_color(row)
+                    elif self.isActiveSetting[row] == False:
+                        self.change_line_color(row)
+
+    def loadButton_click(self):
+        qFileDialog = QtWidgets.QFileDialog()
+        default_dir = os.path.join(self.parent_path, 'settings')
+        load_xml_path = qFileDialog.getOpenFileName(self, 'Open file', default_dir, 'xml files(*.xml)')
+        if load_xml_path[0] != '':
+            self.myLogger.write('Load xml: ' + load_xml_path[0])
+            tree = ET.parse(load_xml_path[0])
+            root = tree.getroot()
+            for row in range(len(root)):
+                if self.ischanClick[row]:
+                    combobox_index = self.PCAGainComboBoxs[row].findText(self.string_pre(root[row][0]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.PCAGainComboBoxs[row].setCurrentIndex(combobox_index)
+                    combobox_index = self.InputComboBoxs[row].findText(self.string_pre(root[row][1]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.InputComboBoxs[row].setCurrentIndex(combobox_index)
+                    combobox_index = self.BiasComboBoxs[row].findText(self.string_pre(root[row][2]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.BiasComboBoxs[row].setCurrentIndex(combobox_index)
+                    if self.BiasComboBoxs[row].currentText() == 'Yes':
+                        self.BiasComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+                    else:
+                        self.BiasComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+                    combobox_index = self.SRB2comboBoxs[row].findText(self.string_pre(root[row][3]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.SRB2comboBoxs[row].setCurrentIndex(combobox_index)
+                    if self.SRB2comboBoxs[row].currentText() == 'On':
+                        self.SRB2comboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+                    else:
+                        self.SRB2comboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+                    combobox_index = self.SRB1ComboBoxs[row].findText(self.string_pre(root[row][4]), QtCore.Qt.MatchFixedString)
+                    if combobox_index >= 0:
+                        self.SRB1ComboBoxs[row].setCurrentIndex(combobox_index)
+                    if self.SRB1ComboBoxs[row].currentText() == 'On':
+                        self.SRB1ComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+                    else:
+                        self.SRB1ComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+                    if self.compareLine(row):
+                        if self.isActiveSetting[row] == True:
+                            self.change_line_color(row)
+                    elif self.isActiveSetting[row] == False:
+                        self.change_line_color(row)
+
+    def saveSettings(self, my_file, isRefresh):
+        if my_file[0] != '':
+            xml_root = ET.Element('Channels')
+            xml_root.set('version', '1.0')
+            xml_root.set('encoding', 'UTF-8')
+            for row in range(len(self.PCAGainComboBoxs)):
+                channel = ET.SubElement(xml_root, 'Channel' + str(row + 1))
+                pca_gain = ET.SubElement(channel, 'pca_gain')
+                pca_gain.text = self.PCAGainComboBoxs[row].currentText()
+                input_type = ET.SubElement(channel, 'input_type')
+                input_type.text = self.InputComboBoxs[row].currentText()
+                bias_include = ET.SubElement(channel, 'bias_include')
+                bias_include.text = self.BiasComboBoxs[row].currentText()
+                srb2 = ET.SubElement(channel, 'srb2')
+                srb2.text = self.SRB2comboBoxs[row].currentText()
+                srb1 = ET.SubElement(channel, 'srb1')
+                srb1.text = self.SRB1ComboBoxs[row].currentText()
+            xml_string = ET.tostring(xml_root, encoding='utf-8')
+            xml_reparsed = minidom.parseString(xml_string)
+            xml_to_file = xml_reparsed.toprettyxml()
+            file = open(my_file[0], 'w', encoding='utf-8')
+            file.write(xml_to_file)
+            file.close()
+            self.system_xml = ET.parse(my_file[0]).getroot()
+            if isRefresh == True:
+                self.refreshHardwareSetting()
+
+    def saveButton_click(self):
+        dialog_save = QtWidgets.QFileDialog()
+        default_dir = os.path.join(self.parent_path, 'settings')
+        my_file = dialog_save.getSaveFileName(self, 'Open file', default_dir, 'xml files(*.xml)')
+        if my_file[0] != '':
+            self.myLogger.write('Save xml: ' + my_file[0])
+        self.saveSettings(my_file, False)
+
+    def prepare_openbci(self, connect_type, boardID=0, wifi_address=None, wifi_port=0, serial_port=None, other_info='115200'):
+        if connect_type == 1:
+            try:
+                params = BrainFlowInputParams()
+                params.ip_port = wifi_port
+                params.ip_address = wifi_address
+                params.timeout = 3
+                board_id = boardID
+                self.board = BoardShim(board_id, params)
+                self.myLogger.write('preparing......')
+                self.board.prepare_session()
+                self.myLogger.write('prepared')
+            except board_shim.BrainFlowError as ex:
+                self.board.release_session()
+                self.board = BoardShim(5, BrainFlowInputParams())
+                raise ex
+        elif connect_type == 2:
+            try:
+                self.myLogger.write('imported')
+                params = BrainFlowInputParams()
+                params.serial_port = serial_port
+                params.timeout = 3
+                params.other_info = other_info
+                board_id = boardID
+                self.board = BoardShim(board_id, params)
+                self.myLogger.write('preparing......')
+                self.board.prepare_session()
+                time.sleep(0.2)
+                self.myLogger.write('prepared')
+            except board_shim.BrainFlowError as ex:
+                self.board.release_session()
+                self.board = BoardShim(5, BrainFlowInputParams())
+                raise ex
