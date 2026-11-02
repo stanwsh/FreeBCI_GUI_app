@@ -130,6 +130,8 @@ model submenu offers the connection methods that model supports.
    different address, edit the IP address and port under **Advanced connection
    settings**, then click **Connect**.
 
+![Wi-Fi connection dialog](docs/wifi-connection.png)
+
 The dialog chooses the board type from the model you selected in the **Boards**
 menu; the BrainFlow board ID is not shown. Detection probes the board's HTTP
 service, so it reports an actual reachable board rather than assuming that a
