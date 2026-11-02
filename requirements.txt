@@ -3,9 +3,9 @@
 
 PyQt5==5.15.2
 pyqtgraph==0.13.3
-brainflow<5
 matplotlib==3.7.2
 mne==1.6.0
+nptyping==1.4.4
 numpy==1.26.1
 pandas==2.0.3
 scipy==1.11.1
