@@ -14,6 +14,7 @@ from freebci.core.models import (
     SessionStats,
     SessionStatus,
 )
+from freebci.core.simulator import SimulatedBoard
 
 __all__ = [
     "BoardProfile",
@@ -25,4 +26,5 @@ __all__ = [
     "SessionState",
     "SessionStats",
     "SessionStatus",
+    "SimulatedBoard",
 ]

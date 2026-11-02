@@ -18,6 +18,7 @@ from freebci.api.my_hardware_settings import MyHardwareSettings
 from freebci.api.my_channels_electrodes_settings import MyChannels_electrodes_Settings
 from freebci.api.my_wifi_connection import MyWifiConnection
 from freebci.api.my_diagnostics import MyDiagnostics
+from freebci.core import SimulatedBoard
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.my_electrodes_position import ElectrodesPosition
 from freebci.api.my_serial_connection import MySerialConnection
@@ -120,6 +121,10 @@ class MyMainWindow(MainWindowInterface):
         self.actionDiagnostics.setShortcut('Ctrl+D')
         self.actionDiagnostics.triggered.connect(self.diagnostics_click)
         self.menu_2.addAction(self.actionDiagnostics)
+        self.actionDemo = QtWidgets.QAction('Start Demo Session', self)
+        self.actionDemo.setShortcut('Ctrl+Shift+D')
+        self.actionDemo.triggered.connect(self.demo_click)
+        self.menu_2.addAction(self.actionDemo)
         self.diagnostics_window = None
         for i in range(self._chan):
             self.myTimeSeries.my_plot_widgets[i].channelButton.clicked.connect(partial(self.channelButtons_click, i))
@@ -1235,6 +1240,20 @@ class MyMainWindow(MainWindowInterface):
             name = getattr(networking, 'LSLname%d' % index, 'Stream %d' % index)
             running.append('%s (%s, %s)' % (name, data_type, state))
         return '; '.join(running) if running else 'none configured'
+
+    def demo_click(self):
+        """Run the GUI against synthetic data when no board is available."""
+        if self.isSessionOn or self.startButton_isclicked:
+            self.stateLabel.setText('Stop the current session before starting the demo.')
+            return
+        self.connect_info.board_id = 2037
+        self.connect_info.channel_num = 16
+        self.connect_info.connect_type = 2
+        self.connect_info.baudRate = '2000000'
+        self.connect_info.board = SimulatedBoard(16, 250)
+        self.initLayout(self.connect_info)
+        self.startButton_click()
+        self.stateLabel.setText('Demo session - synthetic 16-channel data.')
 
     def start_openbci(self):
         try:

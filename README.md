@@ -114,6 +114,14 @@ program files will not work.
 6. Click **Stop Session** when you are finished. The recording is saved
    automatically.
 
+## Try without hardware
+
+Choose **File > Start Demo Session** (or press **Ctrl+Shift+D**) to run the
+interface against a synthetic 16-channel, 250 Hz board. The demo exercises the
+same acquisition, plotting, LSL, recording, and diagnostics paths as a real
+session, so it is a safe way to check an installation or follow the screenshots
+without a board. Demo recordings are written under the normal data folder.
+
 ## Connecting a board
 
 Open the **Boards** menu and select the exact model printed on the board. Each
