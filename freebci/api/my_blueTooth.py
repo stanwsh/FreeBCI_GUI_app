@@ -1,6 +1,5 @@
-import serial
-import sys
 import time
+from serial.tools import list_ports
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.design.bluetooth_connection import Ui_BluetoothDialog
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
@@ -40,16 +39,7 @@ class MyBluetoothConnection(QtWidgets.QDialog, Ui_BluetoothDialog):
         self.comboBox.clear()
         self.messageLabel.setText('Scaning Ports......')
         self.messageLabel.repaint()
-        if sys.platform.startswith('win'):
-            virtual_ports = [ 'COM%s' % (i + 1) for i in (range(256)) ]
-        self.ports = []
-        for port in virtual_ports:
-            try:
-                s = serial.Serial(port)
-                s.close()
-                self.ports.append(port)
-            except (OSError, serial.SerialException) as ex:
-                pass
+        self.ports = [port.device for port in list_ports.comports()]
         self.ports.reverse()
         self.comboBox.addItems(self.ports)
         self.messageLabel.setText('Scan successfully!')
