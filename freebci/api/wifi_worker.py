@@ -1,6 +1,5 @@
 """Background Wi-Fi discovery and board preparation."""
 import threading
-import time
 
 from PyQt5 import QtCore
 from brainflow.board_shim import BoardShim, BrainFlowInputParams
@@ -72,7 +71,7 @@ class WifiConnectWorker(QtCore.QThread):
                     finally:
                         return
                 board.config_board('~6')
-                time.sleep(0.1)
+                self._cancelled.wait(0.1)
                 response = board.config_board('v') or ''
                 if self._cancelled.is_set():
                     try:
@@ -91,7 +90,7 @@ class WifiConnectWorker(QtCore.QThread):
                 board = None
                 if self._cancelled.is_set():
                     break
-                if attempt < 2:
-                    time.sleep(1.0)
+                if attempt < 2 and self._cancelled.wait(1.0):
+                    break
         if not self._cancelled.is_set():
             self.failed.emit(last_error)
