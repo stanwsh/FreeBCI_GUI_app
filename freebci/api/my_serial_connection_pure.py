@@ -72,9 +72,8 @@ class MySerialConnection(QtWidgets.QDialog, Ui_SerialDialog):
             self.board = BoardShim(5, BrainFlowInputParams())
             self.connect_info.baudRate = self.baud_read
             self.prepare_openbci(2, boardID = self.connect_info.board_id, serial_port = self.connect_info.serial_port, other_info = self.connect_info.baudRate)
-            if '$' in response:
-                self.messageLabel.setText('connection successfully!')
-                self.myLogger.write('connection successfully')
+            self.messageLabel.setText('connection successfully!')
+            self.myLogger.write('connection successfully')
             self.myLogger.write('=================================================')
             self.myLogger.write('||             INITIALIZING SYSTEM             ||')
             self.myLogger.write('=================================================')

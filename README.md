@@ -122,6 +122,11 @@ manually. VPN software and restrictive firewalls can block discovery.
 
 If several ports are listed, unplug the board to see which entry disappears.
 
+For the tested FreeBCI-WiFi-16-I in USB mode, the path is
+**Boards > FreeBCI-WiFi-16-I > USB Serial Port**, then select the CH343 port
+(usually `COM3`). The application switches the board to 16-channel, 2 Mbaud
+operation automatically.
+
 ### Bluetooth
 
 1. Pair the board in **Settings > Bluetooth & devices**.

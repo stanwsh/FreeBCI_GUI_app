@@ -1,8 +1,8 @@
 # FreeBCI GUI: Architecture Assessment and Reconstruction Plan
 
-USER NOTE: A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using the "FreeBCI_WiFi_16_I_USB" hardware settings preset. The board is a 16-channel Wi-Fi board with a USB serial interface.
+USER NOTES: A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode only right now]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
 
-**Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, and local control plane are landed. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild) are already addressed in the implementation commits.
+**Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, and local control plane are landed. A real FreeBCI_WiFi_16_I_USB board (id 2037, COM3, 16 channels, 2 Mbaud, USB mode) was verified end to end on 2026-11-02: a 4-second GUI session recorded 993 samples at 250 Hz, wrote CSV/TXT/meta/manifest, and finalized with `status: completed`. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild) are already addressed in the implementation commits.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
 **Goal:** Improve maintainability, acquisition reliability, recording integrity, synchronization, and operator usability without discarding the validated BrainFlow/board behavior.
 
