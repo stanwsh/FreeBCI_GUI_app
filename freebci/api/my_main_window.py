@@ -27,6 +27,7 @@ from freebci.api.my_hardware_warn import MyHardwareWarning
 from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
+from freebci.core.control import ControlServer
 from freebci.core.gateway import BrainFlowGateway
 from freebci.core.models import BoardProfile, SessionConfig
 from freebci.core.session import SessionController
@@ -69,6 +70,7 @@ class MyMainWindow(MainWindowInterface):
         self.connect_info = connectInfo()
         self.board = None
         self.session_controller = None
+        self.control_server = None
         self.startButton_isclicked = False
         self.startLSLButton_isclicked = False
         self.checkFlag = 0
@@ -423,7 +425,11 @@ class MyMainWindow(MainWindowInterface):
 
     def closeEvent(self, event):
         try:
-            if self.session_controller is not None or self.startButton_isclicked:
+            if (
+                self.session_controller is not None
+                or self.control_server is not None
+                or self.startButton_isclicked
+            ):
                 self.stop_openbci()
                 self.stopThread()
             if self.board != None:
@@ -1133,9 +1139,23 @@ class MyMainWindow(MainWindowInterface):
                 BrainFlowGateway(self.board, self.connect_info.board_id, self._chan),
             )
             self.session_controller.start()
-            self.myLogger.write('FreeBCI: session recording started at ' + self.session_controller.output_path)
+            self.control_server = ControlServer(self.session_controller)
+            self.control_server.start()
+            self.myLogger.write(
+                'FreeBCI: session recording started at ' + self.session_controller.output_path
+            )
+            self.myLogger.write(
+                'FreeBCI: control API %s token %s'
+                % (self.control_server.address, self.control_server.token)
+            )
         except Exception as ex:
             self.myLogger.write('WARNNING: could not start board.')
+            if self.control_server is not None:
+                try:
+                    self.control_server.stop()
+                except Exception:
+                    pass
+                self.control_server = None
             if self.session_controller is not None:
                 try:
                     self.session_controller.stop()
@@ -1147,6 +1167,9 @@ class MyMainWindow(MainWindowInterface):
     def stop_openbci(self):
         try:
             self.LSLnewDataLen = 0
+            if self.control_server is not None:
+                self.control_server.stop()
+                self.control_server = None
             if self.session_controller is not None:
                 status = self.session_controller.stop()
                 self.myLogger.write('FreeBCI: session stopped with status %s' % status.value)

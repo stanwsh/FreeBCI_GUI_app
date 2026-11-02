@@ -1,6 +1,6 @@
 # FreeBCI GUI: Architecture Assessment and Reconstruction Plan
 
-A real board "FreeBCI_WiFi_16_I_USB" connected on COM3 can be used to verify the following:
+USER NOTE: A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using the "FreeBCI_WiFi_16_I_USB" hardware settings preset. The board is a 16-channel Wi-Fi board with a USB serial interface.
 
 **Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, and local control plane are landed. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild) are already addressed in the implementation commits.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
@@ -1633,4 +1633,4 @@ Runtime probe (offscreen, no hardware): startup menu 20 families, `isSessionOn=T
 
 ---
 
-*This document is a plan, not an implementation. No source file was modified. After review, Phase 0 can begin with the packaging/test safety net; Phases 1–6 should proceed through the gates in Section K.*
+*This document began as the reconstruction plan. Implementation is now in progress: the core, session recording, GUI integration, and local control plane are landed. Remaining phases should proceed through the gates in Section K.*

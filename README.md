@@ -316,6 +316,30 @@ Variables**.
 **File > Open** opens the recordings folder. The **Terminal** button opens the
 live console log.
 
+## Control API
+
+Each session also starts a small control endpoint on `127.0.0.1`. It is only
+reachable from the same computer and requires the random token printed in the
+Terminal log when the session starts:
+
+```text
+FreeBCI: control API tcp://127.0.0.1:54321 token ...
+```
+
+Use it from another Python process to read status or stop the recording:
+
+```python
+from freebci.core import ControlClient
+
+client = ControlClient("127.0.0.1", 54321, "the-token-from-the-log")
+print(client.status())
+client.stop()
+```
+
+`status()` returns the session state, sample and block counts, elapsed time,
+display-drop count, error text, and output path. The API is a control plane
+only; physiological data continues to use the CSV files and LSL.
+
 ## Troubleshooting
 
 ### `uv` is not found
