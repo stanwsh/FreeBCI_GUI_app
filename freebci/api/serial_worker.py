@@ -31,6 +31,34 @@ def _open_board(board_id, serial_port, other_info):
     return board
 
 
+class BluetoothConnectWorker(QtCore.QThread):
+    """Prepare a Bluetooth serial board without blocking the dialog."""
+
+    succeeded = QtCore.pyqtSignal(object, str)
+    failed = QtCore.pyqtSignal(str)
+
+    def __init__(self, board_id, serial_port, baud_rate, parent=None):
+        super(BluetoothConnectWorker, self).__init__(parent)
+        self.board_id = board_id
+        self.serial_port = serial_port
+        self.baud_rate = str(baud_rate)
+
+    def run(self):
+        board = None
+        try:
+            board = _open_board(self.board_id, self.serial_port, self.baud_rate)
+            response = board.config_board('v')
+            board.config_board(',')
+            self.succeeded.emit(board, response)
+        except Exception as exc:  # noqa: BLE001 - surfaced in the dialog
+            if board is not None:
+                try:
+                    board.release_session()
+                except Exception:
+                    pass
+            self.failed.emit(str(exc))
+
+
 class SerialConnectWorker(QtCore.QThread):
     """Prepare a board on a worker thread, then hand it to the dialog."""
 
