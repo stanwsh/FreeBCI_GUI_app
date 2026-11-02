@@ -24,8 +24,9 @@ USER NOTES:
 - `9ec1197` — serial board preparation, including the FreeBCI type/baud handshake, moved off the GUI thread.
 - `b60ce40` — Wi-Fi discovery and board preparation moved into workers; device buttons now select the correct IP.
 - `a001243` — Bluetooth preparation moved into a worker; editable baud rate is honored.
+- `3169531` — three independent Time Series LSL streams; unimplemented FFT/Band Power choices removed; Wi-Fi setup retries first-connection timeouts.
 
-Still intentionally open from the roadmap: real Wi-Fi transport verification (the test board's AP disappeared after a configuration POST and needs a power-cycle), a full hardware acceptance matrix (Wi-Fi and Bluetooth transports, 8/24/32/64-channel boards), and the consolidated diagnostics/timestamp surface from Phases 4–5. LSL now supports three Time Series streams; the unimplemented FFT and Band Power LSL types were removed from the UI.
+Still intentionally open from the roadmap: real Wi-Fi transport verification (the board's AP is reachable again and BrainFlow prepares/starts the session, but the board sends zero TCP bytes; a physical power-cycle is the next step), a full hardware acceptance matrix (Wi-Fi and Bluetooth transports, 8/24/32/64-channel boards), and the consolidated diagnostics/timestamp surface from Phases 4–5. LSL now supports three Time Series streams.
 
 ---
 
