@@ -3,10 +3,18 @@ import os
 import shutil
 import time
 import unittest
+from unittest.mock import Mock
 
 import numpy as np
 
-from freebci.core.models import BoardProfile, SessionConfig, SessionState, SessionStatus
+from freebci.core.models import (
+    BoardProfile,
+    SampleBlock,
+    SessionConfig,
+    SessionState,
+    SessionStatus,
+)
+from freebci.core.recording import RecordingWriter
 from freebci.core.session import SessionController
 
 TEST_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".test-tmp")
@@ -85,6 +93,30 @@ class FaultHandlingTest(unittest.TestCase):
         with open(os.path.join(controller.output_path, "manifest.json"), encoding="utf-8") as handle:
             manifest = json.load(handle)
         self.assertEqual(manifest["status"], "failed")
+
+
+    def test_disk_full_during_flush_still_finalizes_failed_manifest(self):
+        config = self._config("disk-full")
+        writer = RecordingWriter(config, queue_blocks=8)
+        writer.start()
+        now = time.time_ns()
+        data = np.zeros((1 + 4 + 3, 500), dtype=np.float64)
+        block = SampleBlock(
+            sequence=0,
+            sample_index=0,
+            data=data,
+            sampling_rate=250,
+            host_time_ns=now,
+            monotonic_ns=time.perf_counter_ns(),
+            first_sample_time_ns=now,
+        )
+        writer.submit(block)
+        writer._write_chunk = Mock(side_effect=OSError("No space left on device"))
+        writer.close(SessionStatus.COMPLETED)
+        with open(os.path.join(writer.session_dir, "manifest.json"), encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        self.assertEqual(manifest["status"], "failed")
+        self.assertIn("No space left on device", " ".join(manifest["errors"]))
 
 
 if __name__ == "__main__":

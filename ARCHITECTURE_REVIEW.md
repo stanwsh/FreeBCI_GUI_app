@@ -34,6 +34,7 @@ USER NOTES:
 - `38a2665` — File > Start Demo Session runs the normal GUI pipeline against a synthetic 16-channel board for hardware-free checks.
 - Packet-loss accounting now treats repeated counter values in a 16-channel frame as one frame and treats a jump larger than half the counter range as a firmware restart rather than hundreds of false losses (`a5c165b`); a real Wi-Fi session now reports `0.0%` with `lost samples: 0`.
 - `fcedc06` — acquisition failures finalize as `partial` instead of `failed`, with fault-injection tests.
+- Recording fault tests now cover a board disappearing mid-session, a board that fails to start, and a disk-full error during the final flush; all still write a final manifest with `status: failed`.
 - Simulator pacing now generates samples from elapsed time and advances the packet counter per block; `tools/benchmark_session.py` exercises the full synthetic acquisition/recording path.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), long-duration soak/disk-full tests, the view-model refactor, a control-plane start/shutdown command, and packaging (`pyproject.toml`/CI). LSL supports three Time Series streams.

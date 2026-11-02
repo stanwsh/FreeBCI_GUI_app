@@ -169,7 +169,11 @@ class RecordingWriter:
             self._queue.put(None)
             self._thread.join(timeout=30.0)
         self._stopped_ns = _wall_ns()
-        self._flush_pending()
+        try:
+            self._flush_pending()
+        except Exception as exc:  # noqa: BLE001 - preserve the manifest on a full disk
+            self.error = "recording failed while flushing: %s" % exc
+            self._errors.append(self.error)
         self._close_file()
         if self.error:
             status = SessionStatus.FAILED
