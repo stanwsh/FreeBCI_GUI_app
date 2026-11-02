@@ -229,6 +229,7 @@ def _snapshot_payload(controller: SessionController) -> Dict[str, Any]:
         "elapsed_seconds": snapshot.elapsed_seconds,
         "display_dropped_samples": snapshot.display_dropped_samples,
         "lost_samples": snapshot.lost_samples,
+        "seconds_since_block": snapshot.seconds_since_block,
         "error": snapshot.error,
         "output_path": snapshot.output_path,
     }

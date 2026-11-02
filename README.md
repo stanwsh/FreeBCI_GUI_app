@@ -26,6 +26,23 @@ Bluetooth, shows the signals live, and writes the raw data to disk.
 Accelerometer, external-trigger, and battery data are available only on boards
 that provide those inputs. Unsupported views stay disabled.
 
+## Tested hardware
+
+The application ships with connection code for the full family, but only the
+configurations below have been exercised with physical hardware. Treat the
+remaining entries as implemented paths, not guarantees.
+
+| Configuration | Transport | Status | Notes |
+| --- | --- | --- | --- |
+| FreeBCI-WiFi-16-I (`2037`) | USB serial | Verified | CH343 port, 16 channels, 2 Mbaud; acquisition, CSV/TXT recording, and manifest verified |
+| FreeBCI-WiFi-16-I (`2038`) | Wi-Fi | Control plane verified; sample stream pending | Board connects and accepts `/stream/start`, but the tested unit sent no sample bytes over TCP |
+| FreeBCI-BT-8/16 | Bluetooth serial | Implemented, not hardware-tested | Worker and dialog are in place; requires a paired outgoing COM port |
+| FreeBCI-USB high-speed | USB Serial Converter | Implemented, not hardware-tested | Uses the board's high-speed interface rather than a COM port |
+| 24-, 32-, and 64-channel boards | USB serial / Wi-Fi | Implemented, not hardware-tested | Channel counts and layouts are supported by the same core |
+
+If a transport fails, first confirm the board model in the **Boards** menu, then
+try the USB serial path. The Terminal log records the exact connection error.
+
 ## Requirements
 
 - Windows 10 or 11, 64-bit
@@ -348,9 +365,11 @@ client.stop()
 
 `stop()` asks the GUI to stop and returns `"stop_requested"`; the session
 finalizes on the next GUI event. `status()` returns the session state, sample
-and block counts, elapsed time, display-drop count, lost-sample count, error
-text, and output path. The API is a control plane only; physiological data
-continues to use the CSV files and LSL.
+and block counts, elapsed time, display-drop count, lost-sample count, the time
+since the last received block, error text, and output path. A growing
+`seconds_since_block` while the session is recording usually means the board or
+its transport has stopped delivering samples. The API is a control plane only;
+physiological data continues to use the CSV files and LSL.
 
 ## Troubleshooting
 
@@ -389,6 +408,11 @@ address directly instead of using **SEARCH**.
 Click **Start Session**. Check that the channel is enabled, the electrode is
 attached, and the correct reference and bias settings are selected. Use the
 impedance button in the Time Series view to check contact quality.
+
+If the status bar shows `Waiting for data from the board...`, the connection is
+up but no samples are arriving. Check the board's own web page or indicator,
+power-cycle the board, and try the USB serial connection. The Terminal log shows
+whether the transport is timing out.
 
 ### Recordings are missing
 
