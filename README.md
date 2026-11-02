@@ -136,6 +136,19 @@ Use `--channels`, `--rate`, `--output`, and `--json` to change the workload or
 capture machine-readable results. The benchmark is a pipeline smoke test, not a
 substitute for a hardware performance test.
 
+## Automated tests
+
+Run the test suite from the repository root:
+
+```
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+The tests cover recording and manifests, acquisition faults, the control API,
+LSL fan-out, Wi-Fi discovery, packet-loss accounting, and repeated session
+lifecycles. They use the synthetic board and do not require FreeBCI hardware.
+A Windows GitHub Actions workflow runs the same suite.
+
 ## Connecting a board
 
 Open the **Boards** menu and select the exact model printed on the board. Each

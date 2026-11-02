@@ -37,8 +37,9 @@ USER NOTES:
 - Recording fault tests now cover a board disappearing mid-session, a board that fails to start, and a disk-full error during the final flush; all still write a final manifest with `status: failed`.
 - A 100-cycle lifecycle test verifies repeated session start/stop, worker shutdown, and finalized manifests without leaked acquisition threads.
 - Simulator pacing now generates samples from elapsed time and advances the packet counter per block; `tools/benchmark_session.py` exercises the full synthetic acquisition/recording path.
+- `.github/workflows/tests.yml` runs the dependency install and full test suite on Windows/Python 3.9 for pushes and pull requests.
 
-Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), long-duration soak/disk-full tests, the view-model refactor, a control-plane start/shutdown command, and packaging (`pyproject.toml`/CI). LSL supports three Time Series streams.
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), long-duration soak, the view-model refactor, a control-plane start/shutdown command, and application packaging (`pyproject.toml`). LSL supports three Time Series streams.
 
 ---
 
