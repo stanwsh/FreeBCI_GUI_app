@@ -50,8 +50,10 @@ USER NOTES:
 - Real Wi-Fi control verification: `status` reported positive host timing for the latest block, `marker` succeeded, and `shutdown` closed the GUI and removed `control.json`.
 - `tools/build_release.py` creates a self-contained source release zip (application, bundled BrainFlow, settings, docs, setup scripts) with a SHA-256 sidecar; the archive was built, extracted, and smoke-tested from the extracted copy.
 - The control endpoint now has an application lifetime: one stable address/token and `control.json` while idle or recording, controller lookup through a provider, and a `start` command that queues the synthetic demo session onto the GUI thread (`start_requested`), then reports `recording` through `status`. Re-verified on the real Wi-Fi board: status, marker, and shutdown still work through the persistent endpoint.
+- A first presentation view model (`freebci/api/session_view_model.py`) now owns the diagnostics and marker lookups, so the window no longer reaches into the controller/writer for those surfaces. State-driven enable/disable and the command queue are still open.
+- A five-minute synthetic soak (16 channels, 250 Hz) completed 73,624 samples at 244.3 Hz effective, with `lost=0`, `dropped=0`, queue 0, and ~34.4 MB working set; this is a stability check, not the multi-hour soak gate.
 
-Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, and an installable `pyproject.toml` package. A source release zip is available in the meantime.
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the remaining state-driven view-model refactor, and an installable `pyproject.toml` package. A source release zip is available in the meantime.
 
 ---
 

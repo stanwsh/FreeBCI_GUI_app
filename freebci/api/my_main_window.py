@@ -18,6 +18,7 @@ from freebci.api.my_hardware_settings import MyHardwareSettings
 from freebci.api.my_channels_electrodes_settings import MyChannels_electrodes_Settings
 from freebci.api.my_wifi_connection import MyWifiConnection
 from freebci.api.my_diagnostics import MyDiagnostics
+from freebci.api.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
 from freebci.core.packets import PacketLossCounter
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
@@ -31,7 +32,6 @@ from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
 from freebci.core.control import ControlServer
-from freebci.core.diagnostics import diagnostics_fields, idle_fields
 from freebci.core.gateway import BrainFlowGateway
 from freebci.core.models import BoardProfile, SessionConfig
 from freebci.core.session import SessionController
@@ -76,6 +76,12 @@ class MyMainWindow(MainWindowInterface):
         self.session_controller = None
         self.control_server = None
         self.control_discovery_path = None
+        self.session_view_model = SessionViewModel(
+            lambda: self.session_controller,
+            lambda: self.myRecording.doc_path,
+            self._control_summary,
+            self._lsl_summary,
+        )
         self.startButton_isclicked = False
         self.startLSLButton_isclicked = False
         self.checkFlag = 0
@@ -1156,7 +1162,7 @@ class MyMainWindow(MainWindowInterface):
     def _start_control_server(self):
         """Publish one stable loopback endpoint for the application lifetime."""
         self.control_server = ControlServer(
-            controller_provider=lambda: self.session_controller,
+            controller_provider=lambda: self.session_view_model.controller,
             stop_callback=self._request_control_stop,
             shutdown_callback=self._request_control_shutdown,
             start_callback=self._request_control_start,
@@ -1229,11 +1235,11 @@ class MyMainWindow(MainWindowInterface):
         self.close()
 
     def marker_click(self):
-        if self.session_controller is None:
+        if not self.session_view_model.active:
             self.stateLabel.setText('Start a session before adding a marker.')
             return
         try:
-            marker = self.session_controller.add_marker('manual', source='gui')
+            marker = self.session_view_model.add_marker('manual')
         except Exception as ex:
             self.myLogger.write('WARNNING: could not add marker: %s' % ex)
             self.stateLabel.setText('Could not add marker.')
@@ -1252,23 +1258,15 @@ class MyMainWindow(MainWindowInterface):
 
     def diagnostics_snapshot(self):
         """Collect a read-only status snapshot for the diagnostics dialog."""
-        output_root = self.myRecording.doc_path
-        lsl_summary = self._lsl_summary()
-        if self.session_controller is None:
-            return idle_fields(output_root, lsl_summary)
+        return self.session_view_model.diagnostics()
 
-        if self.control_server is not None:
-            control = self.control_server.address
-            if self.control_discovery_path:
-                control += ' | %s' % self.control_discovery_path
-        else:
-            control = 'not running'
-        return diagnostics_fields(
-            self.session_controller,
-            output_root,
-            control,
-            lsl_summary,
-        )
+    def _control_summary(self):
+        if self.control_server is None:
+            return 'not running'
+        control = self.control_server.address
+        if self.control_discovery_path:
+            control += ' | %s' % self.control_discovery_path
+        return control
 
     def _lsl_summary(self):
         networking = getattr(self, 'myNetWidget', None)
