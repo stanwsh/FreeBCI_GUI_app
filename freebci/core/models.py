@@ -127,5 +127,6 @@ class StateSnapshot:
     blocks: int
     elapsed_seconds: float
     display_dropped_samples: int
+    lost_samples: int = 0
     error: Optional[str] = None
     output_path: str = ""

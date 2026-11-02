@@ -278,7 +278,8 @@ Each session gets its own `Stream_<date>_<time>` folder. Files roll over
 automatically: `1.csv` and `1.txt` hold the first 90,000 samples, `2.*` the next
 90,000, and so on. Every data file has a matching `.meta.json` sidecar with its
 sample count, checksum, and timing information. `manifest.json` describes the
-whole session and is finalized when the session stops.
+whole session and is finalized when the session stops. It also records
+`lost_samples` and a `gaps` list if the board skipped samples.
 
 ### CSV files
 
@@ -342,8 +343,8 @@ client.stop()
 ```
 
 `status()` returns the session state, sample and block counts, elapsed time,
-display-drop count, error text, and output path. The API is a control plane
-only; physiological data continues to use the CSV files and LSL.
+display-drop count, lost-sample count, error text, and output path. The API is a
+control plane only; physiological data continues to use the CSV files and LSL.
 
 ## Troubleshooting
 

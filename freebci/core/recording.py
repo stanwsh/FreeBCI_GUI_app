@@ -54,7 +54,10 @@ class RecordingWriter:
         self.samples_received = 0
         self.samples_written = 0
         self.files: List[dict] = []
+        self.gaps: List[dict] = []
+        self.lost_samples = 0
         self._errors: List[str] = []
+        self._next_sample_index: Optional[int] = None
 
         self._file_number = 1
         self._handle_txt = None
@@ -89,6 +92,17 @@ class RecordingWriter:
             raise RecordingError("recording writer is already closed")
         self.blocks_received += 1
         self.samples_received += block.sample_count
+        if self._next_sample_index is not None and block.sample_index > self._next_sample_index:
+            missing = block.sample_index - self._next_sample_index
+            self.gaps.append(
+                {
+                    "start_sample": self._next_sample_index,
+                    "end_sample": block.sample_index,
+                    "missing_samples": missing,
+                }
+            )
+            self.lost_samples += missing
+        self._next_sample_index = block.sample_index + block.sample_count
         try:
             self._queue.put_nowait(block)
         except queue.Full as exc:
@@ -126,6 +140,8 @@ class RecordingWriter:
             "samples": self.samples_received,
             "written": self.samples_written,
             "files": len(self.files),
+            "gaps": len(self.gaps),
+            "lost_samples": self.lost_samples,
             "error": self.error,
         }
 
@@ -313,6 +329,8 @@ class RecordingWriter:
             "stopped_at": _iso(self._stopped_ns),
             "samples_recorded": self.samples_written,
             "blocks_received": self.blocks_received,
+            "lost_samples": self.lost_samples,
+            "gaps": self.gaps,
             "files": self.files,
             "errors": self._errors,
         }

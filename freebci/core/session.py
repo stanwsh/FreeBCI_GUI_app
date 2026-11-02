@@ -166,6 +166,7 @@ class SessionController:
             blocks=self.stats.blocks,
             elapsed_seconds=self.stats.duration_seconds,
             display_dropped_samples=self.stats.display_dropped_samples,
+            lost_samples=self.writer.lost_samples if self.writer is not None else 0,
             error=self.error or (self.writer.error if self.writer is not None else None),
             output_path=self._output_path,
         )

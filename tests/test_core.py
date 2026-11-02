@@ -6,7 +6,8 @@ import unittest
 
 import numpy as np
 
-from freebci.core.models import BoardProfile, SessionConfig, SessionStatus
+from freebci.core.models import BoardProfile, SampleBlock, SessionConfig, SessionStatus
+from freebci.core.recording import RecordingWriter
 from freebci.core.session import SessionController
 
 TEST_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".test-tmp")
@@ -143,6 +144,31 @@ class SessionControllerTest(unittest.TestCase):
         second = controller.stop()
         self.assertEqual(second, SessionStatus.COMPLETED)
         self.assertEqual(controller.snapshot().state.value, "finalized")
+
+    def test_manifest_reports_missing_samples(self):
+        profile = BoardProfile(board_id=999, name="FakeBoard", channels=4, sampling_rate=250)
+        config = SessionConfig(
+            session_id="test-gap",
+            board=profile,
+            sampling_rate=250,
+            output_root=self.root,
+            channel_count=4,
+        )
+        writer = RecordingWriter(config)
+        writer.start()
+        now = time.time_ns()
+        data = np.zeros((8, 10), dtype=np.float64)
+        data[1:5, :] = 1
+        data[5:, :] = 7
+        writer.submit(SampleBlock(0, 0, data, 250, now, now, now))
+        writer.submit(SampleBlock(1, 20, data, 250, now, now, now))
+        writer.close()
+        with open(os.path.join(writer.session_dir, "manifest.json"), encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        self.assertEqual(manifest["samples_recorded"], 20)
+        self.assertEqual(manifest["lost_samples"], 10)
+        self.assertEqual(manifest["gaps"][0]["start_sample"], 10)
+        self.assertEqual(manifest["gaps"][0]["end_sample"], 20)
 
 
 if __name__ == "__main__":
