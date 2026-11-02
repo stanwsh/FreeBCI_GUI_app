@@ -41,6 +41,7 @@ USER NOTES:
 - Control API now supports `shutdown` in addition to `ping`, `status`, `marker`, and `stop`; the GUI queues shutdown onto its own thread and releases the board.
 - `tools/soak_session.py` runs a longer synthetic session and reports throughput, loss, queue depth, and working-set memory; a short run holds `lost=0`, `dropped=0`, `queue=0`, ~34 MB RSS.
 - LSL sources now publish stable `FreeBCI:<name>` source ids, and starting LSL creates a `FreeBCI_Markers` string stream fed by GUI and control-plane markers.
+- The diagnostics dialog now has an automated offscreen test covering rendering and the copyable summary.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, a control-plane start command, and application packaging (`pyproject.toml`).
 
