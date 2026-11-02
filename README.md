@@ -121,14 +121,20 @@ model submenu offers the connection methods that model supports.
 
 ### Wi-Fi
 
-1. Connect the computer to the board's Wi-Fi network.
-2. Choose **WiFi** in the board submenu.
-3. Leave the default address `192.168.4.1` and port `8899`, or enter the board's
-   address if it is on your local network.
-4. Click **SEARCH** to discover the board, then **Connect**.
+1. Connect the computer to the board's Wi-Fi network. The network name starts
+   with `FreeBCI-`.
+2. Choose the board model and **WiFi** in the **Boards** menu.
+3. The dialog scans the local network automatically. It shows the current Wi-Fi
+   status and any boards that answered, with their address and channel count.
+4. Select the detected board and click **Connect**. If the board is on a
+   different address, edit the IP address and port under **Advanced connection
+   settings**, then click **Connect**.
 
-`SEARCH` uses UPnP. If the board is not found, type its IP address and port
-manually. VPN software and restrictive firewalls can block discovery.
+The dialog chooses the board type from the model you selected in the **Boards**
+menu; the BrainFlow board ID is not shown. Detection probes the board's HTTP
+service, so it reports an actual reachable board rather than assuming that a
+configured ID is online. VPN software and restrictive firewalls can block
+detection.
 
 For a 16-channel Wi-Fi board, the application selects 16-channel synchronous
 sampling automatically when the session starts. No manual channel-mode command
@@ -404,8 +410,9 @@ programs that may be using the port.
 ### Wi-Fi connection fails
 
 Join the board's own Wi-Fi network first. Disable VPN software temporarily, allow
-the application through Windows Firewall, and try entering the board's IP
-address directly instead of using **SEARCH**.
+the application through Windows Firewall, and click **Scan again**. If the board
+is still not listed, open **Advanced connection settings** and enter its IP
+address and port directly. The board is normally at `192.168.4.1`, port `8899`.
 
 ### The board connects but the traces are flat
 

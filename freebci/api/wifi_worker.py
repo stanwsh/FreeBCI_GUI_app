@@ -1,52 +1,64 @@
 """Background Wi-Fi discovery and board preparation."""
+import threading
 import time
-from urllib.parse import urlparse
 
-import upnpclient
 from PyQt5 import QtCore
 from brainflow.board_shim import BoardShim, BrainFlowInputParams
 
+from freebci.api.wifi_discovery import discover
+
 
 class WifiDiscoveryWorker(QtCore.QThread):
-    """Find FreeBCI access points without blocking the dialog."""
+    """Find boards on the local network without blocking the dialog."""
 
     found = QtCore.pyqtSignal(object)
     failed = QtCore.pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, extra_addresses=(), parent=None):
         super(WifiDiscoveryWorker, self).__init__(parent)
+        self.extra_addresses = tuple(extra_addresses)
+        self._cancelled = threading.Event()
+
+    def cancel(self):
+        self._cancelled.set()
 
     def run(self):
         try:
-            devices = upnpclient.discover(timeout=2)
-            rows = []
-            for device in devices:
-                if device.device_type != 'urn:schemas-upnp-org:device:Basic:1':
-                    continue
-                parsed = urlparse(device.location)
-                rows.append((str(device.serial_number), parsed.hostname))
-            self.found.emit(rows)
+            result = discover(self.extra_addresses)
         except Exception as exc:  # noqa: BLE001 - surfaced in the dialog
-            self.failed.emit(str(exc))
+            if not self._cancelled.is_set():
+                self.failed.emit(str(exc))
+            return
+        if not self._cancelled.is_set():
+            self.found.emit(result)
 
 
 class WifiConnectWorker(QtCore.QThread):
-    """Prepare a Wi-Fi board and apply the FreeBCI channel handshake."""
+    """Prepare a Wi-Fi board, retrying the first connection a few times."""
 
     succeeded = QtCore.pyqtSignal(object, str)
     failed = QtCore.pyqtSignal(str)
+    progress = QtCore.pyqtSignal(str)
 
-    def __init__(self, board_id, ip_address, ip_port, channel_num, parent=None):
+    def __init__(self, board_id, ip_address, ip_port, parent=None):
         super(WifiConnectWorker, self).__init__(parent)
         self.board_id = board_id
         self.ip_address = ip_address
         self.ip_port = int(ip_port)
-        self.channel_num = int(channel_num)
+        self._cancelled = threading.Event()
+
+    def cancel(self):
+        self._cancelled.set()
 
     def run(self):
         board = None
-        last_error = ""
+        last_error = "Connection cancelled"
         for attempt in range(3):
+            if self._cancelled.is_set():
+                break
+            self.progress.emit(
+                "Connecting to %s (attempt %d of 3)..." % (self.ip_address, attempt + 1)
+            )
             try:
                 params = BrainFlowInputParams()
                 params.ip_address = self.ip_address
@@ -54,9 +66,19 @@ class WifiConnectWorker(QtCore.QThread):
                 params.timeout = 5
                 board = BoardShim(self.board_id, params)
                 board.prepare_session()
+                if self._cancelled.is_set():
+                    try:
+                        board.release_session()
+                    finally:
+                        return
                 board.config_board('~6')
                 time.sleep(0.1)
-                response = board.config_board('v')
+                response = board.config_board('v') or ''
+                if self._cancelled.is_set():
+                    try:
+                        board.release_session()
+                    finally:
+                        return
                 self.succeeded.emit(board, response)
                 return
             except Exception as exc:  # noqa: BLE001 - retried, then surfaced
@@ -67,6 +89,9 @@ class WifiConnectWorker(QtCore.QThread):
                     except Exception:
                         pass
                 board = None
+                if self._cancelled.is_set():
+                    break
                 if attempt < 2:
                     time.sleep(1.0)
-        self.failed.emit(last_error)
+        if not self._cancelled.is_set():
+            self.failed.emit(last_error)
