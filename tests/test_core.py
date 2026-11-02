@@ -76,6 +76,9 @@ class SessionControllerTest(unittest.TestCase):
             time.sleep(0.01)
         status = controller.stop()
         self.assertEqual(status, SessionStatus.COMPLETED)
+        snapshot = controller.snapshot()
+        self.assertEqual(snapshot.sample_count, 12_000)
+        self.assertGreaterEqual(snapshot.seconds_since_block, 0.0)
 
         session_dir = controller.output_path
         self.assertTrue(os.path.isdir(session_dir))

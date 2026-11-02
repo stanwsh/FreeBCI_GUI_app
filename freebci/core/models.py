@@ -99,6 +99,7 @@ class SessionStats:
     packet_loss_samples: int = 0
     started_monotonic_ns: int = 0
     stopped_monotonic_ns: int = 0
+    last_block_monotonic_ns: int = 0
     error: Optional[str] = None
 
     def reset(self) -> None:
@@ -108,6 +109,7 @@ class SessionStats:
         self.packet_loss_samples = 0
         self.started_monotonic_ns = 0
         self.stopped_monotonic_ns = 0
+        self.last_block_monotonic_ns = 0
         self.error = None
 
     @property
@@ -129,5 +131,6 @@ class StateSnapshot:
     elapsed_seconds: float
     display_dropped_samples: int
     lost_samples: int = 0
+    seconds_since_block: float = 0.0
     error: Optional[str] = None
     output_path: str = ""

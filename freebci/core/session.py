@@ -124,6 +124,7 @@ class SessionController:
     def _on_block(self, block: SampleBlock) -> None:
         self.stats.blocks += 1
         self.stats.samples += block.sample_count
+        self.stats.last_block_monotonic_ns = time.perf_counter_ns()
         writer = self.writer
         if writer is None:
             raise RecordingError("session has no recording writer")
@@ -159,6 +160,9 @@ class SessionController:
         return None
 
     def snapshot(self) -> StateSnapshot:
+        now_ns = time.perf_counter_ns()
+        reference_ns = self.stats.last_block_monotonic_ns or self.stats.started_monotonic_ns
+        since_block = (now_ns - reference_ns) / 1_000_000_000 if reference_ns else 0.0
         return StateSnapshot(
             state=self.state,
             session_id=self.config.session_id,
@@ -167,6 +171,7 @@ class SessionController:
             elapsed_seconds=self.stats.duration_seconds,
             display_dropped_samples=self.stats.display_dropped_samples,
             lost_samples=self.writer.lost_samples if self.writer is not None else 0,
+            seconds_since_block=max(0.0, since_block),
             error=self.error or (self.writer.error if self.writer is not None else None),
             output_path=self._output_path,
         )

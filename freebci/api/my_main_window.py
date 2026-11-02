@@ -1215,10 +1215,17 @@ class MyMainWindow(MainWindowInterface):
             if self.session_controller is None:
                 return
             blocks = self.session_controller.drain_display(64)
+            snapshot = self.session_controller.snapshot()
             if not blocks:
                 error = self.session_controller.check_health()
                 if error:
                     raise RuntimeError(error)
+                if self.startButton_isclicked and snapshot.seconds_since_block >= 2.0:
+                    self.stateLabel.setText(
+                        'Waiting for data from the board... no samples for {:.0f} s'.format(
+                            snapshot.seconds_since_block
+                        )
+                    )
                 return
             buffer_data = np.concatenate([block.data for block in blocks], axis=1)
             self.new_data_len = buffer_data.shape[1]
@@ -1243,7 +1250,7 @@ class MyMainWindow(MainWindowInterface):
                 self.buffercount += 1
                 self.pak_last = pak_data[-1]
                 self.pak_loss = 100 * self.pak_count / (self.pak_count + self.total_len)
-                self.stateLabel.setText('Data stream started.   fps: {}    packet loss: {}%    packet receive: {}'.format(self.fps_real(), round(self.pak_loss, 2), self.total_len))
+                self.stateLabel.setText('Data stream started.   fps: {}    packet loss: {}%    packet receive: {}    lost samples: {}'.format(self.fps_real(), round(self.pak_loss, 2), self.total_len, snapshot.lost_samples))
             else:
                 self.stop_count -= 1
             if self.startLSLButton_isclicked == True:
