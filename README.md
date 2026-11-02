@@ -452,44 +452,49 @@ live console log.
 
 ## Control API
 
-Each session also starts a small control endpoint on `127.0.0.1`. It is only
-reachable from the same computer and requires the random token printed in the
-Terminal log when the session starts:
+The application starts one small control endpoint on `127.0.0.1` for its whole
+lifetime. It is only reachable from the same computer and requires the random
+token printed in the Terminal log at startup:
 
 ```text
 FreeBCI: control API tcp://127.0.0.1:54321 token ... (discovery ...\control.json)
 ```
 
-The same endpoint is written to `control.json` in the FreeBCI data folder while
-the session is active; the file is removed when the session stops. Treat it as
-a secret because it contains the token.
+The same endpoint is written to `control.json` in the FreeBCI data folder. It
+stays there while the application is open, including while idle, and is removed
+on exit. Treat it as a secret because it contains the token.
 
-Use it from another Python process to read status, add a marker, stop the
-recording, or close the application:
+Use it from another Python process to read status, start a demo session, add a
+marker, stop the recording, or close the application:
 
 ```python
 from freebci.core import ControlClient
 
 client = ControlClient.from_discovery(r"logs\control.json")
-print(client.status())
+print(client.status())          # {"state": "idle", ...} before a session
+client.start()                  # start the synthetic demo session
 client.marker("stimulus on")
 client.stop()
-# client.shutdown()  # close the GUI as well
+# client.shutdown()             # close the GUI as well
 ```
 
-`stop()` asks the GUI to stop and returns `"stop_requested"`; the session
-finalizes on the next GUI event. `shutdown()` asks the GUI to close, which also
-stops the session and releases the board. `marker()` records a labeled event at
-the current sample offset and returns the marker record. `status()` returns the
-session state, sample and block counts, elapsed time, display-drop count,
-lost-sample count, marker count, the time since the last received block, the
-host wall time when the last block arrived (`last_block_wall_ns`), the estimated
-wall time of its first sample (`last_sample_time_ns`), error text, and output
-path. The two timestamps are host-clock estimates derived from block arrival and
-sample count, not hardware timestamps from the board. A growing
-`seconds_since_block` while the session is recording usually means the board or
-its transport has stopped delivering samples. The API is a control plane only;
-physiological data continues to use the CSV files and LSL.
+`start()` asks the GUI to start the same synthetic demo session as **File >
+Start Demo Session** and returns `"start_requested"`; poll `status()` until it
+reports `recording`. It is rejected if a session is already active. `stop()`
+asks the GUI to stop and returns `"stop_requested"`; the session finalizes on
+the next GUI event. `shutdown()` asks the GUI to close, which also stops the
+session and releases the board. `marker()` records a labeled event at the
+current sample offset and returns the marker record; it requires an active
+session. `status()` returns the session state, sample and block counts, elapsed
+time, display-drop count, lost-sample count, marker count, the time since the
+last received block, the host wall time when the last block arrived
+(`last_block_wall_ns`), the estimated wall time of its first sample
+(`last_sample_time_ns`), error text, and output path. The two timestamps are
+host-clock estimates derived from block arrival and sample count, not hardware
+timestamps from the board. A growing `seconds_since_block` while the session is
+recording usually means the board or its transport has stopped delivering
+samples. The API is a control plane only; physiological data continues to use
+the CSV files and LSL.
 
 ## Troubleshooting
 

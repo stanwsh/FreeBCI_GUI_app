@@ -140,6 +140,11 @@ class MyMainWindow(MainWindowInterface):
         self.fftuvLen = 2
         self.fftLogMode = True
         self.reConFuncToWidget()
+        try:
+            self._start_control_server()
+        except Exception as ex:
+            self.control_server = None
+            self.myLogger.write('WARNNING: could not start control API: %s' % ex)
 
     def configure_electrodes(self, channel_count):
         """Build channel names, montage and topography buffers for a board."""
@@ -446,11 +451,11 @@ class MyMainWindow(MainWindowInterface):
         try:
             if (
                 self.session_controller is not None
-                or self.control_server is not None
                 or self.startButton_isclicked
             ):
                 self.stop_openbci()
                 self.stopThread()
+            self._stop_control_server()
             if self.board != None:
                 self.board.release_session()
                 event.accept()
@@ -1148,6 +1153,49 @@ class MyMainWindow(MainWindowInterface):
             self.stateLabel.setStyleSheet('')
             self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
 
+    def _start_control_server(self):
+        """Publish one stable loopback endpoint for the application lifetime."""
+        self.control_server = ControlServer(
+            controller_provider=lambda: self.session_controller,
+            stop_callback=self._request_control_stop,
+            shutdown_callback=self._request_control_shutdown,
+            start_callback=self._request_control_start,
+        )
+        self.control_server.start()
+        self.control_discovery_path = os.path.join(
+            self.myRecording.doc_path, 'control.json'
+        )
+        self.control_server.write_discovery(self.control_discovery_path)
+        self.myLogger.write(
+            'FreeBCI: control API %s token %s (discovery %s)'
+            % (
+                self.control_server.address,
+                self.control_server.token,
+                self.control_discovery_path,
+            )
+        )
+
+    def _stop_control_server(self):
+        if self.control_server is not None:
+            try:
+                self.control_server.stop()
+            except Exception:
+                pass
+            self.control_server = None
+        self._remove_control_discovery()
+
+    def _request_control_start(self):
+        """Queue a control-plane demo start onto the GUI thread."""
+        QtCore.QMetaObject.invokeMethod(
+            self,
+            '_start_from_control',
+            QtCore.Qt.QueuedConnection,
+        )
+
+    @QtCore.pyqtSlot()
+    def _start_from_control(self):
+        self.demo_click()
+
     def _request_control_stop(self):
         """Queue a control-plane stop onto the GUI thread."""
         QtCore.QMetaObject.invokeMethod(
@@ -1291,42 +1339,26 @@ class MyMainWindow(MainWindowInterface):
                 marker_callback=self._on_session_marker,
             )
             self.session_controller.start()
-            self.control_server = ControlServer(
-                self.session_controller,
-                stop_callback=self._request_control_stop,
-                shutdown_callback=self._request_control_shutdown,
-            )
-            self.control_server.start()
-            self.control_discovery_path = os.path.join(
-                self.myRecording.doc_path, 'control.json'
-            )
-            self.control_server.write_discovery(self.control_discovery_path)
+            if self.control_server is not None and self.control_discovery_path:
+                self.control_server.write_discovery(self.control_discovery_path)
             self.myLogger.write(
                 'FreeBCI: session recording started at ' + self.session_controller.output_path
             )
-            self.myLogger.write(
-                'FreeBCI: control API %s token %s (discovery %s)'
-                % (
-                    self.control_server.address,
-                    self.control_server.token,
-                    self.control_discovery_path,
+            if self.control_server is not None:
+                self.myLogger.write(
+                    'FreeBCI: control API %s (discovery %s)'
+                    % (self.control_server.address, self.control_discovery_path)
                 )
-            )
         except Exception as ex:
             self.myLogger.write('WARNNING: could not start board.')
-            if self.control_server is not None:
-                try:
-                    self.control_server.stop()
-                except Exception:
-                    pass
-                self.control_server = None
-            self._remove_control_discovery()
             if self.session_controller is not None:
                 try:
                     self.session_controller.stop()
                 except Exception:
                     pass
                 self.session_controller = None
+            if self.control_server is not None and self.control_discovery_path:
+                self.control_server.write_discovery(self.control_discovery_path)
             raise ex
 
     def _remove_control_discovery(self):
@@ -1338,14 +1370,12 @@ class MyMainWindow(MainWindowInterface):
     def stop_openbci(self):
         try:
             self.LSLnewDataLen = 0
-            if self.control_server is not None:
-                self.control_server.stop()
-                self.control_server = None
-            self._remove_control_discovery()
             if self.session_controller is not None:
                 status = self.session_controller.stop()
                 self.myLogger.write('FreeBCI: session stopped with status %s' % status.value)
                 self.session_controller = None
+            if self.control_server is not None and self.control_discovery_path:
+                self.control_server.write_discovery(self.control_discovery_path)
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
             self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
             self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)

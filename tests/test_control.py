@@ -147,6 +147,53 @@ class ControlPlaneTest(unittest.TestCase):
         server.stop()
         self.assertFalse(server.running)
 
+    def test_idle_server_can_request_a_start(self):
+        called = []
+        server = ControlServer(
+            None,
+            token="test-token",
+            start_callback=lambda: called.append(True),
+        )
+        server.start()
+        try:
+            client = ControlClient(server.host, server.port, "test-token")
+            idle = client.status()
+            self.assertEqual(idle["state"], "idle")
+            self.assertEqual(idle["sample_count"], 0)
+            self.assertEqual(client.start(), "start_requested")
+            self.assertEqual(called, [True])
+            with self.assertRaises(ControlError):
+                client.marker("not yet")
+            with self.assertRaises(ControlError):
+                client.stop()
+        finally:
+            server.stop()
+
+    def test_controller_provider_tracks_the_active_session(self):
+        state = {"controller": None}
+        server = ControlServer(
+            None,
+            token="test-token",
+            controller_provider=lambda: state["controller"],
+        )
+        server.start()
+        controller = self._controller()
+        controller.start()
+        state["controller"] = controller
+        try:
+            client = ControlClient(server.host, server.port, "test-token")
+            deadline = time.time() + 5
+            while controller.stats.samples < 3000 and time.time() < deadline:
+                time.sleep(0.01)
+            status = client.status()
+            self.assertIn(status["state"], ("recording", "stopping", "finalized"))
+            self.assertEqual(status["channel_count"], 4)
+            self.assertEqual(client.marker("from control")["label"], "from control")
+        finally:
+            state["controller"] = None
+            controller.stop()
+            server.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,9 +1,15 @@
 """Small local control plane for a running session.
 
 The control plane is intentionally modest: a loopback TCP socket carrying
-newline-delimited JSON.  It exposes read-only status, a stop command, and
-session markers; it does not accept arbitrary board commands.  LSL remains the
-data plane.
+newline-delimited JSON.  It exposes read-only status, session markers, stop, a
+demo-session start request, and application shutdown; it does not accept
+arbitrary board commands.  LSL remains the data plane.
+
+The server can outlive a single session: the GUI owns one server for its whole
+lifetime and supplies the current ``SessionController`` through a provider.
+That keeps the discovery file and token stable while the app moves between
+idle and recording.  A server can also own one fixed controller, which is what
+the unit tests and small scripts use.
 
 Every server gets a random bearer token.  A client must present it, which keeps
 another local process from stopping a recording by accident.  A discovery file
@@ -35,28 +41,37 @@ def _encode(payload: Dict[str, Any]) -> bytes:
 
 
 class ControlServer:
-    """Loopback JSON control endpoint owned by one ``SessionController``."""
+    """Loopback JSON control endpoint for an app or one fixed session."""
 
     def __init__(
         self,
-        controller: SessionController,
+        controller: Optional[SessionController] = None,
         host: str = "127.0.0.1",
         port: int = 0,
         token: Optional[str] = None,
         accept_timeout: float = 0.2,
         stop_callback: Optional[Callable[[], None]] = None,
         shutdown_callback: Optional[Callable[[], None]] = None,
+        start_callback: Optional[Callable[[], None]] = None,
+        controller_provider: Optional[Callable[[], Optional[SessionController]]] = None,
     ) -> None:
         self.controller = controller
+        self.controller_provider = controller_provider
         self.host = host
         self.token = token or secrets.token_urlsafe(24)
         self.stop_callback = stop_callback
         self.shutdown_callback = shutdown_callback
+        self.start_callback = start_callback
         self.accept_timeout = accept_timeout
         self.port = int(port)
         self._socket: Optional[socket.socket] = None
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
+
+    def active_controller(self) -> Optional[SessionController]:
+        if self.controller_provider is not None:
+            return self.controller_provider()
+        return self.controller
 
     @property
     def address(self) -> str:
@@ -97,12 +112,13 @@ class ControlServer:
             thread.join(timeout=2.0)
 
     def discovery_payload(self) -> Dict[str, Any]:
+        controller = self.active_controller()
         return {
             "protocol": PROTOCOL_VERSION,
             "address": self.host,
             "port": self.port,
             "token": self.token,
-            "session_id": self.controller.config.session_id,
+            "session_id": controller.config.session_id if controller is not None else "",
         }
 
     def write_discovery(self, path: str) -> str:
@@ -183,12 +199,25 @@ class ControlServer:
         if command == "ping":
             return {"ok": True, "protocol": PROTOCOL_VERSION}
         if command == "status":
-            return {"ok": True, "snapshot": _snapshot_payload(self.controller)}
+            controller = self.active_controller()
+            if controller is None:
+                return {"ok": True, "snapshot": _idle_snapshot_payload()}
+            return {"ok": True, "snapshot": _snapshot_payload(controller)}
+        if command == "start":
+            if self.start_callback is None:
+                raise ControlError("start is not available for this control endpoint")
+            if self.active_controller() is not None:
+                raise ControlError("a session is already active")
+            self.start_callback()
+            return {"ok": True, "status": "start_requested"}
         if command == "marker":
+            controller = self.active_controller()
+            if controller is None:
+                raise ControlError("no active session")
             label = request.get("label", "")
             if not isinstance(label, str):
                 raise ControlError("marker label must be a string")
-            marker = self.controller.add_marker(label, source="control")
+            marker = controller.add_marker(label, source="control")
             return {"ok": True, "marker": marker}
         if command == "shutdown":
             if self.shutdown_callback is None:
@@ -196,16 +225,19 @@ class ControlServer:
             self.shutdown_callback()
             return {"ok": True, "status": "shutdown_requested"}
         if command == "stop":
+            controller = self.active_controller()
+            if controller is None:
+                raise ControlError("no active session")
             if self.stop_callback is not None:
                 self.stop_callback()
                 status = "stop_requested"
             else:
-                result = self.controller.stop()
+                result = controller.stop()
                 status = result.value if isinstance(result, SessionStatus) else str(result)
             return {
                 "ok": True,
                 "status": status,
-                "snapshot": _snapshot_payload(self.controller),
+                "snapshot": _snapshot_payload(controller),
             }
         raise ControlError("unknown control command: %r" % (command,))
 
@@ -258,6 +290,9 @@ class ControlClient:
     def marker(self, label: str) -> Dict[str, Any]:
         return self._request("marker", label=label)["marker"]
 
+    def start(self) -> str:
+        return self._request("start")["status"]
+
     def stop(self) -> str:
         return self._request("stop")["status"]
 
@@ -305,4 +340,24 @@ def _snapshot_payload(controller: SessionController) -> Dict[str, Any]:
         "last_sample_time_ns": snapshot.last_sample_time_ns,
         "error": snapshot.error,
         "output_path": snapshot.output_path,
+    }
+
+
+def _idle_snapshot_payload() -> Dict[str, Any]:
+    """Stable status shape while the application is idle."""
+    return {
+        "state": "idle",
+        "session_id": "",
+        "channel_count": 0,
+        "sample_count": 0,
+        "blocks": 0,
+        "elapsed_seconds": 0.0,
+        "display_dropped_samples": 0,
+        "lost_samples": 0,
+        "seconds_since_block": 0.0,
+        "markers": 0,
+        "last_block_wall_ns": 0,
+        "last_sample_time_ns": 0,
+        "error": "",
+        "output_path": "",
     }

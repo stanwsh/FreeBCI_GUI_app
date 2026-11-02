@@ -49,8 +49,9 @@ USER NOTES:
 - Diagnostics presentation moved into `freebci/core/diagnostics.py`, so the window only supplies an endpoint/LSL summary and the formatting is testable without Qt.
 - Real Wi-Fi control verification: `status` reported positive host timing for the latest block, `marker` succeeded, and `shutdown` closed the GUI and removed `control.json`.
 - `tools/build_release.py` creates a self-contained source release zip (application, bundled BrainFlow, settings, docs, setup scripts) with a SHA-256 sidecar; the archive was built, extracted, and smoke-tested from the extracted copy.
+- The control endpoint now has an application lifetime: one stable address/token and `control.json` while idle or recording, controller lookup through a provider, and a `start` command that queues the synthetic demo session onto the GUI thread (`start_requested`), then reports `recording` through `status`. Re-verified on the real Wi-Fi board: status, marker, and shutdown still work through the persistent endpoint.
 
-Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, a control-plane start command, and an installable `pyproject.toml` package. A source release zip is available in the meantime.
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, and an installable `pyproject.toml` package. A source release zip is available in the meantime.
 
 ---
 
