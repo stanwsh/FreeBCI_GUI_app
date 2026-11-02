@@ -1,0 +1,351 @@
+"""Durable, bounded recording writer.
+
+The writer owns the legacy CSV/TXT layout plus a machine-readable manifest and
+per-file sidecars.  It runs on its own thread so disk latency cannot stall the
+acquisition worker or the GUI.
+
+Legacy layout (kept for compatibility):
+
+    <root>/Recordings/Stream_YYYY_mm_dd_HHMMSS/
+        1.csv, 1.txt, 1.meta.json
+        2.csv, 2.txt, 2.meta.json
+        manifest.json
+
+Each CSV/TXT file holds up to nine 10,000-sample chunks (90,000 samples).
+A queue overflow is a hard error: the session is failed rather than silently
+dropping physiological samples.
+"""
+from __future__ import annotations
+
+import csv
+import hashlib
+import json
+import os
+import queue
+import threading
+from datetime import datetime, timezone
+from typing import List, Optional, Tuple
+
+import numpy as np
+
+from freebci.core.models import SampleBlock, SessionConfig, SessionStatus
+
+CHUNK_SAMPLES = 10_000
+CHUNKS_PER_FILE = 9
+AUX_CHANNELS = 3
+
+
+class RecordingError(RuntimeError):
+    """Raised when recording cannot continue without losing data."""
+
+
+class RecordingWriter:
+    def __init__(self, config: SessionConfig, queue_blocks: int = 512) -> None:
+        self.config = config
+        self.record_root = os.path.join(config.output_root, "Recordings")
+        self.session_dir: Optional[str] = None
+        self._queue: "queue.Queue[Optional[SampleBlock]]" = queue.Queue(maxsize=queue_blocks)
+        self._thread: Optional[threading.Thread] = None
+        self._closed = False
+        self._started_ns = 0
+        self._stopped_ns = 0
+        self.error: Optional[str] = None
+        self.blocks_received = 0
+        self.samples_received = 0
+        self.samples_written = 0
+        self.files: List[dict] = []
+        self._errors: List[str] = []
+
+        self._file_number = 1
+        self._handle_txt = None
+        self._handle_csv = None
+        self._csv_writer = None
+        self._chunks_in_file = 0
+        self._file_samples = 0
+        self._file_start_sample = 0
+        self._pending: List[np.ndarray] = []
+        self._pending_samples = 0
+
+    # ------------------------------------------------------------------ API
+    def start(self) -> str:
+        if self._thread is not None:
+            return self.session_dir or ""
+        os.makedirs(self.record_root, exist_ok=True)
+        self.session_dir = self._make_session_dir()
+        self._started_ns = self.config.started_wall_ns or _wall_ns()
+        self._thread = threading.Thread(
+            target=self._run,
+            name="freebci-recording",
+            daemon=True,
+        )
+        self._thread.start()
+        return self.session_dir
+
+    def submit(self, block: SampleBlock) -> None:
+        """Queue a block without blocking the acquisition worker."""
+        if self.error:
+            raise RecordingError(self.error)
+        if self._closed:
+            raise RecordingError("recording writer is already closed")
+        self.blocks_received += 1
+        self.samples_received += block.sample_count
+        try:
+            self._queue.put_nowait(block)
+        except queue.Full as exc:
+            self.error = (
+                "recording queue is full; acquisition stopped to avoid "
+                "silently losing samples"
+            )
+            self._errors.append(self.error)
+            raise RecordingError(self.error) from exc
+
+    def close(self, status: SessionStatus = SessionStatus.COMPLETED) -> str:
+        """Flush remaining data, stop the writer, and write the manifest."""
+        if self._closed:
+            return self.session_dir or ""
+        self._closed = True
+        if self._thread is not None and self._thread.is_alive():
+            self._queue.put(None)
+            self._thread.join(timeout=30.0)
+        self._stopped_ns = _wall_ns()
+        self._flush_pending()
+        self._close_file()
+        if self.error:
+            status = SessionStatus.FAILED
+        self._write_manifest(status)
+        return self.session_dir or ""
+
+    def wait(self, timeout: float = 30.0) -> None:
+        if self._thread is not None:
+            self._thread.join(timeout=timeout)
+
+    def snapshot(self) -> dict:
+        return {
+            "session_dir": self.session_dir,
+            "blocks": self.blocks_received,
+            "samples": self.samples_received,
+            "written": self.samples_written,
+            "files": len(self.files),
+            "error": self.error,
+        }
+
+    # -------------------------------------------------------------- internal
+    def _run(self) -> None:
+        while True:
+            block = self._queue.get()
+            if block is None:
+                return
+            try:
+                self._write_block(block)
+            except Exception as exc:  # noqa: BLE001 - keep the thread alive to report
+                self.error = "recording failed: %s" % exc
+                self._errors.append(self.error)
+                self._drain_queue()
+                return
+
+    def _drain_queue(self) -> None:
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                return
+
+    def _write_block(self, block: SampleBlock) -> None:
+        values = self._extract_rows(block)
+        self._pending.append(values)
+        self._pending_samples += values.shape[1]
+        while self._pending_samples >= CHUNK_SAMPLES:
+            chunk = self._take_pending(CHUNK_SAMPLES)
+            self._write_chunk(chunk)
+
+    def _extract_rows(self, block: SampleBlock) -> np.ndarray:
+        data = np.asarray(block.data)
+        channel_count = self.config.channel_count
+        needed = 1 + channel_count + AUX_CHANNELS
+        if data.ndim != 2 or data.shape[0] < needed:
+            raise RecordingError(
+                "board block has %s rows; expected at least %s for %s channels"
+                % (data.shape if data.ndim == 2 else "?", needed, channel_count)
+            )
+        rows = np.array(data[1 : 1 + channel_count], dtype=np.float64, copy=True)
+        aux = np.array(
+            data[1 + channel_count : 1 + channel_count + AUX_CHANNELS],
+            dtype=np.float64,
+            copy=True,
+        )
+        aux = np.rint(aux).astype(np.float64)
+        return np.vstack([rows, aux])
+
+    def _take_pending(self, count: int) -> np.ndarray:
+        remaining = count
+        parts: List[np.ndarray] = []
+        while remaining > 0:
+            head = self._pending[0]
+            if head.shape[1] <= remaining:
+                parts.append(head)
+                self._pending.pop(0)
+                remaining -= head.shape[1]
+            else:
+                parts.append(head[:, :remaining])
+                self._pending[0] = head[:, remaining:]
+                remaining = 0
+        self._pending_samples -= count
+        if len(parts) == 1:
+            return parts[0]
+        return np.concatenate(parts, axis=1)
+
+    def _flush_pending(self) -> None:
+        if self._pending_samples:
+            chunk = self._take_pending(self._pending_samples)
+            self._write_chunk(chunk)
+
+    def _write_chunk(self, values: np.ndarray) -> None:
+        if self._handle_csv is None:
+            self._open_file()
+        assert self._csv_writer is not None
+        assert self._handle_txt is not None
+        samples = values.shape[1]
+        for column in values.T:
+            self._csv_writer.writerow(
+                ["%.6f" % float(v) for v in column[: self.config.channel_count]]
+                + [str(int(v)) for v in column[self.config.channel_count :]]
+            )
+            self._handle_txt.write(
+                ",".join(
+                    ["%.6f" % float(v) for v in column[: self.config.channel_count]]
+                    + [str(int(v)) for v in column[self.config.channel_count :]]
+                )
+                + "\n"
+            )
+        self._file_samples += samples
+        self.samples_written += samples
+        self._chunks_in_file += 1
+        if self._chunks_in_file >= CHUNKS_PER_FILE:
+            self._close_file()
+
+    def _open_file(self) -> None:
+        assert self.session_dir is not None
+        number = self._file_number
+        txt_path = os.path.join(self.session_dir, "%d.txt" % number)
+        csv_path = os.path.join(self.session_dir, "%d.csv" % number)
+        self._handle_txt = open(txt_path, "w", encoding="utf-8", newline="\n")
+        self._handle_csv = open(csv_path, "w", encoding="utf-8", newline="")
+        self._csv_writer = csv.writer(self._handle_csv)
+        header = ["channel%d" % (i + 1) for i in range(self.config.channel_count)]
+        header += ["<AUX %d>" % i for i in range(AUX_CHANNELS)]
+        self._csv_writer.writerow(header)
+        self._handle_txt.write("FreeBCI Raw Data\n")
+        self._handle_txt.write("Number of Channels: %d\n" % self.config.channel_count)
+        self._handle_txt.write("Sampling Rate: %d Hz\n" % self.config.sampling_rate)
+        self._handle_txt.write("Board: %s\n" % self.config.board_name)
+        self._handle_txt.write(
+            "".join(["%d " % (i + 1) for i in range(self.config.channel_count)])
+            + "".join("<AUX %d> " % i for i in range(AUX_CHANNELS))
+            + "\n"
+        )
+        self._handle_txt.write(
+            "Start Time: %s\n" % datetime.fromtimestamp(self._started_ns / 1e9).strftime("%Y_%m_%d_%H%M%S")
+        )
+        self._file_samples = 0
+        self._chunks_in_file = 0
+        self._file_start_sample = self.samples_written
+
+    def _close_file(self) -> None:
+        if self._handle_csv is None:
+            return
+        assert self.session_dir is not None
+        number = self._file_number
+        try:
+            self._handle_csv.flush()
+            os.fsync(self._handle_csv.fileno())
+        except OSError:
+            pass
+        try:
+            self._handle_txt.flush()
+            os.fsync(self._handle_txt.fileno())
+        except OSError:
+            pass
+        self._handle_csv.close()
+        self._handle_txt.close()
+        self._handle_csv = None
+        self._handle_txt = None
+        self._csv_writer = None
+
+        csv_path = os.path.join(self.session_dir, "%d.csv" % number)
+        meta = {
+            "file": "%d.csv" % number,
+            "samples": self._file_samples,
+            "start_sample": self._file_start_sample,
+            "end_sample": self._file_start_sample + self._file_samples,
+            "sampling_rate": self.config.sampling_rate,
+            "channels": self.config.channel_count,
+            "sha256": _sha256_file(csv_path),
+        }
+        _atomic_json(os.path.join(self.session_dir, "%d.meta.json" % number), meta)
+        self.files.append(meta)
+        self._file_number += 1
+
+    def _make_session_dir(self) -> str:
+        stamp_ns = self.config.started_wall_ns or _wall_ns()
+        stamp = datetime.fromtimestamp(stamp_ns / 1e9).strftime("%Y_%m_%d_%H%M%S")
+        base = os.path.join(self.record_root, "Stream_" + stamp)
+        candidate = base
+        suffix = 1
+        while os.path.exists(candidate):
+            candidate = "%s_%d" % (base, suffix)
+            suffix += 1
+        os.makedirs(candidate)
+        return candidate
+
+    def _write_manifest(self, status: SessionStatus) -> None:
+        if not self.session_dir:
+            return
+        if self.error:
+            status = SessionStatus.FAILED
+        manifest = {
+            "schema_version": 1,
+            "session_id": self.config.session_id,
+            "status": status.value,
+            "board": {"id": self.config.board_id, "name": self.config.board_name},
+            "channel_count": self.config.channel_count,
+            "sampling_rate": self.config.sampling_rate,
+            "started_at": _iso(self._started_ns),
+            "stopped_at": _iso(self._stopped_ns),
+            "samples_recorded": self.samples_written,
+            "blocks_received": self.blocks_received,
+            "files": self.files,
+            "errors": self._errors,
+        }
+        _atomic_json(os.path.join(self.session_dir, "manifest.json"), manifest)
+
+
+def _wall_ns() -> int:
+    import time
+
+    return time.time_ns()
+
+
+def _iso(ns: int) -> str:
+    if not ns:
+        return ""
+    return datetime.fromtimestamp(ns / 1e9, tz=timezone.utc).isoformat()
+
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    try:
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return ""
+    return digest.hexdigest()
+
+
+def _atomic_json(path: str, payload: dict) -> None:
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(tmp, path)
