@@ -149,6 +149,19 @@ LSL fan-out, Wi-Fi discovery, packet-loss accounting, and repeated session
 lifecycles. They use the synthetic board and do not require FreeBCI hardware.
 A Windows GitHub Actions workflow runs the same suite.
 
+## Soak test
+
+`tools/soak_session.py` runs one longer synthetic session and reports throughput,
+lost samples, display drops, queue depth, and process memory:
+
+```
+.venv\Scripts\python.exe tools/soak_session.py --minutes 10
+```
+
+Use it before a release to check that memory and queues stay flat. It drains the
+display queue like the GUI, so display drops should stay at zero; a growing
+writer queue or lost-sample count indicates a real bottleneck.
+
 ## Connecting a board
 
 Open the **Boards** menu and select the exact model printed on the board. Each

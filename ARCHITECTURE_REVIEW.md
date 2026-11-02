@@ -39,8 +39,9 @@ USER NOTES:
 - Simulator pacing now generates samples from elapsed time and advances the packet counter per block; `tools/benchmark_session.py` exercises the full synthetic acquisition/recording path.
 - `.github/workflows/tests.yml` runs the dependency install and full test suite on Windows/Python 3.9 for pushes and pull requests.
 - Control API now supports `shutdown` in addition to `ping`, `status`, `marker`, and `stop`; the GUI queues shutdown onto its own thread and releases the board.
+- `tools/soak_session.py` runs a longer synthetic session and reports throughput, loss, queue depth, and working-set memory; a short run holds `lost=0`, `dropped=0`, `queue=0`, ~34 MB RSS.
 
-Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), long-duration soak, the view-model refactor, a control-plane start command, and application packaging (`pyproject.toml`). LSL supports three Time Series streams.
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, a control-plane start command, and application packaging (`pyproject.toml`). LSL supports three Time Series streams.
 
 ---
 
