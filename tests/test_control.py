@@ -46,6 +46,8 @@ class ControlPlaneTest(unittest.TestCase):
             self.assertEqual(status["sample_count"], 3000)
             self.assertGreater(status["elapsed_seconds"], 0.0)
             self.assertGreaterEqual(status["seconds_since_block"], 0.0)
+            self.assertGreater(status["last_block_wall_ns"], 0)
+            self.assertGreater(status["last_sample_time_ns"], 0)
             self.assertEqual(client.stop(), "completed")
             self.assertEqual(controller.snapshot().state.value, "finalized")
         finally:

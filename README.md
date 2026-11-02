@@ -467,11 +467,14 @@ finalizes on the next GUI event. `shutdown()` asks the GUI to close, which also
 stops the session and releases the board. `marker()` records a labeled event at
 the current sample offset and returns the marker record. `status()` returns the
 session state, sample and block counts, elapsed time, display-drop count,
-lost-sample count, marker count, the time since the last received block, error
-text, and output path. A growing `seconds_since_block` while the session is
-recording usually means the board or its transport has stopped delivering
-samples. The API is a control plane only; physiological data continues to use
-the CSV files and LSL.
+lost-sample count, marker count, the time since the last received block, the
+host wall time when the last block arrived (`last_block_wall_ns`), the estimated
+wall time of its first sample (`last_sample_time_ns`), error text, and output
+path. The two timestamps are host-clock estimates derived from block arrival and
+sample count, not hardware timestamps from the board. A growing
+`seconds_since_block` while the session is recording usually means the board or
+its transport has stopped delivering samples. The API is a control plane only;
+physiological data continues to use the CSV files and LSL.
 
 ## Troubleshooting
 

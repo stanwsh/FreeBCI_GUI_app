@@ -153,6 +153,8 @@ class SessionController:
         self.stats.blocks += 1
         self.stats.samples += block.sample_count
         self.stats.last_block_monotonic_ns = time.perf_counter_ns()
+        self.stats.last_block_wall_ns = block.host_time_ns
+        self.stats.last_sample_time_ns = block.first_sample_time_ns
         writer = self.writer
         if writer is None:
             raise RecordingError("session has no recording writer")
@@ -206,4 +208,6 @@ class SessionController:
             markers=int(writer_snapshot.get("markers", 0)),
             error=self.error or (writer.error if writer is not None else None),
             output_path=self._output_path,
+            last_block_wall_ns=self.stats.last_block_wall_ns,
+            last_sample_time_ns=self.stats.last_sample_time_ns,
         )

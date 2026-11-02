@@ -101,6 +101,8 @@ class SessionStats:
     started_monotonic_ns: int = 0
     stopped_monotonic_ns: int = 0
     last_block_monotonic_ns: int = 0
+    last_block_wall_ns: int = 0
+    last_sample_time_ns: int = 0
     error: Optional[str] = None
 
     def reset(self) -> None:
@@ -111,6 +113,8 @@ class SessionStats:
         self.started_monotonic_ns = 0
         self.stopped_monotonic_ns = 0
         self.last_block_monotonic_ns = 0
+        self.last_block_wall_ns = 0
+        self.last_sample_time_ns = 0
         self.error = None
 
     @property
@@ -136,3 +140,5 @@ class StateSnapshot:
     markers: int = 0
     error: Optional[str] = None
     output_path: str = ""
+    last_block_wall_ns: int = 0
+    last_sample_time_ns: int = 0
