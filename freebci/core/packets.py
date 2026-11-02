@@ -8,6 +8,11 @@ from __future__ import annotations
 
 from typing import Iterable
 
+# A jump larger than half the 8-bit range is treated as a firmware counter
+# restart.  A real gap that large cannot be distinguished from a restart, and
+# the board resets its counter when the channel mode changes after start.
+COUNTER_RESET_JUMP = 128
+
 
 class PacketLossCounter:
     def __init__(self) -> None:
@@ -31,7 +36,7 @@ class PacketLossCounter:
             else:
                 delta = (value - previous) % 256
                 self.received += 1
-                if delta > 1:
+                if 1 < delta <= COUNTER_RESET_JUMP:
                     self.lost += delta - 1
             previous = value
         self.last = previous

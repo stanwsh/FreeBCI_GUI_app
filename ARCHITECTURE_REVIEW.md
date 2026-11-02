@@ -32,7 +32,7 @@ USER NOTES:
 - Session diagnostics: Ctrl+D / File > Session Diagnostics..., live state, rate, integrity, writer queue, markers, LSL, and control endpoint.
 - `71f4b16` — session markers, control discovery file, and the live session diagnostics window.
 - `38a2665` — File > Start Demo Session runs the normal GUI pipeline against a synthetic 16-channel board for hardware-free checks.
-- Packet-loss accounting now treats repeated counter values in a 16-channel frame as one frame instead of reporting hundreds of false losses (`a5c165b`).
+- Packet-loss accounting now treats repeated counter values in a 16-channel frame as one frame and treats a jump larger than half the counter range as a firmware restart rather than hundreds of false losses (`a5c165b`); a real Wi-Fi session now reports `0.0%` with `lost samples: 0`.
 - `fcedc06` — acquisition failures finalize as `partial` instead of `failed`, with fault-injection tests.
 - Simulator pacing now generates samples from elapsed time and advances the packet counter per block; `tools/benchmark_session.py` exercises the full synthetic acquisition/recording path.
 

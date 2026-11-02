@@ -21,6 +21,13 @@ class PacketLossCounterTest(unittest.TestCase):
         self.assertEqual(counter.lost, 1)
         self.assertAlmostEqual(counter.percent, 20.0)
 
+    def test_counter_restart_is_not_a_large_gap(self):
+        counter = PacketLossCounter()
+        counter.add([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        counter.add([0, 1, 2, 3])
+        self.assertEqual(counter.received, 15)
+        self.assertEqual(counter.lost, 0)
+
     def test_reset_starts_a_new_session(self):
         counter = PacketLossCounter()
         counter.add([5, 5])
