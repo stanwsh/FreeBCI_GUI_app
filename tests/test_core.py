@@ -156,6 +156,8 @@ class SessionControllerTest(unittest.TestCase):
         )
         writer = RecordingWriter(config)
         writer.start()
+        with open(os.path.join(writer.session_dir, "manifest.json"), encoding="utf-8") as handle:
+            self.assertEqual(json.load(handle)["status"], "recording")
         now = time.time_ns()
         data = np.zeros((8, 10), dtype=np.float64)
         data[1:5, :] = 1

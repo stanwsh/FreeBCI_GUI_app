@@ -23,6 +23,7 @@ import json
 import os
 import queue
 import threading
+import time
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
@@ -33,6 +34,7 @@ from freebci.core.models import SampleBlock, SessionConfig, SessionStatus
 CHUNK_SAMPLES = 10_000
 CHUNKS_PER_FILE = 9
 AUX_CHANNELS = 3
+CHECKPOINT_SECONDS = 5.0
 
 
 class RecordingError(RuntimeError):
@@ -68,6 +70,7 @@ class RecordingWriter:
         self._file_start_sample = 0
         self._pending: List[np.ndarray] = []
         self._pending_samples = 0
+        self._last_checkpoint = 0.0
 
     # ------------------------------------------------------------------ API
     def start(self) -> str:
@@ -76,6 +79,8 @@ class RecordingWriter:
         os.makedirs(self.record_root, exist_ok=True)
         self.session_dir = self._make_session_dir()
         self._started_ns = self.config.started_wall_ns or _wall_ns()
+        self._last_checkpoint = time.monotonic()
+        self._write_manifest(SessionStatus.RECORDING)
         self._thread = threading.Thread(
             target=self._run,
             name="freebci-recording",
@@ -173,6 +178,10 @@ class RecordingWriter:
         while self._pending_samples >= CHUNK_SAMPLES:
             chunk = self._take_pending(CHUNK_SAMPLES)
             self._write_chunk(chunk)
+        now = time.monotonic()
+        if now - self._last_checkpoint >= CHECKPOINT_SECONDS:
+            self._last_checkpoint = now
+            self._write_manifest(SessionStatus.RECORDING)
 
     def _extract_rows(self, block: SampleBlock) -> np.ndarray:
         data = np.asarray(block.data)

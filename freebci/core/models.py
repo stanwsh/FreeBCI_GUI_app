@@ -26,8 +26,9 @@ class SessionState(Enum):
 
 
 class SessionStatus(str, Enum):
-    """Outcome written to the session manifest."""
+    """Outcome/state written to the session manifest."""
 
+    RECORDING = "recording"
     COMPLETED = "completed"
     PARTIAL = "partial"
     FAILED = "failed"

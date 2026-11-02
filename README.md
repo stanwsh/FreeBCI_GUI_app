@@ -278,7 +278,9 @@ Each session gets its own `Stream_<date>_<time>` folder. Files roll over
 automatically: `1.csv` and `1.txt` hold the first 90,000 samples, `2.*` the next
 90,000, and so on. Every data file has a matching `.meta.json` sidecar with its
 sample count, checksum, and timing information. `manifest.json` describes the
-whole session and is finalized when the session stops. It also records
+whole session and is finalized when the session stops. It is also written at
+session start and refreshed every few seconds, so an interrupted session leaves
+a manifest with `status: recording` instead of no metadata. It records
 `lost_samples` and a `gaps` list if the board skipped samples.
 
 ### CSV files
