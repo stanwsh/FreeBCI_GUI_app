@@ -2,7 +2,7 @@
 
 USER NOTES: A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode only right now]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
 
-**Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, and local control plane are landed. A real FreeBCI_WiFi_16_I_USB board (id 2037, COM3, 16 channels, 2 Mbaud, USB mode) was verified end to end on 2026-11-02: a 4-second GUI session recorded 993 samples at 250 Hz, wrote CSV/TXT/meta/manifest, and finalized with `status: completed`. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild) are already addressed in the implementation commits.
+**Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, local control plane, fast port discovery, and background serial/Wi-Fi/Bluetooth setup are landed. A real FreeBCI_WiFi_16_I_USB board (id 2037, COM3, 16 channels, 2 Mbaud, USB mode) was verified end to end on 2026-11-02: GUI sessions record CSV/TXT/meta/manifest and finalize with `status: completed`; control-plane stop returns the GUI to idle. The remaining hardware acceptance work is a full matrix run, not a correctness gap in the USB path. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild, blocking connections) are already addressed in the implementation commits.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
 **Goal:** Improve maintainability, acquisition reliability, recording integrity, synchronization, and operator usability without discarding the validated BrainFlow/board behavior.
 
@@ -12,8 +12,16 @@ USER NOTES: A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be us
 - `9dfadc4` — GUI acquisition runs through `SessionController`; recording no longer runs on the Qt timer; channel metadata and topography buffers are rebuilt per board; plots stop with the session.
 - `a2e4124` — failed session starts stop GUI timers.
 - `1fb67d8` — token-protected loopback control plane with status/snapshot/stop and tests.
+- `2d963f5` — roadmap progress recorded in this document.
+- `5001e8e` — serial ports discovered with `list_ports` instead of probing COM1..COM256.
+- `ab2accc` — sample-index gaps and lost-sample counts recorded in the manifest.
+- `6a74592` — manifest checkpointed as `recording` every five seconds, then finalized.
+- `5ad184c` — control-plane stop queued onto the GUI thread and reconciled with the button state.
+- `9ec1197` — serial board preparation, including the FreeBCI type/baud handshake, moved off the GUI thread.
+- `b60ce40` — Wi-Fi discovery and board preparation moved into workers; device buttons now select the correct IP.
+- `a001243` — Bluetooth preparation moved into a worker; editable baud rate is honored.
 
-Still intentionally open from the roadmap: connection dialogs remain on the GUI thread, LSL streams 2/3 and FFT/band-power LSL types are not implemented, and the full hardware acceptance matrix still needs a real-board run.
+Still intentionally open from the roadmap: LSL streams 2/3 and FFT/band-power LSL types are not implemented, a full hardware acceptance matrix (Wi-Fi and Bluetooth transports, 8/24/32/64-channel boards) has not been run, and the GUI still needs the consolidated diagnostics/timestamp surface from Phases 4–5.
 
 ---
 
