@@ -1110,6 +1110,25 @@ class MyMainWindow(MainWindowInterface):
             self.stateLabel.setStyleSheet('')
             self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
 
+    def _request_control_stop(self):
+        """Queue a control-plane stop onto the GUI thread."""
+        QtCore.QMetaObject.invokeMethod(
+            self,
+            '_stop_from_control',
+            QtCore.Qt.QueuedConnection,
+        )
+
+    @QtCore.pyqtSlot()
+    def _stop_from_control(self):
+        if self.session_controller is None:
+            return
+        self.stop_openbci()
+        self.stopThread()
+        self.startButton_isclicked = False
+        self.startButton.setText('Start Session')
+        self.stateLabel.setText('Data stream stopped by control client.')
+        self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+
     def start_openbci(self):
         try:
             time.sleep(0.2)
@@ -1139,7 +1158,10 @@ class MyMainWindow(MainWindowInterface):
                 BrainFlowGateway(self.board, self.connect_info.board_id, self._chan),
             )
             self.session_controller.start()
-            self.control_server = ControlServer(self.session_controller)
+            self.control_server = ControlServer(
+                self.session_controller,
+                stop_callback=self._request_control_stop,
+            )
             self.control_server.start()
             self.myLogger.write(
                 'FreeBCI: session recording started at ' + self.session_controller.output_path

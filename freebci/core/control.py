@@ -13,7 +13,7 @@ import json
 import secrets
 import socket
 import threading
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from freebci.core.models import SessionStatus
 from freebci.core.session import SessionController
@@ -40,10 +40,12 @@ class ControlServer:
         port: int = 0,
         token: Optional[str] = None,
         accept_timeout: float = 0.2,
+        stop_callback: Optional[Callable[[], None]] = None,
     ) -> None:
         self.controller = controller
         self.host = host
         self.token = token or secrets.token_urlsafe(24)
+        self.stop_callback = stop_callback
         self.accept_timeout = accept_timeout
         self.port = int(port)
         self._socket: Optional[socket.socket] = None
@@ -147,10 +149,15 @@ class ControlServer:
         if command == "status":
             return {"ok": True, "snapshot": _snapshot_payload(self.controller)}
         if command == "stop":
-            status = self.controller.stop()
+            if self.stop_callback is not None:
+                self.stop_callback()
+                status = "stop_requested"
+            else:
+                result = self.controller.stop()
+                status = result.value if isinstance(result, SessionStatus) else str(result)
             return {
                 "ok": True,
-                "status": status.value if isinstance(status, SessionStatus) else str(status),
+                "status": status,
                 "snapshot": _snapshot_payload(self.controller),
             }
         raise ControlError("unknown control command: %r" % (command,))

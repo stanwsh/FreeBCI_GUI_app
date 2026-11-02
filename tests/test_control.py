@@ -49,6 +49,25 @@ class ControlPlaneTest(unittest.TestCase):
         finally:
             server.stop()
 
+    def test_stop_callback_defers_to_owner(self):
+        controller = self._controller()
+        controller.start()
+        called = []
+        server = ControlServer(
+            controller,
+            token="test-token",
+            stop_callback=lambda: called.append(True),
+        )
+        server.start()
+        try:
+            client = ControlClient(server.host, server.port, "test-token")
+            self.assertEqual(client.stop(), "stop_requested")
+            self.assertEqual(called, [True])
+            self.assertNotEqual(controller.snapshot().state.value, "finalized")
+        finally:
+            server.stop()
+            controller.stop()
+
     def test_wrong_token_is_rejected(self):
         controller = self._controller()
         controller.start()

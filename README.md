@@ -344,9 +344,11 @@ print(client.status())
 client.stop()
 ```
 
-`status()` returns the session state, sample and block counts, elapsed time,
-display-drop count, lost-sample count, error text, and output path. The API is a
-control plane only; physiological data continues to use the CSV files and LSL.
+`stop()` asks the GUI to stop and returns `"stop_requested"`; the session
+finalizes on the next GUI event. `status()` returns the session state, sample
+and block counts, elapsed time, display-drop count, lost-sample count, error
+text, and output path. The API is a control plane only; physiological data
+continues to use the CSV files and LSL.
 
 ## Troubleshooting
 
