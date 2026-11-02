@@ -45,6 +45,7 @@ USER NOTES:
 - Real Wi-Fi hardware LSL verification: a `FreeBCI_RealTest` stream (16 channels) delivered samples with timestamps, and `marker_click()` delivered `['manual']` on `FreeBCI_Markers`.
 - Control `status` now exposes the host wall time of the latest block and the estimated wall time of its first sample, explicitly documented as host-clock estimates rather than hardware timestamps.
 - Diagnostics presentation moved into `freebci/core/diagnostics.py`, so the window only supplies an endpoint/LSL summary and the formatting is testable without Qt.
+- Real Wi-Fi control verification: `status` reported positive host timing for the latest block, `marker` succeeded, and `shutdown` closed the GUI and removed `control.json`.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, a control-plane start command, and application packaging (`pyproject.toml`).
 
