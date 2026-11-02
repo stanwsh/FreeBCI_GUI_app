@@ -243,31 +243,31 @@ class MynetWidget(QtWidgets.QWidget):
     def refreshSamplingRate(self, sampling_rate):
         self.SamplingRate = sampling_rate
         if self.LSLdataType1 == 'Time Series':
-            self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, self._chan, self.SamplingRate, 'float32', self.LSLdataType1)
+            self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, self._chan, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname1)
             self.LSLoutlet1 = pylsl.StreamOutlet(self.LSLinfo1)
         elif self.LSLdataType1 == 'FFT':
-            self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, 60, self.SamplingRate, 'float32', self.LSLdataType1)
+            self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, 60, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname1)
             self.LSLoutlet1 = pylsl.StreamOutlet(self.LSLinfo1)
         elif self.LSLdataType1 == 'Band Power':
-            self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, 5, self.SamplingRate, 'float32', self.LSLdataType1)
+            self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, 5, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname1)
             self.LSLoutlet1 = pylsl.StreamOutlet(self.LSLinfo1)
         if self.LSLdataType2 == 'Time Series':
-            self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, self._chan, self.SamplingRate, 'float32', self.LSLdataType2)
+            self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, self._chan, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname2)
             self.LSLoutlet2 = pylsl.StreamOutlet(self.LSLinfo2)
         elif self.LSLdataType2 == 'FFT':
-            self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, 60, self.SamplingRate, 'float32', self.LSLdataType2)
+            self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, 60, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname2)
             self.LSLoutlet2 = pylsl.StreamOutlet(self.LSLinfo2)
         elif self.LSLdataType2 == 'Band Power':
-            self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, 5, self.SamplingRate, 'float32', self.LSLdataType2)
+            self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, 5, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname2)
             self.LSLoutlet2 = pylsl.StreamOutlet(self.LSLinfo2)
         if self.LSLdataType3 == 'Time Series':
-            self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, self._chan, self.SamplingRate, 'float32', self.LSLdataType3)
+            self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, self._chan, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname3)
             self.LSLoutlet3 = pylsl.StreamOutlet(self.LSLinfo3)
         elif self.LSLdataType3 == 'FFT':
-            self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, 60, self.SamplingRate, 'float32', self.LSLdataType3)
+            self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, 60, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname3)
             self.LSLoutlet3 = pylsl.StreamOutlet(self.LSLinfo3)
         elif self.LSLdataType3 == 'Band Power':
-            self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, 5, self.SamplingRate, 'float32', self.LSLdataType3)
+            self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, 5, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname3)
             self.LSLoutlet3 = pylsl.StreamOutlet(self.LSLinfo3)
 
     
@@ -277,13 +277,13 @@ class MynetWidget(QtWidgets.QWidget):
             self.LSLname1 = self.lslNameEdit1.text()
             self.LSLType1 = self.lslTypeEdit1.text()
             if self.LSLdataType1 == 'Time Series':
-                self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, self._chan, self.SamplingRate, 'float32', self.LSLdataType1)
+                self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, self._chan, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname1)
                 self.LSLoutlet1 = pylsl.StreamOutlet(self.LSLinfo1)
             elif self.LSLdataType1 == 'FFT':
-                self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, 60, self.SamplingRate, 'float32', self.LSLdataType1)
+                self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, 60, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname1)
                 self.LSLoutlet1 = pylsl.StreamOutlet(self.LSLinfo1)
             elif self.LSLdataType1 == 'Band Power':
-                self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, 5, self.SamplingRate, 'float32', self.LSLdataType1)
+                self.LSLinfo1 = pylsl.StreamInfo(self.LSLname1, self.LSLType1, 5, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname1)
                 self.LSLoutlet1 = pylsl.StreamOutlet(self.LSLinfo1)
         except Exception as ex:
             print('LSL create error: ', ex)
@@ -296,13 +296,13 @@ class MynetWidget(QtWidgets.QWidget):
             self.LSLname2 = self.lslNameEdit2.text()
             self.LSLType2 = self.lslTypeEdit2.text()
             if self.LSLdataType2 == 'Time Series':
-                self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, self._chan, self.SamplingRate, 'float32', self.LSLdataType2)
+                self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, self._chan, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname2)
                 self.LSLoutlet2 = pylsl.StreamOutlet(self.LSLinfo2)
             elif self.LSLdataType2 == 'FFT':
-                self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, 60, self.SamplingRate, 'float32', self.LSLdataType2)
+                self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, 60, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname2)
                 self.LSLoutlet2 = pylsl.StreamOutlet(self.LSLinfo2)
             elif self.LSLdataType2 == 'Band Power':
-                self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, 5, self.SamplingRate, 'float32', self.LSLdataType2)
+                self.LSLinfo2 = pylsl.StreamInfo(self.LSLname2, self.LSLType2, 5, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname2)
                 self.LSLoutlet2 = pylsl.StreamOutlet(self.LSLinfo2)
         except Exception as ex:
             print('LSL create error: ', ex)
@@ -315,13 +315,13 @@ class MynetWidget(QtWidgets.QWidget):
             self.LSLname3 = self.lslNameEdit3.text()
             self.LSLType3 = self.lslTypeEdit3.text()
             if self.LSLdataType3 == 'Time Series':
-                self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, self._chan, self.SamplingRate, 'float32', self.LSLdataType3)
+                self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, self._chan, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname3)
                 self.LSLoutlet3 = pylsl.StreamOutlet(self.LSLinfo3)
             elif self.LSLdataType3 == 'FFT':
-                self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, 60, self.SamplingRate, 'float32', self.LSLdataType3)
+                self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, 60, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname3)
                 self.LSLoutlet3 = pylsl.StreamOutlet(self.LSLinfo3)
             elif self.LSLdataType3 == 'Band Power':
-                self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, 5, self.SamplingRate, 'float32', self.LSLdataType3)
+                self.LSLinfo3 = pylsl.StreamInfo(self.LSLname3, self.LSLType3, 5, self.SamplingRate, 'float32', 'FreeBCI:' + self.LSLname3)
                 self.LSLoutlet3 = pylsl.StreamOutlet(self.LSLinfo3)
         except Exception as ex:
             print('LSL create error: ', ex)

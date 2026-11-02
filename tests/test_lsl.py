@@ -24,6 +24,14 @@ class _Outlet:
         self.samples.append(sample)
 
 
+class _MarkerOutlet:
+    def __init__(self):
+        self.samples = []
+
+    def push_sample(self, sample):
+        self.samples.append(sample)
+
+
 class TestLslFanOut(TestCase):
     def test_pushes_each_buffered_sample_to_its_own_outlet(self):
         window = SimpleNamespace(
@@ -51,3 +59,8 @@ class TestLslFanOut(TestCase):
         MyMainWindow.sendLSLStream(window, 1)
 
         self.assertEqual(window.myNetWidget.LSLoutlet1.samples, [])
+
+    def test_marker_is_pushed_as_a_string_sample(self):
+        window = SimpleNamespace(marker_outlet=_MarkerOutlet())
+        MyMainWindow._on_session_marker(window, {"label": "stimulus on"})
+        self.assertEqual(window.marker_outlet.samples, [["stimulus on"]])

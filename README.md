@@ -327,6 +327,15 @@ same time.
 5. Click **Start LSL Stream**. Click **Stop** to end all streams.
 
 Each enabled row publishes the same current signal under its own stream name.
+Each stream also gets the stable source id `FreeBCI:<stream name>`, which lets
+consumers identify the same source across sessions.
+
+Starting LSL also creates a `FreeBCI_Markers` stream (type `Markers`, one string
+channel, irregular rate). Manual markers and control-API markers are pushed to
+that stream when it is active, so an LSL recorder can align events with the
+signal. The markers are still written to `markers.jsonl` and the manifest even
+when no LSL marker stream is running.
+
 The streams appear in LSL-aware applications such as LabRecorder, OpenViBE, or
 MNE.
 

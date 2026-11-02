@@ -69,7 +69,8 @@ class SessionControllerTest(unittest.TestCase):
             channel_count=4,
         )
         gateway = FakeGateway()
-        controller = SessionController(config, gateway)
+        seen_markers = []
+        controller = SessionController(config, gateway, marker_callback=seen_markers.append)
         controller.start()
         deadline = time.time() + 5
         while controller.stats.samples < 12_000 and time.time() < deadline:
@@ -77,6 +78,7 @@ class SessionControllerTest(unittest.TestCase):
         marker = controller.add_marker("stimulus on", source="test")
         self.assertEqual(marker["label"], "stimulus on")
         self.assertEqual(controller.snapshot().markers, 1)
+        self.assertEqual(seen_markers[0]["label"], "stimulus on")
         status = controller.stop()
         self.assertEqual(status, SessionStatus.COMPLETED)
         snapshot = controller.snapshot()

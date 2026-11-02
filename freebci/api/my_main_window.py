@@ -134,6 +134,7 @@ class MyMainWindow(MainWindowInterface):
         self.LSLbufferData1 = []
         self.LSLbufferData2 = []
         self.LSLbufferData3 = []
+        self.marker_outlet = None
         self.fftFreqLen = 60
         self.fftuvLen = 2
         self.fftLogMode = True
@@ -696,6 +697,23 @@ class MyMainWindow(MainWindowInterface):
         self.is_startExtrigger = False
         self.is_startAccelerometer = False
 
+    def _ensure_marker_outlet(self):
+        if self.marker_outlet is None:
+            info = pylsl.StreamInfo(
+                'FreeBCI_Markers',
+                'Markers',
+                1,
+                0,
+                pylsl.cf_string,
+                'FreeBCI_Markers',
+            )
+            self.marker_outlet = pylsl.StreamOutlet(info)
+
+    def _on_session_marker(self, marker):
+        outlet = getattr(self, 'marker_outlet', None)
+        if outlet is not None:
+            outlet.push_sample([str(marker.get('label', ''))])
+
     def startLSLButton_click(self):
         try:
             if self.startLSLButton_isclicked == False:
@@ -703,6 +721,7 @@ class MyMainWindow(MainWindowInterface):
                 self.myLogger.write('start lsl stream...')
                 self.myNetWidget.startLSLButton.setText(' Stop ')
                 self.myNetWidget.startLSLButton.setStyleSheet('font: 12pt "黑体";background-color:red')
+                self._ensure_marker_outlet()
                 for index in (1, 2, 3):
                     if getattr(self.myNetWidget, 'LSLdataType%d' % index) != 'None':
                         streamer = QtCore.QTimer()
@@ -714,6 +733,7 @@ class MyMainWindow(MainWindowInterface):
                 self.myLogger.write('close lsl stream.')
                 self.myNetWidget.startLSLButton.setText('Start LSL Stream')
                 self.myNetWidget.startLSLButton.setStyleSheet('font: 12pt "等线"; background-color: rgb(204,255,153)')
+                self.marker_outlet = None
                 for index in (1, 2, 3):
                     streamer = getattr(self, 'LSLstreamer%d' % index, None)
                     if streamer is not None:
@@ -1309,6 +1329,7 @@ class MyMainWindow(MainWindowInterface):
                     self._chan,
                     post_start_config=post_start_config,
                 ),
+                marker_callback=self._on_session_marker,
             )
             self.session_controller.start()
             self.control_server = ControlServer(

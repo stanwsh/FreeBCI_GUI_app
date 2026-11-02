@@ -10,7 +10,7 @@ import dataclasses
 import queue
 import threading
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 from freebci.core.acquisition import AcquisitionService
 from freebci.core.clock import SessionClock
@@ -32,10 +32,12 @@ class SessionController:
         config: SessionConfig,
         gateway: BoardGateway,
         display_queue_blocks: int = 128,
+        marker_callback: Optional[Callable[[dict], None]] = None,
     ) -> None:
         self.base_config = config
         self.config = config
         self.gateway = gateway
+        self.marker_callback = marker_callback
         self.state = SessionState.CONNECTED
         self.stats = SessionStats()
         self.error: Optional[str] = None
@@ -133,12 +135,19 @@ class SessionController:
                 raise RuntimeError("session has no recording writer")
             sample_index = self.stats.samples
             elapsed = self.clock.elapsed_seconds()
-        return writer.add_marker(
+        marker = writer.add_marker(
             label,
             source=source,
             sample_index=sample_index,
             elapsed_seconds=elapsed,
         )
+        if self.marker_callback is not None:
+            try:
+                self.marker_callback(marker)
+            except Exception:
+                # A display/LSL sink must never invalidate the saved marker.
+                pass
+        return marker
 
     def _on_block(self, block: SampleBlock) -> None:
         self.stats.blocks += 1
