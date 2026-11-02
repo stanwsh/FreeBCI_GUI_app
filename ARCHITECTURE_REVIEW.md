@@ -2,9 +2,18 @@
 
 A real board "FreeBCI_WiFi_16_I_USB" connected on COM3 can be used to verify the following:
 
-**Status:** Proposal for review. No source code has been changed.
+**Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, and local control plane are landed. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild) are already addressed in the implementation commits.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
 **Goal:** Improve maintainability, acquisition reliability, recording integrity, synchronization, and operator usability without discarding the validated BrainFlow/board behavior.
+
+### Implementation progress
+
+- `d994181` — Qt-free core: models, gateway, acquisition worker, session lifecycle, bounded queues, durable recording, manifest, simulated-board tests.
+- `9dfadc4` — GUI acquisition runs through `SessionController`; recording no longer runs on the Qt timer; channel metadata and topography buffers are rebuilt per board; plots stop with the session.
+- `a2e4124` — failed session starts stop GUI timers.
+- `1fb67d8` — token-protected loopback control plane with status/snapshot/stop and tests.
+
+Still intentionally open from the roadmap: connection dialogs remain on the GUI thread, LSL streams 2/3 and FFT/band-power LSL types are not implemented, and the full hardware acceptance matrix still needs a real-board run.
 
 ---
 
