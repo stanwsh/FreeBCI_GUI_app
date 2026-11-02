@@ -174,7 +174,8 @@ class SessionController:
         if writer_error or acquisition_error:
             message = writer_error or acquisition_error
             if self.state in (SessionState.RECORDING, SessionState.ARMED):
-                self.stop(SessionStatus.FAILED)
+                status = SessionStatus.FAILED if writer_error else SessionStatus.PARTIAL
+                self.stop(status)
             return message
         return None
 
