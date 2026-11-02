@@ -19,6 +19,7 @@ from freebci.api.my_channels_electrodes_settings import MyChannels_electrodes_Se
 from freebci.api.my_wifi_connection import MyWifiConnection
 from freebci.api.my_diagnostics import MyDiagnostics
 from freebci.core import SimulatedBoard
+from freebci.core.packets import PacketLossCounter
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.my_electrodes_position import ElectrodesPosition
 from freebci.api.my_serial_connection import MySerialConnection
@@ -81,10 +82,10 @@ class MyMainWindow(MainWindowInterface):
         self.SamplingRate = 250
         self.total_len = 0
         self.pak_count = 0
+        self.pak_received = 0
         self.pak_loss = 0
+        self.packet_counter = PacketLossCounter()
         self.stop_count = 0
-        self.buffercount = 0
-        self.pak_last = 0
         self.is_startAccelerometer = False
         self.is_startExtrigger = False
         self.is_startBattery = False
@@ -732,13 +733,15 @@ class MyMainWindow(MainWindowInterface):
                     self.stateLabel.setText('session starting..........')
                     self.stateLabel.repaint()
                     self.start_openbci()
-                    self.stateLabel.setText('Data stream started.   packet receive: {}'.format(self.total_len))
+                    self.stateLabel.setText('Data stream started.   samples received: {}'.format(self.total_len))
                     self.startButton.setText('Stop Session')
                     self.startButton.setStyleSheet('font: 12pt "黑体";background-color:red')
                     self.startButton_isclicked = True
                     self.total_len = 0
                     self.pak_count = 0
+                    self.pak_received = 0
                     self.pak_loss = 0
+                    self.packet_counter.reset()
                     self.baudRate = self.connect_info.baudRate
                     self.timer = QtCore.QTimer()
                     self.timer.timeout.connect(self.updater)
@@ -759,9 +762,10 @@ class MyMainWindow(MainWindowInterface):
                     self.startButton_isclicked = False
                     self.total_len = 0
                     self.pak_count = 0
+                    self.pak_received = 0
                     self.pak_loss = 0
+                    self.packet_counter.reset()
                     self.stop_count += 1
-                    self.buffercount = 0
                     self.startButton.setText('Start Session')
                     self.stateLabel.setText('Data stream stopped.')
                     self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
@@ -1387,25 +1391,12 @@ class MyMainWindow(MainWindowInterface):
             self.extri_data = np.append(self.extri_data, buffer_data, axis=1)
             self.battery_percentage = np.append(self.battery_percentage, buffer_data, axis=1)
             if self.stop_count == 0:
-                pak_data = list(buffer_data[0])
-                temp_len = len(pak_data)
-                self.total_len += temp_len
-                for pak in range(1, len(pak_data)):
-                    if pak_data[pak] < pak_data[pak - 1]:
-                        self.pak_count += pak_data[pak] + 255 - pak_data[pak - 1]
-                    if pak_data[pak] == pak_data[pak - 1]:
-                        self.pak_count += 255
-                    if pak_data[pak] > pak_data[pak - 1]:
-                        self.pak_count += pak_data[pak] - pak_data[pak - 1] - 1
-                if self.buffercount != 0:
-                    if pak_data[0] <= self.pak_last:
-                        self.pak_count += pak_data[0] + 256 - self.pak_last - 1
-                    else:
-                        self.pak_count += pak_data[0] - self.pak_last - 1
-                self.buffercount += 1
-                self.pak_last = pak_data[-1]
-                self.pak_loss = 100 * self.pak_count / (self.pak_count + self.total_len)
-                self.stateLabel.setText('Data stream started.   fps: {}    packet loss: {}%    packet receive: {}    lost samples: {}'.format(self.fps_real(), round(self.pak_loss, 2), self.total_len, snapshot.lost_samples))
+                self.total_len += int(buffer_data.shape[1])
+                self.packet_counter.add(buffer_data[0])
+                self.pak_count = self.packet_counter.lost
+                self.pak_received = self.packet_counter.received
+                self.pak_loss = self.packet_counter.percent
+                self.stateLabel.setText('Data stream started.   fps: {}    packet loss: {}%    samples received: {}    lost samples: {}'.format(self.fps_real(), round(self.pak_loss, 2), self.total_len, snapshot.lost_samples))
             else:
                 self.stop_count -= 1
             if self.startLSLButton_isclicked == True:

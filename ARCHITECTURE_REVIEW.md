@@ -31,7 +31,8 @@ USER NOTES:
 - Session markers: Ctrl+M / File > Add Marker, `markers.jsonl`, manifest markers, control `marker` command, and `control.json` discovery file.
 - Session diagnostics: Ctrl+D / File > Session Diagnostics..., live state, rate, integrity, writer queue, markers, LSL, and control endpoint.
 - `71f4b16` — session markers, control discovery file, and the live session diagnostics window.
-- Demo mode: File > Start Demo Session runs the normal GUI pipeline against a synthetic 16-channel board for hardware-free checks.
+- `38a2665` — File > Start Demo Session runs the normal GUI pipeline against a synthetic 16-channel board for hardware-free checks.
+- Packet-loss accounting now treats repeated counter values in a 16-channel frame as one frame instead of reporting hundreds of false losses.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), long-duration soak/fault-injection tests, the view-model refactor, a control-plane start/shutdown command, and packaging/benchmark tooling. LSL supports three Time Series streams.
 
