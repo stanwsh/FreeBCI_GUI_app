@@ -34,6 +34,11 @@ that provide those inputs. Unsupported views stay disabled.
 - The FreeBCI board, its power supply, and electrodes
 - An internet connection while installing
 
+The BrainFlow build that talks to FreeBCI hardware is included in the
+`brainflow/` folder. Do not install a separate BrainFlow package; the copy in
+this repository is the tested version for these boards. Its `nptyping`
+dependency is installed with the other Python packages.
+
 The USB serial driver recommended by the board manufacturer is required for USB
 connections. Bluetooth boards must be paired in Windows before you connect.
 
@@ -78,8 +83,9 @@ or:
 .venv\Scripts\python.exe FreeBCI_GUI.py
 ```
 
-Keep the application files together. The program loads its images and settings
-from the repository folder, so moving only the program files will not work.
+Keep the application files together. The program loads its images, settings,
+and bundled BrainFlow library from the repository folder, so moving only the
+program files will not work.
 
 ## Quick start
 
@@ -255,14 +261,19 @@ logs\
     Stream_2026_11_01_143005\
       1.csv
       1.txt
+      1.meta.json
+      manifest.json
       2.csv
       2.txt
+      2.meta.json
       ...
 ```
 
 Each session gets its own `Stream_<date>_<time>` folder. Files roll over
 automatically: `1.csv` and `1.txt` hold the first 90,000 samples, `2.*` the next
-90,000, and so on.
+90,000, and so on. Every data file has a matching `.meta.json` sidecar with its
+sample count, checksum, and timing information. `manifest.json` describes the
+whole session and is finalized when the session stops.
 
 ### CSV files
 
@@ -358,8 +369,10 @@ settings**, or use a USB connection instead of Wi-Fi or Bluetooth.
 
 ```text
 FreeBCI_GUI.py            application entry point
+brainflow/                bundled BrainFlow build for FreeBCI hardware
 freebci/                  application package
   api/                    acquisition, recording, and view logic
+  core/                   session, acquisition, and recording services
   design/                 window and dialog layouts
 settings/                 example hardware and electrode XML files
 electrodes_pos_32.png     head model for 32-channel topography

@@ -151,7 +151,10 @@ class MyBrainTopography(QtWidgets.QWidget):
 
     
     def plotfig(self, Topography_data, info, montage):
-        F = MyFigure(width=10, height=10, dpi=50)
+        if getattr(self, '_topo_canvas', None) is None:
+            self._topo_canvas = MyFigure(width=10, height=10, dpi=50)
+            self.mainLayout.addWidget(self._topo_canvas, 2, 0, 15, 2)
+        F = self._topo_canvas
         evoked = mne.EvokedArray(Topography_data, info)
         evoked.set_montage(montage)
         step = int(len(Topography_data[0]) / self.topofig_num)
@@ -162,8 +165,6 @@ class MyBrainTopography(QtWidgets.QWidget):
             F.fig.canvas.draw_idle()
             plt.pause(0.001)
             i += 1
-
-        self.mainLayout.addWidget(F, 2, 0, 15, 2)
 
 
 class MyFigure(FigureCanvas):

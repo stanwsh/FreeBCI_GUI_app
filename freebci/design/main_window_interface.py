@@ -46,7 +46,7 @@ class MainWindowInterface(Ui_MainWindow, QtWidgets.QMainWindow):
         self.log_file = log_file
         self.activeChannels = [ True for i in range(self._chan) ]
         self.FFTactiveChannels = [ False for i in range(self._chan) ]
-        self.isSessionOn = True
+        self.isSessionOn = False
         self.window_w = self.frameGeometry().width()
         self.window_h = self.frameGeometry().height()
         self.layout_index = 1

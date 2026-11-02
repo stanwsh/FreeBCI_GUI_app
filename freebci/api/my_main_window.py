@@ -27,6 +27,9 @@ from freebci.api.my_hardware_warn import MyHardwareWarning
 from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
+from freebci.core.gateway import BrainFlowGateway
+from freebci.core.models import BoardProfile, SessionConfig
+from freebci.core.session import SessionController
 from brainflow import board_shim, data_filter, exit_codes, ml_model
 from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
 from brainflow.data_filter import AggOperations, DataFilter, FilterTypes, WindowFunctions
@@ -65,6 +68,7 @@ class MyMainWindow(MainWindowInterface):
         self.hardwareInfo = HardwareInfo()
         self.connect_info = connectInfo()
         self.board = None
+        self.session_controller = None
         self.startButton_isclicked = False
         self.startLSLButton_isclicked = False
         self.checkFlag = 0
@@ -91,33 +95,8 @@ class MyMainWindow(MainWindowInterface):
         self.start_topo = 0
         self.topo_count = 0
         self.topography_path = '.\\Real-time brain_topography.png'
-        self.chanMatched_index = [ i for i in range(self._chan) ]
-        if self._chan == 32:
-            self.Topography_data = [ [ 0 for col in range(1250) ] for row in range(31) ]
-        elif self._chan == 64:
-            self.Topography_data = [ [ 0 for col in range(1250) ] for row in range(62) ]
-        elif self._chan == 16:
-            Topography_data = [ [ 0 for col in range(500) ] for row in range(16) ]
-        else:
-            Topography_data = [ [ 0 for col in range(500) ] for row in range(31) ]
+        self.configure_electrodes(self._chan)
         self.data_queue = Queue()
-        Electrodes_Position = ElectrodesPosition()
-        electrodes_name = f'ElectrodesName_{str(self.connect_info.channel_num)}'
-        electrodes_pos = f'ElectrodesPos_{str(self.connect_info.channel_num)}'
-        if hasattr(Electrodes_Position, electrodes_name):
-            Electrodes_name = getattr(Electrodes_Position, electrodes_name)
-        else:
-            Electrodes_name = Electrodes_Position.ElectrodesName_32
-        if hasattr(Electrodes_Position, electrodes_pos):
-            Electrodes_pos = getattr(Electrodes_Position, electrodes_pos)
-        else:
-            Electrodes_pos = Electrodes_Position.ElectrodesPos_32
-        self.channels = np.array(Electrodes_name)
-        self.value = np.array(Electrodes_pos)
-        list_dic = dict(zip(self.channels, self.value))
-        self.montage = mne.channels.make_dig_montage(ch_pos=list_dic, nasion=[*(5.27205792e-18, 0.0860992398, -0.0401487349)], lpa=[*(-0.08609924, -0.0, -0.04014873)], rpa=[*(0.08609924, 0.0, -0.04014873)])
-        mne_channels = np.array(Electrodes_name).tolist()
-        self.info = mne.create_info(ch_names=mne_channels, sfreq=250, ch_types='eeg')
         self.startTIME = 0
         self.LSLnewDataLen = 0
         self.new_data_len = 0
@@ -140,6 +119,31 @@ class MyMainWindow(MainWindowInterface):
         self.fftuvLen = 2
         self.fftLogMode = True
         self.reConFuncToWidget()
+
+    def configure_electrodes(self, channel_count):
+        """Build channel names, montage and topography buffers for a board."""
+        self._chan = int(channel_count)
+        self.chanMatched_index = list(range(self._chan))
+        base = 16 if self._chan <= 16 else 32 if self._chan <= 32 else 64
+        position_source = ElectrodesPosition()
+        names = list(getattr(position_source, 'ElectrodesName_%d' % base))
+        positions = list(getattr(position_source, 'ElectrodesPos_%d' % base))
+        count = min(self._chan, len(names))
+        self.channels = np.array(names[:count])
+        self.value = np.array(positions[:count])
+        channel_positions = dict(zip(self.channels, self.value))
+        self.montage = mne.channels.make_dig_montage(
+            ch_pos=channel_positions,
+            nasion=[*(5.27205792e-18, 0.0860992398, -0.0401487349)],
+            lpa=[*(-0.08609924, -0.0, -0.04014873)],
+            rpa=[*(0.08609924, 0.0, -0.04014873)],
+        )
+        self.info = mne.create_info(
+            ch_names=self.channels.tolist(), sfreq=self.SamplingRate, ch_types='eeg'
+        )
+        rows = {16: 16, 32: 31, 64: 62}.get(self._chan, self._chan)
+        columns = 500 if self._chan <= 16 else 1250
+        self.Topography_data = [[0 for _ in range(columns)] for _ in range(rows)]
 
     def reConBoardMenu(self):
         self.actionUSB.triggered.connect(lambda : self.com_click_pure(2023))
@@ -336,10 +340,7 @@ class MyMainWindow(MainWindowInterface):
             self.stop_openbci()
             self.startButton_isclicked = False
             self.startButton.setText('Start Session')
-            self.timer.stop()
-            self.shower.stop()
-            self.recorder.stop()
-            self.processor.stop()
+            self.stopThread()
             self.myLogger.write('Data stream stopped.')
         try:
             self.board.release_session()
@@ -360,9 +361,11 @@ class MyMainWindow(MainWindowInterface):
             self._chan = self.connect_info.channel_num
             self.board = self.connect_info.board
             self.baudRate = self.connect_info.baudRate
+            self.SamplingRate = 250
             if self._chan == 16 and self.hardwareInfo.sendMode != 'FreeBCI' and self.connect_info.isbluetooth == False:
                 self.SamplingRate = 125
                 self.ts_plot_range = 725
+            self.configure_electrodes(self._chan)
             self.activeChannels = [ True for i in range(self._chan) ]
             self.resistanceArray = [ 0 for i in range(self._chan) ]
             self.temp = [ [] for i in range(self._chan) ]
@@ -408,23 +411,29 @@ class MyMainWindow(MainWindowInterface):
                 self.myExtrigger.DateModepushButton.setText('Start Extrigger')
 
     def stopThread(self):
-        self.timer.stop()
-        self.processor.stop()
-        self.shower.stop()
-        self.recorder.stop()
+        for attribute in ('timer', 'processor', 'shower'):
+            timer = getattr(self, attribute, None)
+            if timer is not None:
+                timer.stop()
+        plot_thread = getattr(self, 'plot_thread', None)
+        if plot_thread is not None:
+            plot_thread.stop()
+            plot_thread.wait(1000)
+            self.plot_thread = None
 
     def closeEvent(self, event):
         try:
+            if self.session_controller is not None or self.startButton_isclicked:
+                self.stop_openbci()
+                self.stopThread()
             if self.board != None:
-                if self.startButton_isclicked == True:
-                    self.stop_openbci()
-                    self.stopThread()
                 self.board.release_session()
                 event.accept()
-            if self.ConsoleWindow != None:
-                self.ConsoleWindow.close()
+            console = getattr(self, 'ConsoleWindow', None)
+            if console is not None:
+                console.close()
         except Exception as ex:
-            pass
+            logging.exception(ex)
 
     def resistancePushButtons_click(self, channel):
         self.resistanceOn[channel] = not self.resistanceOn[channel]
@@ -573,6 +582,7 @@ class MyMainWindow(MainWindowInterface):
         self.chanMatched_index = self.hardwareInfo.chanMatched_index
         self.baudRate = self.hardwareInfo.baudRate
         self.SamplingRate = int(self.hardwareInfo.SamplingRate)
+        self.info['sfreq'] = self.SamplingRate
         self.myNetWidget.refreshSamplingRate(self.SamplingRate)
         self.ts_plot_range = int(self.ts_time * self.SamplingRate)
 
@@ -699,6 +709,9 @@ class MyMainWindow(MainWindowInterface):
 
     def startButton_click(self):
         try:
+            if not self.isSessionOn:
+                self.stateLabel.setText('Connect to a board first.')
+                return
             if self.isSessionOn == True:
                 if self.startButton_isclicked == False:
                     self.stateLabel.setText('session starting..........')
@@ -718,15 +731,13 @@ class MyMainWindow(MainWindowInterface):
                     self.shower = QtCore.QTimer()
                     self.shower.timeout.connect(self.shower_fun)
                     self.shower.start(50)
+                    self.data_queue = Queue()
                     self.plot_thread = PlotThread(self.data_queue)
                     self.plot_thread.update_signal.connect(self.Topo_plot)
                     self.plot_thread.start()
                     self.processor = QtCore.QTimer()
                     self.processor.timeout.connect(self.processor_fun)
                     self.processor.start(50)
-                    self.recorder = QtCore.QTimer()
-                    self.recorder.timeout.connect(self.recorder_fun)
-                    self.recorder.start(500)
                     self.myLogger.write('Data stream started')
                 else:
                     self.stop_openbci()
@@ -739,10 +750,7 @@ class MyMainWindow(MainWindowInterface):
                     self.startButton.setText('Start Session')
                     self.stateLabel.setText('Data stream stopped.')
                     self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
-                    self.timer.stop()
-                    self.shower.stop()
-                    self.recorder.stop()
-                    self.processor.stop()
+                    self.stopThread()
                     self.myLogger.write('Data stream stopped.')
         except Exception as ex:
             self.myLogger.write('Start stream error!')
@@ -760,10 +768,7 @@ class MyMainWindow(MainWindowInterface):
         self.startButton_isclicked = False
         self.startButton.setText('Start Session')
         self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
-        self.timer.stop()
-        self.shower.stop()
-        self.recorder.stop()
-        self.processor.stop()
+        self.stopThread()
         self.stateLabel.setText('Error: Please check connection!')
         self.myLogger.write('Data stream stopped.')
 
@@ -795,12 +800,11 @@ class MyMainWindow(MainWindowInterface):
             self.myLogger.write('poll data error! ')
             self.stateLabel.setText('Poll data error!')
             logging.exception(ex)
-            self.board.stop_stream()
-
-    def recorder_fun(self):
-        if not self.isRecorded:
-            self.isRecorded = True
-            self.myRecording.record_data(self.record_data, self._chan, self.connect_info.id_list[self.connect_info.board_id - 2023][0], self.SamplingRate)
+            self.stop_openbci()
+            self.stopThread()
+            self.startButton_isclicked = False
+            self.startButton.setText('Start Session')
+            self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
 
     def processor_fun(self):
         try:
@@ -983,15 +987,9 @@ class MyMainWindow(MainWindowInterface):
                 self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
             if self.is_myBrainTopography and self.startButton_isclicked == True:
                 topodata1 = bp_nf_data[:, -self.ts_plot_range:]
-                if self._chan == 32:
-                    for j in range(self._chan - 1):
-                        self.Topography_data[j] = topodata1[self.chanMatched_index[j], :]
-                elif self._chan == 64:
-                    for j in range(self._chan - 2):
-                        self.Topography_data[j] = topodata1[self.chanMatched_index[j], :]
-                elif self._chan == 16:
-                    for j in range(self._chan):
-                        self.Topography_data[j] = topodata1[self.chanMatched_index[j], :]
+                rows = min(len(self.Topography_data), len(self.chanMatched_index), topodata1.shape[0])
+                for j in range(rows):
+                    self.Topography_data[j] = topodata1[self.chanMatched_index[j], :]
                 self.data_queue.put(self.Topography_data)
             if self.is_myAccelerometer and self.is_startAccelerometer:
                 self.myAccelerometer.acc_plot.clear()
@@ -1111,20 +1109,46 @@ class MyMainWindow(MainWindowInterface):
             self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
             self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
             self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
-            self.board.start_stream()
-            self.isRecorded = True
-            self.myLogger.write('FreeBCI: startButton was pressed. Starting data transfer. wait a few seconds.')
+            row = self.connect_info.id_list[self.connect_info.board_id - 2023]
+            profile = BoardProfile(
+                board_id=self.connect_info.board_id,
+                name=str(row[0]),
+                channels=self._chan,
+                sampling_rate=int(self.SamplingRate),
+                has_accelerometer=bool(row[9]),
+                has_external_trigger=bool(row[10]),
+                has_battery=bool(row[11]),
+            )
+            config = SessionConfig(
+                session_id=datetime.datetime.now().strftime('FreeBCI_%Y%m%d_%H%M%S'),
+                board=profile,
+                sampling_rate=int(self.SamplingRate),
+                output_root=self.myRecording.doc_path,
+                channel_count=self._chan,
+            )
+            self.session_controller = SessionController(
+                config,
+                BrainFlowGateway(self.board, self.connect_info.board_id, self._chan),
+            )
+            self.session_controller.start()
+            self.myLogger.write('FreeBCI: session recording started at ' + self.session_controller.output_path)
         except Exception as ex:
             self.myLogger.write('WARNNING: could not start board.')
+            if self.session_controller is not None:
+                try:
+                    self.session_controller.stop()
+                except Exception:
+                    pass
+                self.session_controller = None
             raise ex
 
     def stop_openbci(self):
         try:
             self.LSLnewDataLen = 0
-            self.board.get_board_data()
-            self.board.stop_stream()
-            self.myRecording.record_data(self.data, self._chan, self.connect_info.id_list[self.connect_info.board_id - 2023][0], self.SamplingRate)
-            self.myRecording.stop_record()
+            if self.session_controller is not None:
+                status = self.session_controller.stop()
+                self.myLogger.write('FreeBCI: session stopped with status %s' % status.value)
+                self.session_controller = None
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
             self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
             self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
@@ -1133,6 +1157,7 @@ class MyMainWindow(MainWindowInterface):
             self.myLogger.write('FreeBCI: stopButton was pressed. Stopping data transfer. wait a few seconds.')
         except Exception as ex:
             self.myLogger.write('WARNNING: could not stop board.')
+            logging.exception(ex)
 
     def fps_real(self):
         if self.is_myTimeSeries:
@@ -1143,12 +1168,17 @@ class MyMainWindow(MainWindowInterface):
 
     def poll_data(self):
         try:
-            if self.board.get_board_data_count() <= 3:
+            if self.session_controller is None:
                 return
-            buffer_data = self.board.get_board_data()
+            blocks = self.session_controller.drain_display(64)
+            if not blocks:
+                error = self.session_controller.check_health()
+                if error:
+                    raise RuntimeError(error)
+                return
+            buffer_data = np.concatenate([block.data for block in blocks], axis=1)
             self.new_data_len = buffer_data.shape[1]
             self.extri_data = np.append(self.extri_data, buffer_data, axis=1)
-            self.topo_data = np.append(self.topo_data, buffer_data, axis=1)
             self.battery_percentage = np.append(self.battery_percentage, buffer_data, axis=1)
             if self.stop_count == 0:
                 pak_data = list(buffer_data[0])
@@ -1182,20 +1212,17 @@ class MyMainWindow(MainWindowInterface):
                 self.LSLnewDataLen = self.new_data_len
             self.new_data_len = 0
             self.checkFlag = 0
-            if self.data.shape[1] > 60000:
-                start_time = datetime.datetime.now()
-                self.myLogger.write('save data...')
-                if self.isRecorded:
-                    self.record_data = self.data[:, :10000]
-                    self.data = np.delete(self.data, np.arange(10000), axis=1)
-                    self.isRecorded = False
-                end_time = datetime.datetime.now()
             if self.data.shape[1] == 1:
                 self.data = buffer_data[:, 1:]
             else:
                 self.data = np.append(self.data, buffer_data, axis=1)
+            if self.data.shape[1] > 60000:
+                self.data = self.data[:, -60000:]
+            if self.extri_data.shape[1] > 60000:
+                self.extri_data = self.extri_data[:, -60000:]
+            if self.battery_percentage.shape[1] > 60000:
+                self.battery_percentage = self.battery_percentage[:, -60000:]
             del buffer_data
-            gc.collect(generation=1)
         except Exception as ex:
             self.myLogger.write('poll data')
             raise ex
@@ -1212,9 +1239,16 @@ class PlotThread(QThread):
     def __init__(self, data_queue):
         super(PlotThread, self).__init__()
         self.data_queue = data_queue
+        self._stop = threading.Event()
+
+    def stop(self):
+        self._stop.set()
+        self.data_queue.put(None)
 
     def run(self):
-        while True:
+        while not self._stop.is_set():
             new_data = self.data_queue.get()
+            if new_data is None:
+                break
             self.update_signal.emit(new_data)
             self.msleep(50)

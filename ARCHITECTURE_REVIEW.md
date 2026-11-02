@@ -1,5 +1,7 @@
 # FreeBCI GUI: Architecture Assessment and Reconstruction Plan
 
+A real board "FreeBCI_WiFi_16_I_USB" connected on COM3 can be used to verify the following:
+
 **Status:** Proposal for review. No source code has been changed.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
 **Goal:** Improve maintainability, acquisition reliability, recording integrity, synchronization, and operator usability without discarding the validated BrainFlow/board behavior.

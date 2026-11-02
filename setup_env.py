@@ -5,7 +5,8 @@ Run this once after installing the packages in ``requirements.txt``::
     .venv\\Scripts\\python.exe setup_env.py
 
 It tells pyqtgraph to use PyQt5 (the GUI toolkit this application is built
-with) and checks that the main packages can be imported.
+with) and checks that the main packages can be imported. BrainFlow is bundled
+in the repository's ``brainflow`` folder, so it is not installed separately.
 """
 import os
 import sys
@@ -23,10 +24,10 @@ LINES = [
 ]
 
 
-def brainflow_version():
+def brainflow_location():
     try:
-        import importlib.metadata as metadata
-        return metadata.version("brainflow")
+        import brainflow
+        return os.path.dirname(os.path.abspath(brainflow.__file__))
     except Exception:  # noqa: BLE001
         return None
 
@@ -59,7 +60,8 @@ def main(argv):
     except Exception as exc:  # noqa: BLE001
         checks.append("brainflow MISSING (%s)" % exc)
     else:
-        checks.append("brainflow %s" % (brainflow_version() or "?"))
+        location = brainflow_location() or "?"
+        checks.append("brainflow bundled at %s" % location)
     try:
         import pyperclip  # noqa: F401
     except Exception:  # noqa: BLE001
