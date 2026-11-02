@@ -57,8 +57,6 @@ class WifiConnectWorker(QtCore.QThread):
                 board.config_board('~6')
                 time.sleep(0.1)
                 response = board.config_board('v')
-                if self.channel_num == 16:
-                    board.config_board(chr(34) + ',')
                 self.succeeded.emit(board, response)
                 return
             except Exception as exc:  # noqa: BLE001 - retried, then surfaced

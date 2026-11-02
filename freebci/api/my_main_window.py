@@ -1150,9 +1150,19 @@ class MyMainWindow(MainWindowInterface):
                 output_root=self.myRecording.doc_path,
                 channel_count=self._chan,
             )
+            # A 16-channel Wi-Fi board resets to 8-channel interleaved frames
+            # when its stream starts, so switch it after start_stream().
+            post_start_config = ()
+            if self.connect_info.connect_type == 1 and self._chan == 16:
+                post_start_config = (chr(34) + ',',)
             self.session_controller = SessionController(
                 config,
-                BrainFlowGateway(self.board, self.connect_info.board_id, self._chan),
+                BrainFlowGateway(
+                    self.board,
+                    self.connect_info.board_id,
+                    self._chan,
+                    post_start_config=post_start_config,
+                ),
             )
             self.session_controller.start()
             self.control_server = ControlServer(

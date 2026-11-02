@@ -6,7 +6,7 @@ The core depends on this small surface rather than on a BrainFlow
 """
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Iterable, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -36,17 +36,30 @@ class BrainFlowGateway:
     worker and the session controller.
     """
 
-    def __init__(self, board: Any, board_id: int, channel_count: int) -> None:
+    def __init__(
+        self,
+        board: Any,
+        board_id: int,
+        channel_count: int,
+        post_start_config: Iterable[str] = (),
+    ) -> None:
         if board is None:
             raise GatewayError("no prepared BrainFlow board was supplied")
         self._board = board
         self.board_id = int(board_id)
         self.channel_count = int(channel_count)
+        self.post_start_config = tuple(post_start_config)
 
     def start_stream(self) -> None:
         try:
             self._board.start_stream()
+            for command in self.post_start_config:
+                self._board.config_board(command)
         except Exception as exc:  # noqa: BLE001 - SDK exception surface is broad
+            try:
+                self._board.stop_stream()
+            except Exception:  # noqa: BLE001 - already failing
+                pass
             raise GatewayError("could not start the board stream: %s" % exc) from exc
 
     def stop_stream(self) -> None:

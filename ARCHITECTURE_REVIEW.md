@@ -1604,7 +1604,7 @@ Each PR should be independently testable and reversible. Keep the legacy path be
 
 | File/area | Phase | Change |
 |---|---|---|
-| `requirements.txt`, `pyproject.toml` | 0 | Add `brainflow`; remove unused; package metadata |
+| `requirements.txt`, `pyproject.toml` | 0 | Remove unused entries; BrainFlow stays vendored and is not installed from PyPI |
 | `tests/`, `tools/bench_pipeline.py` | 0 | Fake gateway, unit/integration tests, benchmarks |
 | `freebci/core/models.py` | 1 | DTOs, state enum |
 | `freebci/core/recording.py`, `freebci/api/my_recording.py` | 1 | Writer thread, manifest, sidecars; keep compatibility wrapper |
@@ -1646,4 +1646,4 @@ Runtime probe (offscreen, no hardware): startup menu 20 families, `isSessionOn=T
 
 ---
 
-*This document began as the reconstruction plan. Implementation is now in progress: the core, session recording, GUI integration, and local control plane are landed. Remaining phases should proceed through the gates in Section K.*
+*This document began as the reconstruction plan. Implementation is in progress: the core, session recording, GUI integration, local control plane, three-stream LSL output, and stalled-acquisition diagnostics are landed. The real FreeBCI-WiFi-16-I (`2038`) was verified over Wi-Fi at 250 Hz with 16 channels and a completed recording; its 16-channel synchronous mode must be selected after `start_stream()`. Remaining phases should proceed through the gates in Section K.*

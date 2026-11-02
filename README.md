@@ -35,7 +35,7 @@ remaining entries as implemented paths, not guarantees.
 | Configuration | Transport | Status | Notes |
 | --- | --- | --- | --- |
 | FreeBCI-WiFi-16-I (`2037`) | USB serial | Verified | CH343 port, 16 channels, 2 Mbaud; acquisition, CSV/TXT recording, and manifest verified |
-| FreeBCI-WiFi-16-I (`2038`) | Wi-Fi | Control plane verified; sample stream pending | Board connects and accepts `/stream/start`, but the tested unit sent no sample bytes over TCP |
+| FreeBCI-WiFi-16-I (`2038`) | Wi-Fi | Verified | Board AP, 16 channels at 250 Hz; acquisition, CSV/TXT recording, and manifest verified. The 16-channel synchronous mode is selected after the stream starts |
 | FreeBCI-BT-8/16 | Bluetooth serial | Implemented, not hardware-tested | Worker and dialog are in place; requires a paired outgoing COM port |
 | FreeBCI-USB high-speed | USB Serial Converter | Implemented, not hardware-tested | Uses the board's high-speed interface rather than a COM port |
 | 24-, 32-, and 64-channel boards | USB serial / Wi-Fi | Implemented, not hardware-tested | Channel counts and layouts are supported by the same core |
@@ -129,6 +129,10 @@ model submenu offers the connection methods that model supports.
 
 `SEARCH` uses UPnP. If the board is not found, type its IP address and port
 manually. VPN software and restrictive firewalls can block discovery.
+
+For a 16-channel Wi-Fi board, the application selects 16-channel synchronous
+sampling automatically when the session starts. No manual channel-mode command
+is required.
 
 ### USB serial port
 
