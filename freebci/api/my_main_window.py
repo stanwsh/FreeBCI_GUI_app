@@ -31,6 +31,7 @@ from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
 from freebci.core.control import ControlServer
+from freebci.core.diagnostics import diagnostics_fields, idle_fields
 from freebci.core.gateway import BrainFlowGateway
 from freebci.core.models import BoardProfile, SessionConfig
 from freebci.core.session import SessionController
@@ -1204,34 +1205,9 @@ class MyMainWindow(MainWindowInterface):
     def diagnostics_snapshot(self):
         """Collect a read-only status snapshot for the diagnostics dialog."""
         output_root = self.myRecording.doc_path
+        lsl_summary = self._lsl_summary()
         if self.session_controller is None:
-            return {
-                'state': 'idle',
-                'session': '-',
-                'elapsed': '-',
-                'rate': '-',
-                'samples': '-',
-                'blocks': '-',
-                'lost': '-',
-                'dropped': '-',
-                'since': '-',
-                'markers': '-',
-                'files': '-',
-                'queue': '-',
-                'recording': 'not recording',
-                'output': output_root,
-                'control': 'not running',
-                'lsl': self._lsl_summary(),
-                'error': '-',
-            }
-
-        snapshot = self.session_controller.snapshot()
-        writer = self.session_controller.writer.snapshot() if self.session_controller.writer else {}
-        elapsed = float(snapshot.elapsed_seconds or 0.0)
-        rate = float(snapshot.sample_count) / elapsed if elapsed > 0 else 0.0
-        since = float(snapshot.seconds_since_block or 0.0)
-        state = snapshot.state.value
-        stalled = state == 'recording' and since >= 2.0
+            return idle_fields(output_root, lsl_summary)
 
         if self.control_server is not None:
             control = self.control_server.address
@@ -1239,29 +1215,12 @@ class MyMainWindow(MainWindowInterface):
                 control += ' | %s' % self.control_discovery_path
         else:
             control = 'not running'
-
-        return {
-            'state': state,
-            'session': snapshot.session_id or '-',
-            'elapsed': '%.1f s' % elapsed,
-            'rate': '%.1f Hz' % rate if rate else '-',
-            'samples': '{:,}'.format(snapshot.sample_count),
-            'blocks': '{:,}'.format(snapshot.blocks),
-            'lost': '{:,}'.format(snapshot.lost_samples),
-            'dropped': '{:,}'.format(snapshot.display_dropped_samples),
-            'since': '%.1f s%s' % (since, ' (stalled)' if stalled else ''),
-            'markers': '{:,}'.format(snapshot.markers),
-            'files': '{:,}'.format(writer.get('files', 0)),
-            'queue': '%d / %d' % (
-                writer.get('queue_depth', 0),
-                writer.get('queue_capacity', 0),
-            ),
-            'recording': 'recording' if state == 'recording' else state,
-            'output': snapshot.output_path or output_root,
-            'control': control,
-            'lsl': self._lsl_summary(),
-            'error': snapshot.error or '-',
-        }
+        return diagnostics_fields(
+            self.session_controller,
+            output_root,
+            control,
+            lsl_summary,
+        )
 
     def _lsl_summary(self):
         networking = getattr(self, 'myNetWidget', None)
