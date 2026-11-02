@@ -1,6 +1,10 @@
 # FreeBCI GUI: Architecture Assessment and Reconstruction Plan
 
-USER NOTES: A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode only right now]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
+USER NOTES: 
+
+- A real board broadcasting on wifi "FreeBCI-1018" can be used to verify the following, using "FreeBCI_WiFi_16_I" hardware settings preset [Wi-Fi Mode only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->Wi-Fi;Prompted IP selection window (preserve original, may need to wait for a few timeout if first connected)->select. The board server has a web interface at http://192.168.4.1/tcp http://192.168.4.1/wifi if connected to the board's AP. The board is a 16-channel Wi-Fi board with a TCP interface. [current mode of the board for wifi testing] You may prompt me to restart the device because some time it is buggy.
+
+- A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode turn on only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
 
 **Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, local control plane, fast port discovery, and background serial/Wi-Fi/Bluetooth setup are landed. A real FreeBCI_WiFi_16_I_USB board (id 2037, COM3, 16 channels, 2 Mbaud, USB mode) was verified end to end on 2026-11-02: GUI sessions record CSV/TXT/meta/manifest and finalize with `status: completed`; control-plane stop returns the GUI to idle. The remaining hardware acceptance work is a full matrix run, not a correctness gap in the USB path. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild, blocking connections) are already addressed in the implementation commits.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
@@ -21,7 +25,7 @@ USER NOTES: A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be us
 - `b60ce40` — Wi-Fi discovery and board preparation moved into workers; device buttons now select the correct IP.
 - `a001243` — Bluetooth preparation moved into a worker; editable baud rate is honored.
 
-Still intentionally open from the roadmap: LSL streams 2/3 and FFT/band-power LSL types are not implemented, a full hardware acceptance matrix (Wi-Fi and Bluetooth transports, 8/24/32/64-channel boards) has not been run, and the GUI still needs the consolidated diagnostics/timestamp surface from Phases 4–5.
+Still intentionally open from the roadmap: real Wi-Fi transport verification (the test board's AP disappeared after a configuration POST and needs a power-cycle), a full hardware acceptance matrix (Wi-Fi and Bluetooth transports, 8/24/32/64-channel boards), and the consolidated diagnostics/timestamp surface from Phases 4–5. LSL now supports three Time Series streams; the unimplemented FFT and Band Power LSL types were removed from the UI.
 
 ---
 

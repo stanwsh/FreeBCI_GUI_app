@@ -367,6 +367,9 @@ class MynetWidget(QtWidgets.QWidget):
         self.lslTypeComboBox3.setItemText(1, _translate('MainWindow', 'Time Series'))
         self.lslTypeComboBox3.setItemText(2, _translate('MainWindow', 'FFT'))
         self.lslTypeComboBox3.setItemText(3, _translate('MainWindow', 'Band Power'))
+        for combo in (self.lslTypeComboBox1, self.lslTypeComboBox2, self.lslTypeComboBox3):
+            combo.removeItem(3)
+            combo.removeItem(2)
         self.lslTypeEdit2.setText(_translate('MainWindow', 'EEG'))
         self.filterButton3.setText(_translate('MainWindow', 'off'))
         self.label_16.setText(_translate('MainWindow', 'Filters'))

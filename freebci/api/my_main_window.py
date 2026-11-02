@@ -686,29 +686,22 @@ class MyMainWindow(MainWindowInterface):
                 self.myLogger.write('start lsl stream...')
                 self.myNetWidget.startLSLButton.setText(' Stop ')
                 self.myNetWidget.startLSLButton.setStyleSheet('font: 12pt "黑体";background-color:red')
-                if self.myNetWidget.LSLdataType1 != 'None':
-                    self.LSLstreamer1 = QtCore.QTimer()
-                    self.LSLstreamer1.timeout.connect(self.sendLSLStream)
-                    self.LSLstreamer1.start(10)
-                if self.myNetWidget.LSLdataType2 != 'None':
-                    self.LSLstreamer2 = QtCore.QTimer()
-                    self.LSLstreamer2.timeout.connect(self.sendLSLStream)
-                    self.LSLstreamer2.start(10)
-                if self.myNetWidget.LSLdataType3 != 'None':
-                    self.LSLstreamer3 = QtCore.QTimer()
-                    self.LSLstreamer3.timeout.connect(self.sendLSLStream)
-                    self.LSLstreamer3.start(10)
+                for index in (1, 2, 3):
+                    if getattr(self.myNetWidget, 'LSLdataType%d' % index) != 'None':
+                        streamer = QtCore.QTimer()
+                        streamer.timeout.connect(partial(self.sendLSLStream, index))
+                        streamer.start(10)
+                        setattr(self, 'LSLstreamer%d' % index, streamer)
             else:
                 self.startLSLButton_isclicked = False
                 self.myLogger.write('close lsl stream.')
                 self.myNetWidget.startLSLButton.setText('Start LSL Stream')
                 self.myNetWidget.startLSLButton.setStyleSheet('font: 12pt "等线"; background-color: rgb(204,255,153)')
-                if self.myNetWidget.LSLdataType1 != 'None':
-                    self.LSLstreamer1.stop()
-                if self.myNetWidget.LSLdataType2 != 'None':
-                    self.LSLstreamer2.stop()
-                if self.myNetWidget.LSLdataType3 != 'None':
-                    self.LSLstreamer3.stop()
+                for index in (1, 2, 3):
+                    streamer = getattr(self, 'LSLstreamer%d' % index, None)
+                    if streamer is not None:
+                        streamer.stop()
+                        setattr(self, 'LSLstreamer%d' % index, None)
         except Exception as ex:
             self.myLogger.write('LSL run error! ')
             logging.exception(ex)
@@ -780,15 +773,19 @@ class MyMainWindow(MainWindowInterface):
         self.stateLabel.setText('Error: Please check connection!')
         self.myLogger.write('Data stream stopped.')
 
-    def sendLSLStream(self):
+    def sendLSLStream(self, index):
         try:
-            if self.LSLnewDataLen > 0:
-                for sample_ix in range(self.LSLnewDataLen):
-                    mysample = self.LSLbufferData1[sample_ix]
-                    self.myNetWidget.LSLoutlet1.push_sample(mysample)
-                self.LSLnewDataLen = 0
+            buffer_name = 'LSLbufferData%d' % index
+            outlet_name = 'LSLoutlet%d' % index
+            samples = getattr(self, buffer_name)
+            outlet = getattr(self.myNetWidget, outlet_name, None)
+            if samples is None or len(samples) == 0 or outlet is None:
+                return
+            for sample in samples:
+                outlet.push_sample(sample)
+            setattr(self, buffer_name, [])
         except Exception as ex:
-            self.myLogger.write('send LSL stream error!  ')
+            self.myLogger.write('send LSL stream error!  ' + repr(ex))
             logging.exception(ex)
 
     def notch_filter(self, val, data, fs):
@@ -1250,13 +1247,10 @@ class MyMainWindow(MainWindowInterface):
             else:
                 self.stop_count -= 1
             if self.startLSLButton_isclicked == True:
-                if self.myNetWidget.LSLdataType1 == 'Time Series':
-                    self.LSLbufferData1 = buffer_data[1:self._chan + 1].T
-                elif self.myNetWidget.LSLdataType1 == 'FFT':
-                    pass
-                elif self.myNetWidget.LSLdataType1 == 'Band Power':
-                    pass
-                self.LSLnewDataLen = self.new_data_len
+                lsl_values = buffer_data[1:self._chan + 1].T
+                for index in (1, 2, 3):
+                    if getattr(self.myNetWidget, 'LSLdataType%d' % index) == 'Time Series':
+                        setattr(self, 'LSLbufferData%d' % index, lsl_values.copy())
             self.new_data_len = 0
             self.checkFlag = 0
             if self.data.shape[1] == 1:

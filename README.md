@@ -239,17 +239,19 @@ apply the change, then click **Start Session**.
 
 ## LSL output
 
-The **Networking** view can publish the incoming signal as a Lab Streaming Layer
-(LSL) stream, so other software can record or process it at the same time.
+The **Networking** view can publish up to three Lab Streaming Layer (LSL)
+streams, so other software can record or process the incoming signal at the
+same time.
 
 1. Open the **Networking** view.
-2. In the first stream row, set the stream name, for example `FreeBCI_EEG1`.
-3. Set **Data Type** to **Time Series**.
+2. For each stream you want, set the stream name, for example `FreeBCI_EEG1`.
+3. Set **Data Type** to **Time Series**. Leave a row at **None** to disable it.
 4. Set the stream **Type** (the default `EEG` is suitable for EEG data).
-5. Click **Start LSL Stream**. Click **Stop** to end it.
+5. Click **Start LSL Stream**. Click **Stop** to end all streams.
 
-The stream then appears in LSL-aware applications such as LabRecorder, OpenViBE,
-or MNE.
+Each enabled row publishes the same current signal under its own stream name.
+The streams appear in LSL-aware applications such as LabRecorder, OpenViBE, or
+MNE.
 
 ## Recording
 

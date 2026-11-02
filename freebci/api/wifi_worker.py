@@ -45,23 +45,30 @@ class WifiConnectWorker(QtCore.QThread):
 
     def run(self):
         board = None
-        try:
-            params = BrainFlowInputParams()
-            params.ip_address = self.ip_address
-            params.ip_port = self.ip_port
-            params.timeout = 3
-            board = BoardShim(self.board_id, params)
-            board.prepare_session()
-            board.config_board('~6')
-            time.sleep(0.1)
-            response = board.config_board('v')
-            if self.channel_num == 16:
-                board.config_board(chr(34) + ',')
-            self.succeeded.emit(board, response)
-        except Exception as exc:  # noqa: BLE001 - surfaced in the dialog
-            if board is not None:
-                try:
-                    board.release_session()
-                except Exception:
-                    pass
-            self.failed.emit(str(exc))
+        last_error = ""
+        for attempt in range(3):
+            try:
+                params = BrainFlowInputParams()
+                params.ip_address = self.ip_address
+                params.ip_port = self.ip_port
+                params.timeout = 5
+                board = BoardShim(self.board_id, params)
+                board.prepare_session()
+                board.config_board('~6')
+                time.sleep(0.1)
+                response = board.config_board('v')
+                if self.channel_num == 16:
+                    board.config_board(chr(34) + ',')
+                self.succeeded.emit(board, response)
+                return
+            except Exception as exc:  # noqa: BLE001 - retried, then surfaced
+                last_error = str(exc)
+                if board is not None:
+                    try:
+                        board.release_session()
+                    except Exception:
+                        pass
+                board = None
+                if attempt < 2:
+                    time.sleep(1.0)
+        self.failed.emit(last_error)
