@@ -57,9 +57,12 @@ class RecordingWriter:
         self.samples_written = 0
         self.files: List[dict] = []
         self.gaps: List[dict] = []
+        self.markers: List[dict] = []
+        self.markers_path: Optional[str] = None
         self.lost_samples = 0
         self._errors: List[str] = []
         self._next_sample_index: Optional[int] = None
+        self._marker_lock = threading.Lock()
 
         self._file_number = 1
         self._handle_txt = None
@@ -78,6 +81,9 @@ class RecordingWriter:
             return self.session_dir or ""
         os.makedirs(self.record_root, exist_ok=True)
         self.session_dir = self._make_session_dir()
+        self.markers_path = os.path.join(self.session_dir, "markers.jsonl")
+        with open(self.markers_path, "w", encoding="utf-8", newline="\n"):
+            pass
         self._started_ns = self.config.started_wall_ns or _wall_ns()
         self._last_checkpoint = time.monotonic()
         self._write_manifest(SessionStatus.RECORDING)
@@ -118,6 +124,42 @@ class RecordingWriter:
             self._errors.append(self.error)
             raise RecordingError(self.error) from exc
 
+    def add_marker(
+        self,
+        label: str,
+        source: str = "api",
+        sample_index: int = 0,
+        elapsed_seconds: float = 0.0,
+    ) -> dict:
+        """Append a marker without blocking acquisition.
+
+        Markers are written immediately to ``markers.jsonl`` so they survive a
+        crash, then included in the next manifest checkpoint.  The sample index
+        is the number of samples received when the marker was requested; it is
+        a session-relative offset, not a hardware timestamp.
+        """
+        if not self.session_dir or not self.markers_path:
+            raise RecordingError("recording has not started")
+        text = " ".join(str(label or "").split())[:500] or "marker"
+        marker = {
+            "label": text,
+            "source": str(source or "api")[:40],
+            "sample_index": max(0, int(sample_index)),
+            "elapsed_seconds": round(max(0.0, float(elapsed_seconds)), 6),
+            "wall_time": _iso(time.time_ns()),
+        }
+        line = json.dumps(marker, sort_keys=True) + "\n"
+        try:
+            with open(self.markers_path, "a", encoding="utf-8", newline="\n") as handle:
+                handle.write(line)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except OSError as exc:
+            raise RecordingError("could not write marker: %s" % exc) from exc
+        with self._marker_lock:
+            self.markers.append(marker)
+        return marker
+
     def close(self, status: SessionStatus = SessionStatus.COMPLETED) -> str:
         """Flush remaining data, stop the writer, and write the manifest."""
         if self._closed:
@@ -139,6 +181,8 @@ class RecordingWriter:
             self._thread.join(timeout=timeout)
 
     def snapshot(self) -> dict:
+        with self._marker_lock:
+            marker_count = len(self.markers)
         return {
             "session_dir": self.session_dir,
             "blocks": self.blocks_received,
@@ -146,7 +190,10 @@ class RecordingWriter:
             "written": self.samples_written,
             "files": len(self.files),
             "gaps": len(self.gaps),
+            "markers": marker_count,
             "lost_samples": self.lost_samples,
+            "queue_depth": self._queue.qsize(),
+            "queue_capacity": self._queue.maxsize,
             "error": self.error,
         }
 
@@ -327,6 +374,8 @@ class RecordingWriter:
             return
         if self.error:
             status = SessionStatus.FAILED
+        with self._marker_lock:
+            markers = list(self.markers)
         manifest = {
             "schema_version": 1,
             "session_id": self.config.session_id,
@@ -340,6 +389,7 @@ class RecordingWriter:
             "blocks_received": self.blocks_received,
             "lost_samples": self.lost_samples,
             "gaps": self.gaps,
+            "markers": markers,
             "files": self.files,
             "errors": self._errors,
         }

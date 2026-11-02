@@ -17,6 +17,7 @@ from freebci.design.main_window_interface import MainWindowInterface
 from freebci.api.my_hardware_settings import MyHardwareSettings
 from freebci.api.my_channels_electrodes_settings import MyChannels_electrodes_Settings
 from freebci.api.my_wifi_connection import MyWifiConnection
+from freebci.api.my_diagnostics import MyDiagnostics
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.my_electrodes_position import ElectrodesPosition
 from freebci.api.my_serial_connection import MySerialConnection
@@ -71,6 +72,7 @@ class MyMainWindow(MainWindowInterface):
         self.board = None
         self.session_controller = None
         self.control_server = None
+        self.control_discovery_path = None
         self.startButton_isclicked = False
         self.startLSLButton_isclicked = False
         self.checkFlag = 0
@@ -110,6 +112,15 @@ class MyMainWindow(MainWindowInterface):
         self.actionHelp.triggered.connect(self.help_click)
         self.startButton.clicked.connect(self.startButton_click)
         self.actionOpen.triggered.connect(self.open_click)
+        self.actionMarker = QtWidgets.QAction('Add Marker', self)
+        self.actionMarker.setShortcut('Ctrl+M')
+        self.actionMarker.triggered.connect(self.marker_click)
+        self.menu_2.addAction(self.actionMarker)
+        self.actionDiagnostics = QtWidgets.QAction('Session Diagnostics...', self)
+        self.actionDiagnostics.setShortcut('Ctrl+D')
+        self.actionDiagnostics.triggered.connect(self.diagnostics_click)
+        self.menu_2.addAction(self.actionDiagnostics)
+        self.diagnostics_window = None
         for i in range(self._chan):
             self.myTimeSeries.my_plot_widgets[i].channelButton.clicked.connect(partial(self.channelButtons_click, i))
             self.myTimeSeries.my_plot_widgets[i].resistancePushButton.clicked.connect(partial(self.resistancePushButtons_click, i))
@@ -1126,6 +1137,105 @@ class MyMainWindow(MainWindowInterface):
         self.stateLabel.setText('Data stream stopped by control client.')
         self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
 
+    def marker_click(self):
+        if self.session_controller is None:
+            self.stateLabel.setText('Start a session before adding a marker.')
+            return
+        try:
+            marker = self.session_controller.add_marker('manual', source='gui')
+        except Exception as ex:
+            self.myLogger.write('WARNNING: could not add marker: %s' % ex)
+            self.stateLabel.setText('Could not add marker.')
+            return
+        self.stateLabel.setText(
+            'Marker at sample %d.' % marker['sample_index']
+        )
+
+    def diagnostics_click(self):
+        if self.diagnostics_window is not None and self.diagnostics_window.isVisible():
+            self.diagnostics_window.raise_()
+            self.diagnostics_window.activateWindow()
+            return
+        self.diagnostics_window = MyDiagnostics(self.diagnostics_snapshot, self)
+        self.diagnostics_window.show()
+
+    def diagnostics_snapshot(self):
+        """Collect a read-only status snapshot for the diagnostics dialog."""
+        output_root = self.myRecording.doc_path
+        if self.session_controller is None:
+            return {
+                'state': 'idle',
+                'session': '-',
+                'elapsed': '-',
+                'rate': '-',
+                'samples': '-',
+                'blocks': '-',
+                'lost': '-',
+                'dropped': '-',
+                'since': '-',
+                'markers': '-',
+                'files': '-',
+                'queue': '-',
+                'recording': 'not recording',
+                'output': output_root,
+                'control': 'not running',
+                'lsl': self._lsl_summary(),
+                'error': '-',
+            }
+
+        snapshot = self.session_controller.snapshot()
+        writer = self.session_controller.writer.snapshot() if self.session_controller.writer else {}
+        elapsed = float(snapshot.elapsed_seconds or 0.0)
+        rate = float(snapshot.sample_count) / elapsed if elapsed > 0 else 0.0
+        since = float(snapshot.seconds_since_block or 0.0)
+        state = snapshot.state.value
+        stalled = state == 'recording' and since >= 2.0
+
+        if self.control_server is not None:
+            control = self.control_server.address
+            if self.control_discovery_path:
+                control += ' | %s' % self.control_discovery_path
+        else:
+            control = 'not running'
+
+        return {
+            'state': state,
+            'session': snapshot.session_id or '-',
+            'elapsed': '%.1f s' % elapsed,
+            'rate': '%.1f Hz' % rate if rate else '-',
+            'samples': '{:,}'.format(snapshot.sample_count),
+            'blocks': '{:,}'.format(snapshot.blocks),
+            'lost': '{:,}'.format(snapshot.lost_samples),
+            'dropped': '{:,}'.format(snapshot.display_dropped_samples),
+            'since': '%.1f s%s' % (since, ' (stalled)' if stalled else ''),
+            'markers': '{:,}'.format(snapshot.markers),
+            'files': '{:,}'.format(writer.get('files', 0)),
+            'queue': '%d / %d' % (
+                writer.get('queue_depth', 0),
+                writer.get('queue_capacity', 0),
+            ),
+            'recording': 'recording' if state == 'recording' else state,
+            'output': snapshot.output_path or output_root,
+            'control': control,
+            'lsl': self._lsl_summary(),
+            'error': snapshot.error or '-',
+        }
+
+    def _lsl_summary(self):
+        networking = getattr(self, 'myNetWidget', None)
+        if networking is None:
+            return 'not available'
+        running = []
+        for index in (1, 2, 3):
+            data_type = getattr(networking, 'LSLdataType%d' % index, '')
+            if data_type not in ('Time Series', 'FFT', 'Band Power'):
+                continue
+            streamer = getattr(self, 'LSLstreamer%d' % index, None)
+            state = 'running' if streamer is not None and streamer.isActive() else 'stopped'
+            name = getattr(networking, 'LSLname%d' % index, 'Stream %d' % index)
+            running.append('%s (%s, %s)' % (name, data_type, state))
+        return '; '.join(running) if running else 'none configured'
+
     def start_openbci(self):
         try:
             time.sleep(0.2)
@@ -1170,12 +1280,20 @@ class MyMainWindow(MainWindowInterface):
                 stop_callback=self._request_control_stop,
             )
             self.control_server.start()
+            self.control_discovery_path = os.path.join(
+                self.myRecording.doc_path, 'control.json'
+            )
+            self.control_server.write_discovery(self.control_discovery_path)
             self.myLogger.write(
                 'FreeBCI: session recording started at ' + self.session_controller.output_path
             )
             self.myLogger.write(
-                'FreeBCI: control API %s token %s'
-                % (self.control_server.address, self.control_server.token)
+                'FreeBCI: control API %s token %s (discovery %s)'
+                % (
+                    self.control_server.address,
+                    self.control_server.token,
+                    self.control_discovery_path,
+                )
             )
         except Exception as ex:
             self.myLogger.write('WARNNING: could not start board.')
@@ -1185,6 +1303,7 @@ class MyMainWindow(MainWindowInterface):
                 except Exception:
                     pass
                 self.control_server = None
+            self._remove_control_discovery()
             if self.session_controller is not None:
                 try:
                     self.session_controller.stop()
@@ -1193,12 +1312,19 @@ class MyMainWindow(MainWindowInterface):
                 self.session_controller = None
             raise ex
 
+    def _remove_control_discovery(self):
+        path = self.control_discovery_path
+        self.control_discovery_path = None
+        if path:
+            ControlServer.remove_discovery(path)
+
     def stop_openbci(self):
         try:
             self.LSLnewDataLen = 0
             if self.control_server is not None:
                 self.control_server.stop()
                 self.control_server = None
+            self._remove_control_discovery()
             if self.session_controller is not None:
                 status = self.session_controller.stop()
                 self.myLogger.write('FreeBCI: session stopped with status %s' % status.value)

@@ -44,6 +44,7 @@ class ControlPlaneTest(unittest.TestCase):
             self.assertIn(status["state"], ("recording", "stopping", "finalized"))
             self.assertEqual(status["channel_count"], 4)
             self.assertEqual(status["sample_count"], 3000)
+            self.assertGreater(status["elapsed_seconds"], 0.0)
             self.assertGreaterEqual(status["seconds_since_block"], 0.0)
             self.assertEqual(client.stop(), "completed")
             self.assertEqual(controller.snapshot().state.value, "finalized")
@@ -68,6 +69,30 @@ class ControlPlaneTest(unittest.TestCase):
         finally:
             server.stop()
             controller.stop()
+
+    def test_marker_and_discovery_file(self):
+        controller = self._controller()
+        controller.start()
+        server = ControlServer(controller, token="test-token")
+        server.start()
+        discovery = os.path.join(self.root, "control.json")
+        try:
+            server.write_discovery(discovery)
+            client = ControlClient.from_discovery(discovery)
+            self.assertTrue(client.ping())
+            self.assertEqual(client.status()["markers"], 0)
+            marker = client.marker("event")
+            self.assertEqual(marker["label"], "event")
+            self.assertEqual(marker["source"], "control")
+            self.assertEqual(client.status()["markers"], 1)
+            self.assertEqual(controller.snapshot().markers, 1)
+        finally:
+            controller.stop()
+            server.stop()
+            ControlServer.remove_discovery(discovery)
+        self.assertFalse(os.path.exists(discovery))
+        with self.assertRaises(ControlError):
+            ControlClient.from_discovery(discovery)
 
     def test_wrong_token_is_rejected(self):
         controller = self._controller()

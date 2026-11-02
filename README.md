@@ -299,6 +299,7 @@ logs\
       1.txt
       1.meta.json
       manifest.json
+      markers.jsonl
       2.csv
       2.txt
       2.meta.json
@@ -313,6 +314,28 @@ whole session and is finalized when the session stops. It is also written at
 session start and refreshed every few seconds, so an interrupted session leaves
 a manifest with `status: recording` instead of no metadata. It records
 `lost_samples` and a `gaps` list if the board skipped samples.
+
+### Markers
+
+Press **Ctrl+M** or choose **File > Add Marker** while a session is active to
+record a manual marker. Each marker stores the session-relative sample offset,
+elapsed time, and wall-clock time. Markers are appended immediately to
+`markers.jsonl` and also included in `manifest.json`, so they survive an
+interrupted session. External software can add labeled markers through the
+control API described below.
+
+The sample offset is the number of samples received when the marker was
+requested. It is not a hardware trigger timestamp.
+
+### Session diagnostics
+
+Press **Ctrl+D** or choose **File > Session Diagnostics...** to open a live
+status window. It shows the session state, effective sample rate, sample and
+block counts, lost samples, display drops, time since the last block, marker
+count, writer queue depth, recorded file count, output folder, control endpoint,
+and active LSL streams. A growing "Since last block" value warns that the board
+has stopped delivering data. **Copy summary** puts the same information on the
+clipboard for a bug report.
 
 ### CSV files
 
@@ -362,26 +385,34 @@ reachable from the same computer and requires the random token printed in the
 Terminal log when the session starts:
 
 ```text
-FreeBCI: control API tcp://127.0.0.1:54321 token ...
+FreeBCI: control API tcp://127.0.0.1:54321 token ... (discovery ...\control.json)
 ```
 
-Use it from another Python process to read status or stop the recording:
+The same endpoint is written to `control.json` in the FreeBCI data folder while
+the session is active; the file is removed when the session stops. Treat it as
+a secret because it contains the token.
+
+Use it from another Python process to read status, add a marker, or stop the
+recording:
 
 ```python
 from freebci.core import ControlClient
 
-client = ControlClient("127.0.0.1", 54321, "the-token-from-the-log")
+client = ControlClient.from_discovery(r"logs\control.json")
 print(client.status())
+client.marker("stimulus on")
 client.stop()
 ```
 
 `stop()` asks the GUI to stop and returns `"stop_requested"`; the session
-finalizes on the next GUI event. `status()` returns the session state, sample
-and block counts, elapsed time, display-drop count, lost-sample count, the time
-since the last received block, error text, and output path. A growing
-`seconds_since_block` while the session is recording usually means the board or
-its transport has stopped delivering samples. The API is a control plane only;
-physiological data continues to use the CSV files and LSL.
+finalizes on the next GUI event. `marker()` records a labeled event at the
+current sample offset and returns the marker record. `status()` returns the
+session state, sample and block counts, elapsed time, display-drop count,
+lost-sample count, marker count, the time since the last received block, error
+text, and output path. A growing `seconds_since_block` while the session is
+recording usually means the board or its transport has stopped delivering
+samples. The API is a control plane only; physiological data continues to use
+the CSV files and LSL.
 
 ## Troubleshooting
 

@@ -6,6 +6,7 @@ left to the consumer.
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -116,7 +117,7 @@ class SessionStats:
     def duration_seconds(self) -> float:
         if not self.started_monotonic_ns:
             return 0.0
-        end = self.stopped_monotonic_ns or self.started_monotonic_ns
+        end = self.stopped_monotonic_ns or time.perf_counter_ns()
         return max(0.0, (end - self.started_monotonic_ns) / 1_000_000_000)
 
 
@@ -132,5 +133,6 @@ class StateSnapshot:
     display_dropped_samples: int
     lost_samples: int = 0
     seconds_since_block: float = 0.0
+    markers: int = 0
     error: Optional[str] = None
     output_path: str = ""

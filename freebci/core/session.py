@@ -121,6 +121,25 @@ class SessionController:
         if self.acquisition is not None:
             self.acquisition._stop.set()
 
+    def add_marker(self, label: str, source: str = "api") -> dict:
+        """Record an event at the current session sample offset."""
+        with self._lock:
+            if self.state not in (SessionState.ARMED, SessionState.RECORDING):
+                raise RuntimeError(
+                    "cannot add a marker while the session is %s" % self.state.value
+                )
+            writer = self.writer
+            if writer is None:
+                raise RuntimeError("session has no recording writer")
+            sample_index = self.stats.samples
+            elapsed = self.clock.elapsed_seconds()
+        return writer.add_marker(
+            label,
+            source=source,
+            sample_index=sample_index,
+            elapsed_seconds=elapsed,
+        )
+
     def _on_block(self, block: SampleBlock) -> None:
         self.stats.blocks += 1
         self.stats.samples += block.sample_count
@@ -163,6 +182,8 @@ class SessionController:
         now_ns = time.perf_counter_ns()
         reference_ns = self.stats.last_block_monotonic_ns or self.stats.started_monotonic_ns
         since_block = (now_ns - reference_ns) / 1_000_000_000 if reference_ns else 0.0
+        writer = self.writer
+        writer_snapshot = writer.snapshot() if writer is not None else {}
         return StateSnapshot(
             state=self.state,
             session_id=self.config.session_id,
@@ -170,8 +191,9 @@ class SessionController:
             blocks=self.stats.blocks,
             elapsed_seconds=self.stats.duration_seconds,
             display_dropped_samples=self.stats.display_dropped_samples,
-            lost_samples=self.writer.lost_samples if self.writer is not None else 0,
+            lost_samples=writer.lost_samples if writer is not None else 0,
             seconds_since_block=max(0.0, since_block),
-            error=self.error or (self.writer.error if self.writer is not None else None),
+            markers=int(writer_snapshot.get("markers", 0)),
+            error=self.error or (writer.error if writer is not None else None),
             output_path=self._output_path,
         )

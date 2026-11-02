@@ -6,7 +6,7 @@ USER NOTES:
 
 - A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode turn on only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
 
-**Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, local control plane, fast port discovery, and background serial/Wi-Fi/Bluetooth setup are landed. A real FreeBCI_WiFi_16_I_USB board (id 2037, COM3, 16 channels, 2 Mbaud, USB mode) was verified end to end on 2026-11-02: GUI sessions record CSV/TXT/meta/manifest and finalize with `status: completed`; control-plane stop returns the GUI to idle. The remaining hardware acceptance work is a full matrix run, not a correctness gap in the USB path. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild, blocking connections) are already addressed in the implementation commits.
+**Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, local control plane, fast port discovery, background serial/Wi-Fi/Bluetooth setup, three-stream LSL output, stalled-acquisition diagnostics, and the redesigned Wi-Fi connector are landed. Real FreeBCI_WiFi_16_I boards were verified on 2026-11-02 in both USB mode (id 2037, COM3, 16 channels, 2 Mbaud) and Wi-Fi mode (id 2038, 192.168.4.1, 16 channels): GUI sessions record CSV/TXT/meta/manifest and finalize with `status: completed`; control-plane stop returns the GUI to idle. The remaining hardware acceptance work is the full transport/channel matrix and long-duration soak, not a correctness gap in the verified paths. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild, blocking connections) are already addressed in the implementation commits.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
 **Goal:** Improve maintainability, acquisition reliability, recording integrity, synchronization, and operator usability without discarding the validated BrainFlow/board behavior.
 
@@ -25,8 +25,13 @@ USER NOTES:
 - `b60ce40` — Wi-Fi discovery and board preparation moved into workers; device buttons now select the correct IP.
 - `a001243` — Bluetooth preparation moved into a worker; editable baud rate is honored.
 - `3169531` — three independent Time Series LSL streams; unimplemented FFT/Band Power choices removed; Wi-Fi setup retries first-connection timeouts.
+- `6a326d2` — Wi-Fi 16-channel mode selected after `start_stream()`; real Wi-Fi session verified end to end.
+- `364ce73`, `375b126`, `76c260c` — Wi-Fi connector redesigned around board discovery, Wi-Fi status, and a detected-board list; README screenshot added.
+- `ab02570` — stalled-acquisition and lost-sample status; `6a1ebcb` — tested-hardware matrix and control diagnostics.
+- Session markers: Ctrl+M / File > Add Marker, `markers.jsonl`, manifest markers, control `marker` command, and `control.json` discovery file.
+- Session diagnostics: Ctrl+D / File > Session Diagnostics..., live state, rate, integrity, writer queue, markers, LSL, and control endpoint.
 
-Still intentionally open from the roadmap: real Wi-Fi transport verification (the board's AP is reachable again and BrainFlow prepares/starts the session, but the board sends zero TCP bytes; a physical power-cycle is the next step), a full hardware acceptance matrix (Wi-Fi and Bluetooth transports, 8/24/32/64-channel boards), and the consolidated diagnostics/timestamp surface from Phases 4–5. LSL now supports three Time Series streams.
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), long-duration soak/fault-injection tests, the view-model refactor, a control-plane start/shutdown command, and packaging/benchmark tooling. LSL supports three Time Series streams.
 
 ---
 

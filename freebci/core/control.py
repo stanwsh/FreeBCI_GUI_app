@@ -1,15 +1,19 @@
 """Small local control plane for a running session.
 
 The control plane is intentionally modest: a loopback TCP socket carrying
-newline-delimited JSON.  It exposes read-only status plus a stop command; it
-does not accept arbitrary board commands.  LSL remains the data plane.
+newline-delimited JSON.  It exposes read-only status, a stop command, and
+session markers; it does not accept arbitrary board commands.  LSL remains the
+data plane.
 
 Every server gets a random bearer token.  A client must present it, which keeps
-another local process from stopping a recording by accident.
+another local process from stopping a recording by accident.  A discovery file
+containing the endpoint and token can be written for scripts on the same
+machine; treat that file as a secret.
 """
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import socket
 import threading
@@ -90,6 +94,36 @@ class ControlServer:
         if thread is not None:
             thread.join(timeout=2.0)
 
+    def discovery_payload(self) -> Dict[str, Any]:
+        return {
+            "protocol": PROTOCOL_VERSION,
+            "address": self.host,
+            "port": self.port,
+            "token": self.token,
+            "session_id": self.controller.config.session_id,
+        }
+
+    def write_discovery(self, path: str) -> str:
+        """Atomically publish the endpoint for local scripts."""
+        directory = os.path.dirname(os.path.abspath(path))
+        os.makedirs(directory, exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(self.discovery_payload(), handle, indent=2, sort_keys=True)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+        return path
+
+    @staticmethod
+    def remove_discovery(path: str) -> None:
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            return
+        except OSError:
+            return
+
     def _run(self) -> None:
         while not self._stop.is_set():
             sock = self._socket
@@ -148,6 +182,12 @@ class ControlServer:
             return {"ok": True, "protocol": PROTOCOL_VERSION}
         if command == "status":
             return {"ok": True, "snapshot": _snapshot_payload(self.controller)}
+        if command == "marker":
+            label = request.get("label", "")
+            if not isinstance(label, str):
+                raise ControlError("marker label must be a string")
+            marker = self.controller.add_marker(label, source="control")
+            return {"ok": True, "marker": marker}
         if command == "stop":
             if self.stop_callback is not None:
                 self.stop_callback()
@@ -172,8 +212,10 @@ class ControlClient:
         self.token = token
         self.timeout = float(timeout)
 
-    def _request(self, command: str) -> Dict[str, Any]:
-        payload = _encode({"command": command, "token": self.token})
+    def _request(self, command: str, **fields: Any) -> Dict[str, Any]:
+        payload_fields = {"command": command, "token": self.token}
+        payload_fields.update(fields)
+        payload = _encode(payload_fields)
         try:
             with socket.create_connection((self.host, self.port), timeout=self.timeout) as sock:
                 sock.sendall(payload)
@@ -185,11 +227,29 @@ class ControlClient:
             raise ControlError(response.get("error", "control request failed"))
         return response
 
+    @classmethod
+    def from_discovery(cls, path: str) -> "ControlClient":
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ControlError("could not read control discovery file: %s" % exc) from exc
+        if payload.get("protocol") != PROTOCOL_VERSION:
+            raise ControlError("unsupported control protocol in discovery file")
+        return cls(
+            host=payload.get("address", "127.0.0.1"),
+            port=int(payload["port"]),
+            token=str(payload["token"]),
+        )
+
     def ping(self) -> bool:
         return bool(self._request("ping").get("ok"))
 
     def status(self) -> Dict[str, Any]:
         return self._request("status")["snapshot"]
+
+    def marker(self, label: str) -> Dict[str, Any]:
+        return self._request("marker", label=label)["marker"]
 
     def stop(self) -> str:
         return self._request("stop")["status"]
@@ -230,6 +290,7 @@ def _snapshot_payload(controller: SessionController) -> Dict[str, Any]:
         "display_dropped_samples": snapshot.display_dropped_samples,
         "lost_samples": snapshot.lost_samples,
         "seconds_since_block": snapshot.seconds_since_block,
+        "markers": snapshot.markers,
         "error": snapshot.error,
         "output_path": snapshot.output_path,
     }

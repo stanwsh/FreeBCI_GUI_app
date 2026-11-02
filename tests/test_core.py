@@ -74,6 +74,9 @@ class SessionControllerTest(unittest.TestCase):
         deadline = time.time() + 5
         while controller.stats.samples < 12_000 and time.time() < deadline:
             time.sleep(0.01)
+        marker = controller.add_marker("stimulus on", source="test")
+        self.assertEqual(marker["label"], "stimulus on")
+        self.assertEqual(controller.snapshot().markers, 1)
         status = controller.stop()
         self.assertEqual(status, SessionStatus.COMPLETED)
         snapshot = controller.snapshot()
@@ -93,6 +96,14 @@ class SessionControllerTest(unittest.TestCase):
         self.assertEqual(len(manifest["files"]), 1)
         self.assertEqual(manifest["files"][0]["samples"], 12_000)
         self.assertTrue(manifest["files"][0]["sha256"])
+        self.assertEqual(len(manifest["markers"]), 1)
+        self.assertEqual(manifest["markers"][0]["label"], "stimulus on")
+        self.assertEqual(manifest["markers"][0]["source"], "test")
+        markers_path = os.path.join(session_dir, "markers.jsonl")
+        with open(markers_path, encoding="utf-8") as handle:
+            marker_lines = handle.readlines()
+        self.assertEqual(len(marker_lines), 1)
+        self.assertEqual(json.loads(marker_lines[0])["label"], "stimulus on")
 
         first_csv = os.path.join(session_dir, "1.csv")
         with open(first_csv, encoding="utf-8") as handle:
