@@ -38,8 +38,9 @@ USER NOTES:
 - A 100-cycle lifecycle test verifies repeated session start/stop, worker shutdown, and finalized manifests without leaked acquisition threads.
 - Simulator pacing now generates samples from elapsed time and advances the packet counter per block; `tools/benchmark_session.py` exercises the full synthetic acquisition/recording path.
 - `.github/workflows/tests.yml` runs the dependency install and full test suite on Windows/Python 3.9 for pushes and pull requests.
+- Control API now supports `shutdown` in addition to `ping`, `status`, `marker`, and `stop`; the GUI queues shutdown onto its own thread and releases the board.
 
-Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), long-duration soak, the view-model refactor, a control-plane start/shutdown command, and application packaging (`pyproject.toml`). LSL supports three Time Series streams.
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), long-duration soak, the view-model refactor, a control-plane start command, and application packaging (`pyproject.toml`). LSL supports three Time Series streams.
 
 ---
 

@@ -427,8 +427,8 @@ The same endpoint is written to `control.json` in the FreeBCI data folder while
 the session is active; the file is removed when the session stops. Treat it as
 a secret because it contains the token.
 
-Use it from another Python process to read status, add a marker, or stop the
-recording:
+Use it from another Python process to read status, add a marker, stop the
+recording, or close the application:
 
 ```python
 from freebci.core import ControlClient
@@ -437,11 +437,13 @@ client = ControlClient.from_discovery(r"logs\control.json")
 print(client.status())
 client.marker("stimulus on")
 client.stop()
+# client.shutdown()  # close the GUI as well
 ```
 
 `stop()` asks the GUI to stop and returns `"stop_requested"`; the session
-finalizes on the next GUI event. `marker()` records a labeled event at the
-current sample offset and returns the marker record. `status()` returns the
+finalizes on the next GUI event. `shutdown()` asks the GUI to close, which also
+stops the session and releases the board. `marker()` records a labeled event at
+the current sample offset and returns the marker record. `status()` returns the
 session state, sample and block counts, elapsed time, display-drop count,
 lost-sample count, marker count, the time since the last received block, error
 text, and output path. A growing `seconds_since_block` while the session is

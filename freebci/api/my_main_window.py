@@ -1146,6 +1146,19 @@ class MyMainWindow(MainWindowInterface):
         self.stateLabel.setText('Data stream stopped by control client.')
         self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
 
+    def _request_control_shutdown(self):
+        """Queue a control-plane application shutdown onto the GUI thread."""
+        QtCore.QMetaObject.invokeMethod(
+            self,
+            '_shutdown_from_control',
+            QtCore.Qt.QueuedConnection,
+        )
+
+    @QtCore.pyqtSlot()
+    def _shutdown_from_control(self):
+        self.myLogger.write('FreeBCI: shutdown requested by control client')
+        self.close()
+
     def marker_click(self):
         if self.session_controller is None:
             self.stateLabel.setText('Start a session before adding a marker.')
@@ -1301,6 +1314,7 @@ class MyMainWindow(MainWindowInterface):
             self.control_server = ControlServer(
                 self.session_controller,
                 stop_callback=self._request_control_stop,
+                shutdown_callback=self._request_control_shutdown,
             )
             self.control_server.start()
             self.control_discovery_path = os.path.join(

@@ -94,6 +94,37 @@ class ControlPlaneTest(unittest.TestCase):
         with self.assertRaises(ControlError):
             ControlClient.from_discovery(discovery)
 
+    def test_shutdown_callback_defers_to_owner(self):
+        controller = self._controller()
+        controller.start()
+        called = []
+        server = ControlServer(
+            controller,
+            token="test-token",
+            shutdown_callback=lambda: called.append(True),
+        )
+        server.start()
+        try:
+            client = ControlClient(server.host, server.port, "test-token")
+            self.assertEqual(client.shutdown(), "shutdown_requested")
+            self.assertEqual(called, [True])
+        finally:
+            controller.stop()
+            server.stop()
+
+    def test_shutdown_without_callback_is_rejected(self):
+        controller = self._controller()
+        controller.start()
+        server = ControlServer(controller, token="test-token")
+        server.start()
+        try:
+            client = ControlClient(server.host, server.port, "test-token")
+            with self.assertRaises(ControlError):
+                client.shutdown()
+        finally:
+            controller.stop()
+            server.stop()
+
     def test_wrong_token_is_rejected(self):
         controller = self._controller()
         controller.start()

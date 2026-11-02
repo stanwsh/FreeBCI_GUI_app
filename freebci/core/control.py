@@ -45,11 +45,13 @@ class ControlServer:
         token: Optional[str] = None,
         accept_timeout: float = 0.2,
         stop_callback: Optional[Callable[[], None]] = None,
+        shutdown_callback: Optional[Callable[[], None]] = None,
     ) -> None:
         self.controller = controller
         self.host = host
         self.token = token or secrets.token_urlsafe(24)
         self.stop_callback = stop_callback
+        self.shutdown_callback = shutdown_callback
         self.accept_timeout = accept_timeout
         self.port = int(port)
         self._socket: Optional[socket.socket] = None
@@ -188,6 +190,11 @@ class ControlServer:
                 raise ControlError("marker label must be a string")
             marker = self.controller.add_marker(label, source="control")
             return {"ok": True, "marker": marker}
+        if command == "shutdown":
+            if self.shutdown_callback is None:
+                raise ControlError("shutdown is not available for this session")
+            self.shutdown_callback()
+            return {"ok": True, "status": "shutdown_requested"}
         if command == "stop":
             if self.stop_callback is not None:
                 self.stop_callback()
@@ -253,6 +260,9 @@ class ControlClient:
 
     def stop(self) -> str:
         return self._request("stop")["status"]
+
+    def shutdown(self) -> str:
+        return self._request("shutdown")["status"]
 
 
 def _read_response(sock: socket.socket) -> Dict[str, Any]:
