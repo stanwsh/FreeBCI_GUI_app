@@ -2,6 +2,8 @@
 
 USER NOTES: 
 
+
+- No BT hardware was available for testing, so the Bluetooth path is unverified. The GUI code is present and compiles, but the `my_blueTooth.py` dialog has not been exercised.
 - A real board broadcasting on wifi "FreeBCI-1018" can be used to verify the following, using "FreeBCI_WiFi_16_I" hardware settings preset [Wi-Fi Mode only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->Wi-Fi;Prompted IP selection window (preserve original, may need to wait for a few timeout if first connected)->select. The board server has a web interface at http://192.168.4.1/tcp http://192.168.4.1/wifi if connected to the board's AP. The board is a 16-channel Wi-Fi board with a TCP interface. [current mode of the board for wifi testing] You may prompt me to restart the device because some time it is buggy.
 
 - A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode turn on only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
@@ -46,8 +48,9 @@ USER NOTES:
 - Control `status` now exposes the host wall time of the latest block and the estimated wall time of its first sample, explicitly documented as host-clock estimates rather than hardware timestamps.
 - Diagnostics presentation moved into `freebci/core/diagnostics.py`, so the window only supplies an endpoint/LSL summary and the formatting is testable without Qt.
 - Real Wi-Fi control verification: `status` reported positive host timing for the latest block, `marker` succeeded, and `shutdown` closed the GUI and removed `control.json`.
+- `tools/build_release.py` creates a self-contained source release zip (application, bundled BrainFlow, settings, docs, setup scripts) with a SHA-256 sidecar; the archive was built, extracted, and smoke-tested from the extracted copy.
 
-Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, a control-plane start command, and application packaging (`pyproject.toml`).
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the view-model refactor, a control-plane start command, and an installable `pyproject.toml` package. A source release zip is available in the meantime.
 
 ---
 

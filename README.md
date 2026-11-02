@@ -162,6 +162,21 @@ Use it before a release to check that memory and queues stay flat. It drains the
 display queue like the GUI, so display drops should stay at zero; a growing
 writer queue or lost-sample count indicates a real bottleneck.
 
+## Build a release
+
+`tools/build_release.py` creates a source release zip that includes the
+application, the bundled BrainFlow build, settings, documentation, and setup
+scripts. It is not a Python wheel.
+
+```
+.venv\Scripts\python.exe tools\build_release.py --version 0.1.0
+```
+
+The archive is written to `dist\FreeBCI_GUI-0.1.0.zip`, with a SHA-256 sidecar
+next to it. Unpack the zip on the target computer and run `setup_env.cmd` once,
+then `run.cmd`. The build script refuses to create an archive if a required
+file or directory is missing.
+
 ## Connecting a board
 
 Open the **Boards** menu and select the exact model printed on the board. Each
@@ -542,7 +557,7 @@ freebci/                  application package
   design/                 window and dialog layouts
 settings/                 example hardware and electrode XML files
 tests/                    automated tests, including the synthetic board
-tools/                    developer utilities (session benchmark)
+tools/                    developer utilities (benchmark, soak, release build)
 electrodes_pos_32.png     head model for 32-channel topography
 electrodes_pos_64.png     head model for 64-channel topography
 requirements.txt          Python dependencies
