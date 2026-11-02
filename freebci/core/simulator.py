@@ -20,6 +20,7 @@ class SimulatedBoard:
         self.num_rows = 1 + self.channels + 3 + 4 + 2
         self._active = False
         self._frame = 0
+        self._packet = 0
         self._last_read = time.monotonic()
 
     # ---------------------------------------------------------- BoardShim API
@@ -39,17 +40,22 @@ class SimulatedBoard:
     def config_board(self, command: str, *args, **kwargs) -> str:
         return "ok"
 
+    def _pending_samples(self) -> int:
+        elapsed = max(0.0, time.monotonic() - self._last_read)
+        # Keep at least one poll-sized block so tests and the demo do not spin
+        # on empty arrays, but let a fast reader catch up to the nominal rate.
+        return max(2, min(self.sampling_rate, int(elapsed * self.sampling_rate)))
+
     def get_board_data_count(self, *args, **kwargs) -> int:
         if not self._active:
             return 0
-        # Produce roughly one 10 ms poll worth of samples at the configured rate.
-        return max(1, int(self.sampling_rate / 100))
+        return self._pending_samples()
 
     def get_board_data(self, *args, **kwargs) -> np.ndarray:
         if not self._active:
             return np.zeros((self.num_rows, 0), dtype=np.float64)
+        count = self._pending_samples()
         self._last_read = time.monotonic()
-        count = self.get_board_data_count()
         # Pace simulated frames like a real board instead of spinning as fast as
         # Python can allocate arrays.
         time.sleep(count / float(self.sampling_rate))
@@ -61,7 +67,8 @@ class SimulatedBoard:
                 20.0 * np.sin(2.0 * np.pi * (8.0 + channel % 4) * t + channel)
                 + 5.0 * np.sin(2.0 * np.pi * 1.5 * t)
             )
-        data[0, :] = (self._frame // count) % 256
+        data[0, :] = self._packet
+        self._packet = (self._packet + 1) % 256
         data[self.channels + 1:self.channels + 4, :] = 1.0
         data[self.channels + 4:self.channels + 8, :] = 0.0
         self._frame += count

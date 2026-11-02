@@ -122,6 +122,20 @@ same acquisition, plotting, LSL, recording, and diagnostics paths as a real
 session, so it is a safe way to check an installation or follow the screenshots
 without a board. Demo recordings are written under the normal data folder.
 
+## Benchmark the pipeline
+
+`tools/benchmark_session.py` runs the same acquisition and recording path
+against the synthetic board and prints sample throughput, block count, queue
+depth, lost samples, and the recording location.
+
+```
+.venv\Scripts\python.exe tools\benchmark_session.py --seconds 10
+```
+
+Use `--channels`, `--rate`, `--output`, and `--json` to change the workload or
+capture machine-readable results. The benchmark is a pipeline smoke test, not a
+substitute for a hardware performance test.
+
 ## Connecting a board
 
 Open the **Boards** menu and select the exact model printed on the board. Each
@@ -487,6 +501,8 @@ freebci/                  application package
   core/                   session, acquisition, and recording services
   design/                 window and dialog layouts
 settings/                 example hardware and electrode XML files
+tests/                    automated tests, including the synthetic board
+tools/                    developer utilities (session benchmark)
 electrodes_pos_32.png     head model for 32-channel topography
 electrodes_pos_64.png     head model for 64-channel topography
 requirements.txt          Python dependencies
