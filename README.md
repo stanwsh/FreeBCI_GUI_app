@@ -195,7 +195,7 @@ The top bar contains:
 - **Layout** - choose one of eight window arrangements.
 
 The status line below the toolbar shows frames per second, packet loss, and the
-number of packets received. Packet loss should stay close to zero. A steadily
+number of samples received. Packet loss should stay close to zero. A steadily
 rising value usually means a weak Wi-Fi or Bluetooth link.
 
 The notch and band-pass filters affect the plots, FFT, band power, and
