@@ -755,6 +755,8 @@ class MyMainWindow(MainWindowInterface):
         except Exception as ex:
             self.myLogger.write('Start stream error!')
             logging.exception(ex)
+            self.stop_openbci()
+            self.stopThread()
             self.startButton.setText('Start Session')
             self.stateLabel.setText('session error!')
             self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
