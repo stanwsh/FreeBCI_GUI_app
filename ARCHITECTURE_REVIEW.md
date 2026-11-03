@@ -87,6 +87,7 @@ USER NOTES:
 - **Phase 2.6 (D.5/E.7):** added `freebci/core/logging.py`; each recording writes JSON-lines `session.log` with start/close/marker/gap/error events and size rotation.
 - **Phase 2.7 (E.7):** recordings now create a `.writing` marker and remove it on finalize. `recover_sessions()` reports unfinished sessions without modifying them, and the main window shows the count at startup.
 - **Phase 2.8 (H.2):** the manifest gained the `freebci.session/1` schema string, app version, device/config blocks, start/stop blocks, chunk list, sample count, and stop reason. `freebci/version.py` is now the shared app version and the release tool defaults to it.
+- **Phase 2.9 (D.6/F.2):** added `freebci/core/lsl_queue.py` with a bounded per-stream queue and drop counter; LSL sends chunks instead of one sample per call, and diagnostics reports pending/dropped per stream.
 - **Phase 5.6:** diagnostics now show device id/name, configured rate, written samples, and disk free. Closing the window while recording asks to stop and finalize.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
@@ -1704,12 +1705,12 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | C.4 state model | Action guards and start/stop confirmation | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded state machine | P1 |
 | C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
 | C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write structured `session.log` | GUI `MyLogger` still opens a file per message; no top-level correlation IDs | P2 |
-| C.7 tests/packaging | 80 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
+| C.7 tests/packaging | 84 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
 | D.2 layers | Core/application/device boundaries partly exist; catalog, ring, settings, and structured logging now exist in core | Presentation is not BrainFlow-free; no `ui/`, `app.py` | Target |
 | D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
 | D.4 dependency rules | Core is Qt-free | `ui` still imports BrainFlow and `pylsl`; `gateway` is not the only BrainFlow importer (dialogs and settings still use it) | P1 |
 | D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
-| D.6 data flow | Block → writer + display queue + view-model history | No ring fan-out; no bounded LSL queue with drop counter; no processing-worker snapshot | P2 |
+| D.6 data flow | Block → writer + display queue + view-model history | No acquisition ring fan-out; LSL now uses a bounded chunk queue with a drop counter; no processing-worker snapshot | P2 |
 | E.1 models | `BoardProfile`, `SessionConfig`, `SampleBlock`, `SessionClock`, `StateSnapshot` | No `DeviceConfig`/`StopReason` as specified; model fields differ from the proposal | Documentation |
 | E.2 catalog | `core/catalog.py` is the board-table source; `connectInfo` consumes its legacy row shape | UI still reads raw row indexes for capability checks | P2 |
 | E.3 gateway | `BrainFlowGateway` wraps a prepared `BoardShim` | No `prepare()/configure()/sampling_rate()/is_prepared()`; no stable error codes; `FakeBoardGateway` is `SimulatedBoard` | P2 |
@@ -1723,7 +1724,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | E.11 Settings | `core/settings.py` validates channel files and writes them atomically; the dialog uses it for load/save | No last-known-good fallback; no profile-aware validation; apply is still a command sequence | P2 |
 | E.12/E.13 failure/connection semantics | Worker errors, reconnect test, retries | No unified retry/cancel/multi-device policy; dialogs still own lifecycle | P2 |
 | F.1 bottlenecks | Aux buffers, `gc.collect`, `np.append` removed; decimation added | Per-channel Python filter loops still on GUI thread; plot items recreated each frame | P2 |
-| F.2/F.3 pipeline/backpressure | Writer bounded; display may drop | No ring, no bounded LSL queue, no topography latest-only policy | P2 |
+| F.2/F.3 pipeline/backpressure | Writer bounded; display may drop; LSL bounded with drop counter | No acquisition ring fan-out, no topography latest-only policy | P2 |
 | F.4 concurrency | Workers and writer threads | Some board commands still serialized through one worker rather than DeviceManager; no thread-stop timeout policy | P2 |
 | F.5 recording format | CSV/TXT + meta + manifest + markers | No `.writing` rename, directory fsync, recovery scan, `session.log` | P2 |
 | F.6 display | Decimation to ~2,000 points; one topography figure claim | `ts_plot.clear()` + `plot()` creates items per frame; filtering remains on GUI | P2 |

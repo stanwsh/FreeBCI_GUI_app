@@ -344,7 +344,10 @@ same time.
 
 Each enabled row publishes the same current signal under its own stream name.
 Each stream also gets the stable source id `FreeBCI:<stream name>`, which lets
-consumers identify the same source across sessions.
+consumers identify the same source across sessions. Samples are staged in a
+bounded queue (4096 samples per stream) and sent as chunks; if the GUI cannot
+keep up, the oldest staged samples are dropped and the count is shown in
+**Session Diagnostics** rather than blocking acquisition.
 
 Starting LSL also creates a `FreeBCI_Markers` stream (type `Markers`, one string
 channel, irregular rate). Manual markers and control-API markers are pushed to

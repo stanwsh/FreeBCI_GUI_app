@@ -35,6 +35,7 @@ import pyqtgraph as pg
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
 from freebci.core.control import ControlError, ControlServer
 from freebci.core.models import BoardProfile, SessionConfig
+from freebci.core.lsl_queue import LslSampleQueue
 from freebci.core.recording import recover_sessions
 from freebci.core.session import SessionController
 from brainflow import board_shim, data_filter, exit_codes, ml_model
@@ -159,9 +160,11 @@ class MyMainWindow(MainWindowInterface):
             self.myTimeSeries.my_plot_widgets[i].channelButton.clicked.connect(partial(self.channelButtons_click, i))
             self.myTimeSeries.my_plot_widgets[i].resistancePushButton.clicked.connect(partial(self.resistancePushButtons_click, i))
         self.vert_scale = 200
-        self.LSLbufferData1 = []
-        self.LSLbufferData2 = []
-        self.LSLbufferData3 = []
+        self.lsl_queues = {
+            1: LslSampleQueue(),
+            2: LslSampleQueue(),
+            3: LslSampleQueue(),
+        }
         self.marker_outlet = None
         self.fftFreqLen = 60
         self.fftuvLen = 2
@@ -806,6 +809,9 @@ class MyMainWindow(MainWindowInterface):
                 self.myNetWidget.startLSLButton.setStyleSheet('font: 12pt "黑体";background-color:red')
                 self._ensure_marker_outlet()
                 for index in (1, 2, 3):
+                    queue = getattr(self, 'lsl_queues', {}).get(index)
+                    if queue is not None:
+                        queue.clear()
                     if getattr(self.myNetWidget, 'LSLdataType%d' % index) != 'None':
                         streamer = QtCore.QTimer()
                         streamer.timeout.connect(partial(self.sendLSLStream, index))
@@ -822,6 +828,9 @@ class MyMainWindow(MainWindowInterface):
                     if streamer is not None:
                         streamer.stop()
                         setattr(self, 'LSLstreamer%d' % index, None)
+                    queue = getattr(self, 'lsl_queues', {}).get(index)
+                    if queue is not None:
+                        queue.clear()
         except Exception as ex:
             self.myLogger.write('LSL run error! ')
             logging.exception(ex)
@@ -947,15 +956,24 @@ class MyMainWindow(MainWindowInterface):
 
     def sendLSLStream(self, index):
         try:
-            buffer_name = 'LSLbufferData%d' % index
-            outlet_name = 'LSLoutlet%d' % index
-            samples = getattr(self, buffer_name)
-            outlet = getattr(self.myNetWidget, outlet_name, None)
-            if samples is None or len(samples) == 0 or outlet is None:
+            queue = getattr(self, 'lsl_queues', {}).get(index)
+            outlet = getattr(self.myNetWidget, 'LSLoutlet%d' % index, None)
+            if queue is None or outlet is None:
                 return
-            for sample in samples:
-                outlet.push_sample(sample)
-            setattr(self, buffer_name, [])
+            samples = queue.drain()
+            if samples is None or len(samples) == 0:
+                return
+            chunk = samples.tolist()
+            if hasattr(outlet, 'push_chunk'):
+                outlet.push_chunk(chunk)
+            else:  # pragma: no cover - older pylsl
+                for sample in chunk:
+                    outlet.push_sample(sample)
+            if queue.dropped:
+                self.myLogger.write(
+                    'LSL stream %d dropped %d sample(s) to keep the queue bounded'
+                    % (index, queue.dropped)
+                )
         except Exception as ex:
             self.myLogger.write('send LSL stream error!  ' + repr(ex))
             logging.exception(ex)
@@ -1447,8 +1465,13 @@ class MyMainWindow(MainWindowInterface):
             streamer = getattr(self, 'LSLstreamer%d' % index, None)
             state = 'running' if streamer is not None and streamer.isActive() else 'stopped'
             name = getattr(networking, 'LSLname%d' % index, 'Stream %d' % index)
-            pending = len(getattr(self, 'LSLbufferData%d' % index, []) or [])
-            running.append('%s (%s, %s, pending %d)' % (name, data_type, state, pending))
+            queue = getattr(self, 'lsl_queues', {}).get(index)
+            pending = queue.pending if queue is not None else 0
+            dropped = queue.dropped if queue is not None else 0
+            running.append(
+                '%s (%s, %s, pending %d, dropped %d)'
+                % (name, data_type, state, pending, dropped)
+            )
         return '; '.join(running) if running else 'none configured'
 
     def demo_click(self):
@@ -1581,7 +1604,9 @@ class MyMainWindow(MainWindowInterface):
                 lsl_values = buffer_data[1:self._chan + 1].T
                 for index in (1, 2, 3):
                     if getattr(self.myNetWidget, 'LSLdataType%d' % index) == 'Time Series':
-                        setattr(self, 'LSLbufferData%d' % index, lsl_values.copy())
+                        queue = getattr(self, 'lsl_queues', {}).get(index)
+                        if queue is not None:
+                            queue.push(lsl_values)
             self.new_data_len = 0
             self.checkFlag = 0
             self.session_view_model.append_block(buffer_data)
