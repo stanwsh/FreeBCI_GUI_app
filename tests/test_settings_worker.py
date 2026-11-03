@@ -1,6 +1,9 @@
+import os
 import unittest
 
-from PyQt5 import QtCore
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PyQt5 import QtWidgets
 
 from freebci.api.settings_worker import SettingsCommandWorker
 
@@ -20,7 +23,7 @@ class FakeBoard:
 class SettingsCommandWorkerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.app = QtCore.QCoreApplication.instance() or QtCore.QCoreApplication([])
+        cls.app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
     def _run(self, worker):
         progress = []

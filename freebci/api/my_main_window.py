@@ -18,6 +18,8 @@ from freebci.api.my_hardware_settings import MyHardwareSettings
 from freebci.api.my_channels_electrodes_settings import MyChannels_electrodes_Settings
 from freebci.api.my_wifi_connection import MyWifiConnection
 from freebci.api.my_diagnostics import MyDiagnostics
+from freebci.api.board_worker import BoardOperationWorker
+from freebci.api.session_start_worker import SessionStartWorker
 from freebci.api.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
 from freebci.core.device import DeviceManager
@@ -74,7 +76,11 @@ class MyMainWindow(MainWindowInterface):
         self.connect_info = connectInfo()
         self.board = None
         self.device_manager = DeviceManager()
+        self.board_worker = BoardOperationWorker(self)
+        self.board_worker.succeeded.connect(self._on_board_operation_succeeded)
+        self.board_worker.failed.connect(self._on_board_operation_failed)
         self.session_controller = None
+        self._start_worker = None
         self.control_server = None
         self.control_discovery_path = None
         self.session_view_model = SessionViewModel(
@@ -468,6 +474,9 @@ class MyMainWindow(MainWindowInterface):
 
     def closeEvent(self, event):
         try:
+            start_worker = getattr(self, '_start_worker', None)
+            if start_worker is not None and start_worker.isRunning():
+                start_worker.wait(5000)
             if (
                 self.session_controller is not None
                 or self.startButton_isclicked
@@ -475,6 +484,7 @@ class MyMainWindow(MainWindowInterface):
                 self.stop_openbci()
                 self.stopThread()
             self._stop_control_server()
+            self.board_worker.stop()
             self.device_manager.release()
             self.board = None
             event.accept()
@@ -484,125 +494,108 @@ class MyMainWindow(MainWindowInterface):
         except Exception as ex:
             logging.exception(ex)
 
+    def _apply_channel_style(self, channel):
+        colors = [*('red', 'green', 'blue', '#E3CF57', 'rgb(0,255,255)', 'purple', 'black', 'rgb(210,180,140)')]
+        widget = self.myTimeSeries.my_plot_widgets[channel]
+        if self.channals_on[channel] == True:
+            widget.channelButton.setStyleSheet('width: 30px;height: 30px; border-radius: 15px;font-size: 15px;color: white; background: gray;')
+            widget.ischannelClick = True
+        else:
+            widget.channelButton.setStyleSheet('width: 30px;height: 30px; border-radius: 15px;font-size: 15px;color: white; background: ' + colors[channel % 8] + ';')
+            widget.ischannelClick = False
+
+    def _apply_resistance_style(self, channel, enabled):
+        widget = self.myTimeSeries.my_plot_widgets[channel]
+        if enabled:
+            widget.dataLabel.setStyleSheet('font: 8pt "黑体";background:transparent; color: white')
+            widget.dataLabelColor = 'white'
+            widget.isResistance = False
+            widget.resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: white;font: 12pt "黑体";background: black ;}')
+        else:
+            widget.isResistance = True
+            widget.resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: black;font: 12pt "黑体";background: None ;}')
+
     def resistancePushButtons_click(self, channel):
-        self.resistanceOn[channel] = not self.resistanceOn[channel]
-        if self.resistanceOn[channel]:
-            command = ''
-            command += 'x'
+        if self.board is None:
+            self.stateLabel.setText('Connect to a board first.')
+            return
+        enabled = not self.resistanceOn[channel]
+        command = 'x'
+        if self._chan > 16:
+            command += ('0' if channel < 9 else '') + str(channel + 1)
+        else:
+            command += str(HardwareSettingsProtocol.Channel[channel + 1])
+        command += '0'
+        command += str(HardwareSettingsProtocol.PCAGainProtocol['X24'])
+        command += str(HardwareSettingsProtocol.InputTypeProtocol['Normal'])
+        command += str(HardwareSettingsProtocol.BiasIncludeProtocol['Yes'])
+        command += str(HardwareSettingsProtocol.SRB2Protocol['On'])
+        command += str(HardwareSettingsProtocol.SRB1Protocol['Off'])
+        command += 'X'
+        if enabled:
             if self._chan > 16:
-                if channel < 9:
-                    command += '0' + str(channel + 1)
-                else:
-                    command += str(channel + 1)
-            else:
-                command += str(HardwareSettingsProtocol.Channel[channel + 1])
-            command += '0'
-            command += str(HardwareSettingsProtocol.PCAGainProtocol['X24'])
-            command += str(HardwareSettingsProtocol.InputTypeProtocol['Normal'])
-            command += str(HardwareSettingsProtocol.BiasIncludeProtocol['Yes'])
-            command += str(HardwareSettingsProtocol.SRB2Protocol['On'])
-            command += str(HardwareSettingsProtocol.SRB1Protocol['Off'])
-            command += 'X'
-            if self._chan > 16:
-                if self._chan > 16:
-                    command += 'z'
-                if channel + 1 < 10:
-                    command += '0'
-                command += str(channel + 1) + '01Z'
+                command += 'z' + ('0' if channel + 1 < 10 else '') + str(channel + 1) + '01Z'
             else:
                 command += HardwareSettingsProtocol.ImpedanceOn[channel + 1]
-            settingCommand = ''
-            command = settingCommand + command
-            self.myLogger.write('sendCommand: ' + command)
-            if self.startButton_isclicked:
-                self.board.stop_stream()
-            response = self.board.config_board(command)
-            time.sleep(0.1)
-            if self.startButton_isclicked:
-                self.board.start_stream()
-                time.sleep(0.5)
-            self.myTimeSeries.my_plot_widgets[channel].dataLabel.setStyleSheet('font: 8pt "黑体";background:transparent; color: white')
-            self.myTimeSeries.my_plot_widgets[channel].dataLabelColor = 'white'
-            self.myTimeSeries.my_plot_widgets[channel].isResistance = False
-            self.myTimeSeries.my_plot_widgets[channel].resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: white;font: 12pt "黑体";background: black ;}')
         else:
             command = '"'
             if self._chan > 16:
-                command += 'z'
-                if channel + 1 < 10:
-                    command += '0'
-                command += str(channel + 1) + '00Z'
+                command += 'z' + ('0' if channel + 1 < 10 else '') + str(channel + 1) + '00Z'
             else:
                 command += HardwareSettingsProtocol.ImpedanceOff[channel + 1]
-            settingCommand = ''
-            command = settingCommand + command
-            self.myLogger.write('sendCommand: ' + command)
-            if self.startButton_isclicked:
+
+        self.resistanceOn[channel] = enabled
+        self.myLogger.write('sendCommand: ' + command)
+        streaming = self.startButton_isclicked
+
+        def operation():
+            if streaming:
                 self.board.stop_stream()
-            response = self.board.config_board(command)
-            if self.startButton_isclicked:
-                self.board.start_stream()
-            self.myTimeSeries.my_plot_widgets[channel].isResistance = True
-            self.myTimeSeries.my_plot_widgets[channel].resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: black;font: 12pt "黑体";background: None ;}')
+            try:
+                result = self.board.config_board(command)
+            finally:
+                if streaming:
+                    self.board.start_stream()
+                    time.sleep(0.5)
+            return result
+
+        self._submit_board_operation(
+            'resistance:%d:%s' % (channel, 'on' if enabled else 'off'),
+            operation,
+        )
 
     def channelButtons_click(self, channel):
+        if self.board is None:
+            self.stateLabel.setText('Connect to a board first.')
+            return
+        disabled = not self.channals_on[channel]
         if self._chan > 16:
-            self.channals_on[channel] = not self.channals_on[channel]
-            if self.channals_on[channel]:
-                self.myLogger.write('FreeBCI_GUI: deactivating channel ' + str(channel + 1))
-                if self.startButton_isclicked:
-                    self.board.stop_stream()
-                command = '"'
-                command += ')'
-                if channel + 1 < 10:
-                    command += '0' + str(channel + 1)
-                else:
-                    command += str(channel + 1)
-                self.myLogger.write('sendCommand: ' + command)
-                response = self.board.config_board(command)
-                if self.startButton_isclicked:
-                    self.board.start_stream()
-            else:
-                self.myLogger.write('FreeBCI_GUI: activating channel ' + str(channel + 1))
-                if self.startButton_isclicked:
-                    self.board.stop_stream()
-                command = '"'
-                command += '('
-                if channel + 1 < 10:
-                    command += '0' + str(channel + 1)
-                else:
-                    command += str(channel + 1)
-                self.myLogger.write('sendCommand: ' + command)
-                response = self.board.config_board(command)
-                if self.startButton_isclicked:
-                    self.board.start_stream()
+            command = '"' + (')' if disabled else '(')
+            command += ('0' if channel + 1 < 10 else '') + str(channel + 1)
         else:
-            self.channals_on[channel] = not self.channals_on[channel]
-            if self.channals_on[channel]:
-                self.myLogger.write('FreeBCI_GUI: deactivating channel ' + str(channel + 1))
-                command = HardwareSettingsProtocol.ChannelOn[channel + 1]
-                self.myLogger.write('sendCommand: ' + command)
-                if self.startButton_isclicked:
-                    self.board.stop_stream()
-                response = self.board.config_board(command)
-                if self.startButton_isclicked:
+            command = (
+                HardwareSettingsProtocol.ChannelOn[channel + 1]
+                if disabled
+                else HardwareSettingsProtocol.ChannelOff[channel + 1]
+            )
+        self.channals_on[channel] = disabled
+        self.myLogger.write(
+            'FreeBCI_GUI: %s channel %d'
+            % ('deactivating' if disabled else 'activating', channel + 1)
+        )
+        self.myLogger.write('sendCommand: ' + command)
+        streaming = self.startButton_isclicked
+
+        def operation():
+            if streaming:
+                self.board.stop_stream()
+            try:
+                return self.board.config_board(command)
+            finally:
+                if streaming:
                     self.board.start_stream()
-            else:
-                self.myLogger.write('FreeBCI_GUI: activating channel ' + str(channel + 1))
-                command = HardwareSettingsProtocol.ChannelOff[channel + 1]
-                self.myLogger.write('sendCommand: ' + command)
-                if self.startButton_isclicked:
-                    self.board.stop_stream()
-                response = self.board.config_board(command)
-                if self.startButton_isclicked:
-                    self.board.start_stream()
-        colors = [*('red', 'green', 'blue', '#E3CF57', 'rgb(0,255,255)', 'purple', 'black', 'rgb(210,180,140)')]
-        if self.channals_on[channel] == True:
-            self.myTimeSeries.my_plot_widgets[channel].channelButton.setStyleSheet('width: 30px;height: 30px; border-radius: 15px;font-size: 15px;color: white; background: gray;')
-            self.myTimeSeries.my_plot_widgets[channel].ischannelClick = True
-        else:
-            self.myTimeSeries.my_plot_widgets[channel].channelButton.setStyleSheet('width: 30px;height: 30px; border-radius: 15px;font-size: 15px;color: white; background: ' + colors[channel % 8] + ';')
-            self.myTimeSeries.my_plot_widgets[channel].ischannelClick = False
+
+        self._submit_board_operation('channel:%d' % channel, operation)
 
     def timeComboBox_click(self):
         if self.myTimeSeries.timeComboBox.currentIndex() == 0:
@@ -678,49 +671,74 @@ class MyMainWindow(MainWindowInterface):
             self.myLogger.write('Channels-electrodes setting error! ')
             logging.exception(ex)
 
+    def _submit_board_operation(self, name, operation):
+        if self.board is None:
+            self.stateLabel.setText('Connect to a board first.')
+            return
+        self.board_worker.submit(name, operation)
+
+    def _on_board_operation_succeeded(self, name, result):
+        if name == 'timing':
+            self.myLogger.write(str(result))
+        elif name.startswith('data:'):
+            mode = name.split(':', 1)[1]
+            self.is_startExtrigger = mode == 'External trigger'
+            self.is_startAccelerometer = mode == 'Accelerometer'
+            self.is_startBattery = mode == 'Battery'
+        elif name.startswith('channel:'):
+            self._apply_channel_style(int(name.split(':')[1]))
+        elif name.startswith('resistance:'):
+            _, channel, enabled = name.split(':')
+            self._apply_resistance_style(int(channel), enabled == 'on')
+
+    def _on_board_operation_failed(self, name, message):
+        self.myLogger.write('WARNNING: board command failed: %s' % message)
+        self.stateLabel.setText('Board command failed: %s' % message)
+        if name.startswith('channel:'):
+            channel = int(name.split(':')[1])
+            self.channals_on[channel] = not self.channals_on[channel]
+            self._apply_channel_style(channel)
+        elif name.startswith('resistance:'):
+            _, channel, enabled = name.split(':')
+            channel = int(channel)
+            self.resistanceOn[channel] = enabled != 'on'
+            self._apply_resistance_style(channel, enabled == 'on')
+        elif name.startswith('data:'):
+            self.is_startExtrigger = False
+            self.is_startAccelerometer = False
+            self.is_startBattery = False
+
     def TimingButton_click(self):
-        try:
-            if self.startButton_isclicked == False:
-                time_now = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-                command = '<' + time_now[2:] + '>'
-                self.myLogger.write('sendCommand: ' + command)
-                response = self.board.config_board(command)
-                self.myLogger.write(response)
-            else:
-                self.myLogger.write('Please stop streaming first!')
-        except Exception as ex:
-            self.myLogger.write('Timing error!')
-            logging.exception(ex)
+        if self.startButton_isclicked:
+            self.myLogger.write('Please stop streaming first!')
+            return
+        time_now = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+        command = '<' + time_now[2:] + '>'
+        self.myLogger.write('sendCommand: ' + command)
+        self._submit_board_operation(
+            'timing', lambda: self.board.config_board(command)
+        )
 
     def startExtrigger_click(self):
-        self.command = ''
-        self.command += HardwareSettingsProtocol.data_mode['External trigger']
-        self.myLogger.write(self.command)
-        response = self.board.config_board(self.command)
-        self.myLogger.write(response)
-        self.is_startExtrigger = True
-        self.is_startAccelerometer = False
-        self.is_startBattery = False
+        command = HardwareSettingsProtocol.data_mode['External trigger']
+        self.myLogger.write(command)
+        self._submit_board_operation(
+            'data:External trigger', lambda: self.board.config_board(command)
+        )
 
     def startAccelerometer_click(self):
-        self.command = ''
-        self.command += HardwareSettingsProtocol.data_mode['Accelerometer']
-        self.myLogger.write(self.command)
-        response = self.board.config_board(self.command)
-        self.myLogger.write(response)
-        self.is_startAccelerometer = True
-        self.is_startExtrigger = False
-        self.is_startBattery = False
+        command = HardwareSettingsProtocol.data_mode['Accelerometer']
+        self.myLogger.write(command)
+        self._submit_board_operation(
+            'data:Accelerometer', lambda: self.board.config_board(command)
+        )
 
     def startBattery_click(self):
-        self.command = ''
-        self.command += HardwareSettingsProtocol.data_mode['Battery']
-        self.myLogger.write(self.command)
-        response = self.board.config_board(self.command)
-        self.myLogger.write(response)
-        self.is_startBattery = True
-        self.is_startExtrigger = False
-        self.is_startAccelerometer = False
+        command = HardwareSettingsProtocol.data_mode['Battery']
+        self.myLogger.write(command)
+        self._submit_board_operation(
+            'data:Battery', lambda: self.board.config_board(command)
+        )
 
     def _ensure_marker_outlet(self):
         if self.marker_outlet is None:
@@ -768,62 +786,93 @@ class MyMainWindow(MainWindowInterface):
             self.myLogger.write('LSL run error! ')
             logging.exception(ex)
 
-    def startButton_click(self):
+    def _begin_session_ui(self):
+        self.stateLabel.setText('Data stream started.   samples received: {}'.format(self.total_len))
+        self.startButton.setEnabled(True)
+        self.startButton.setText('Stop Session')
+        self.startButton.setStyleSheet('font: 12pt "黑体";background-color:red')
+        self.startButton_isclicked = True
+        self.total_len = 0
+        self.pak_count = 0
+        self.pak_received = 0
+        self.pak_loss = 0
+        self.packet_counter.reset()
+        self.baudRate = self.connect_info.baudRate
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.updater)
+        self.timer.start(50)
+        self.shower = QtCore.QTimer()
+        self.shower.timeout.connect(self.shower_fun)
+        self.shower.start(50)
+        self.data_queue = Queue()
+        self.plot_thread = PlotThread(self.data_queue)
+        self.plot_thread.update_signal.connect(self.Topo_plot)
+        self.plot_thread.start()
+        self.processor = QtCore.QTimer()
+        self.processor.timeout.connect(self.processor_fun)
+        self.processor.start(50)
+        self.myLogger.write('Data stream started')
+
+    def _on_session_started(self, controller):
+        self._start_worker = None
         try:
-            if not self.isSessionOn:
-                self.stateLabel.setText('Connect to a board first.')
-                return
-            if self.isSessionOn == True:
-                if self.startButton_isclicked == False:
-                    self.stateLabel.setText('session starting..........')
-                    self.stateLabel.repaint()
-                    self.start_openbci()
-                    self.stateLabel.setText('Data stream started.   samples received: {}'.format(self.total_len))
-                    self.startButton.setText('Stop Session')
-                    self.startButton.setStyleSheet('font: 12pt "黑体";background-color:red')
-                    self.startButton_isclicked = True
-                    self.total_len = 0
-                    self.pak_count = 0
-                    self.pak_received = 0
-                    self.pak_loss = 0
-                    self.packet_counter.reset()
-                    self.baudRate = self.connect_info.baudRate
-                    self.timer = QtCore.QTimer()
-                    self.timer.timeout.connect(self.updater)
-                    self.timer.start(50)
-                    self.shower = QtCore.QTimer()
-                    self.shower.timeout.connect(self.shower_fun)
-                    self.shower.start(50)
-                    self.data_queue = Queue()
-                    self.plot_thread = PlotThread(self.data_queue)
-                    self.plot_thread.update_signal.connect(self.Topo_plot)
-                    self.plot_thread.start()
-                    self.processor = QtCore.QTimer()
-                    self.processor.timeout.connect(self.processor_fun)
-                    self.processor.start(50)
-                    self.myLogger.write('Data stream started')
-                else:
-                    self.stop_openbci()
-                    self.startButton_isclicked = False
-                    self.total_len = 0
-                    self.pak_count = 0
-                    self.pak_received = 0
-                    self.pak_loss = 0
-                    self.packet_counter.reset()
-                    self.stop_count += 1
-                    self.startButton.setText('Start Session')
-                    self.stateLabel.setText('Data stream stopped.')
-                    self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
-                    self.stopThread()
-                    self.myLogger.write('Data stream stopped.')
+            self._activate_session(controller)
         except Exception as ex:
-            self.myLogger.write('Start stream error!')
-            logging.exception(ex)
+            self.myLogger.write('WARNNING: could not publish session: %s' % ex)
+            self._on_session_start_failed(str(ex))
+            return
+        self._begin_session_ui()
+
+    def _on_session_start_failed(self, message):
+        worker = self._start_worker
+        self._start_worker = None
+        if worker is not None:
+            try:
+                worker.controller.stop()
+            except Exception:
+                pass
+        self.startButton.setEnabled(True)
+        self.startButton.setText('Start Session')
+        self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+        self.startButton_isclicked = False
+        self.stateLabel.setText('session error: %s' % message)
+        self.myLogger.write('WARNNING: session start failed: %s' % message)
+
+    def startButton_click(self):
+        if self.isSessionOn == False:
+            self.stateLabel.setText('Connect to a board first.')
+            return
+        if self.startButton_isclicked == False:
+            if self._start_worker is not None:
+                return
+            self.stateLabel.setText('session starting..........')
+            self.stateLabel.repaint()
+            self.startButton.setEnabled(False)
+            try:
+                controller = self._build_session_controller()
+            except Exception as ex:
+                self._on_session_start_failed(str(ex))
+                return
+            worker = SessionStartWorker(controller, self)
+            worker.succeeded.connect(self._on_session_started)
+            worker.failed.connect(self._on_session_start_failed)
+            self._start_worker = worker
+            worker.start()
+            return
+        if self.startButton_isclicked == True:
             self.stop_openbci()
-            self.stopThread()
+            self.startButton_isclicked = False
+            self.total_len = 0
+            self.pak_count = 0
+            self.pak_received = 0
+            self.pak_loss = 0
+            self.packet_counter.reset()
+            self.stop_count += 1
             self.startButton.setText('Start Session')
-            self.stateLabel.setText('session error!')
+            self.stateLabel.setText('Data stream stopped.')
             self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+            self.stopThread()
+            self.myLogger.write('Data stream stopped.')
 
     def Topo_plot(self, Topography_data):
         self.myBrainTopography.plotfig(Topography_data, self.info, self.montage)
@@ -1310,50 +1359,57 @@ class MyMainWindow(MainWindowInterface):
         self.startButton_click()
         self.stateLabel.setText('Demo session - synthetic 16-channel data.')
 
-    def start_openbci(self):
-        try:
-            self.data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
-            profile = self.device_manager.profile or self._board_profile()
-            config = SessionConfig(
-                session_id=datetime.datetime.now().strftime('FreeBCI_%Y%m%d_%H%M%S'),
-                board=profile,
-                sampling_rate=int(self.SamplingRate),
-                output_root=self.myRecording.doc_path,
-                channel_count=self._chan,
-            )
-            # A 16-channel Wi-Fi board resets to 8-channel interleaved frames
-            # when its stream starts, so switch it after start_stream().
-            post_start_config = ()
-            if self.connect_info.connect_type == 1 and self._chan == 16:
-                post_start_config = (chr(34) + ',',)
-            self.session_controller = SessionController(
-                config,
-                self.device_manager.gateway(post_start_config=post_start_config),
-                marker_callback=self._on_session_marker,
-            )
-            self.session_controller.start()
-            self.device_manager.mark_streaming()
-            if self.control_server is not None and self.control_discovery_path:
-                self.control_server.write_discovery(self.control_discovery_path)
+    def _build_session_controller(self):
+        self.data = np.zeros([self.num_rows, 1], dtype=float64)
+        self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
+        self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
+        self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
+        profile = self.device_manager.profile or self._board_profile()
+        config = SessionConfig(
+            session_id=datetime.datetime.now().strftime('FreeBCI_%Y%m%d_%H%M%S'),
+            board=profile,
+            sampling_rate=int(self.SamplingRate),
+            output_root=self.myRecording.doc_path,
+            channel_count=self._chan,
+        )
+        # A 16-channel Wi-Fi board resets to 8-channel interleaved frames
+        # when its stream starts, so switch it after start_stream().
+        post_start_config = ()
+        if self.connect_info.connect_type == 1 and self._chan == 16:
+            post_start_config = (chr(34) + ',',)
+        return SessionController(
+            config,
+            self.device_manager.gateway(post_start_config=post_start_config),
+            marker_callback=self._on_session_marker,
+        )
+
+    def _activate_session(self, controller):
+        self.session_controller = controller
+        self.device_manager.mark_streaming()
+        if self.control_server is not None and self.control_discovery_path:
+            self.control_server.write_discovery(self.control_discovery_path)
+        self.myLogger.write(
+            'FreeBCI: session recording started at ' + controller.output_path
+        )
+        if self.control_server is not None:
             self.myLogger.write(
-                'FreeBCI: session recording started at ' + self.session_controller.output_path
+                'FreeBCI: control API %s (discovery %s)'
+                % (self.control_server.address, self.control_discovery_path)
             )
-            if self.control_server is not None:
-                self.myLogger.write(
-                    'FreeBCI: control API %s (discovery %s)'
-                    % (self.control_server.address, self.control_discovery_path)
-                )
+
+    def start_openbci(self):
+        controller = None
+        try:
+            controller = self._build_session_controller()
+            controller.start()
+            self._activate_session(controller)
         except Exception as ex:
             self.myLogger.write('WARNNING: could not start board.')
-            if self.session_controller is not None:
+            if controller is not None:
                 try:
-                    self.session_controller.stop()
+                    controller.stop()
                 except Exception:
                     pass
-                self.session_controller = None
             if self.control_server is not None and self.control_discovery_path:
                 self.control_server.write_discovery(self.control_discovery_path)
             raise ex

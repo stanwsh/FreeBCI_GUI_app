@@ -18,7 +18,7 @@ USER NOTES:
 |---|---|---|
 | 0 — Baseline/packaging | Accepted | Source release zip is the supported distribution; no wheel package planned. |
 | 1 — Recording integrity | Code complete | Endurance gate merged into Phase 6. |
-| 2 — Device/acquisition decoupling | In progress | 2.1 DeviceManager and 2.2 asynchronous hardware settings landed; remaining GUI-thread board-call audit. |
+| 2 — Device/acquisition decoupling | Complete | 2.1 DeviceManager, 2.2 async settings, and 2.3 async command/start execution landed; only non-blocking board metadata queries remain on the GUI thread. |
 | 3 — Bounded buffers/performance | Pending | Auxiliary buffers, decimation, and 64-channel gate. |
 | 4 — Timestamps/control/sync | Partial | Clock offset and selector-based real-board `start` remain. |
 | 5 — GUI state/workflow | Partial | Full state-driven view model and workflow prompts remain. |
@@ -66,6 +66,7 @@ USER NOTES:
 - A five-minute synthetic soak (16 channels, 250 Hz) completed 73,624 samples at 244.3 Hz effective, with `lost=0`, `dropped=0`, queue 0, and ~34.4 MB working set; this is a stability check, not the multi-hour soak gate.
 - **Phase 2.1:** `freebci/core/device.py` adds `DeviceManager` with explicit `READY`/`STREAMING`/`DISCONNECTED` states, single-owner adoption, replacement-release, and gateway creation. The GUI adopts prepared boards, obtains its gateway from the manager, and releases through it; start/stop no longer sleep on the GUI thread.
 - **Phase 2.2:** hardware-settings sends run in `SettingsCommandWorker`; progress is per command, a rejected command stops the sequence with a visible error, the dialog stays responsive, and a read-only settings directory no longer turns a successful board update into an exception.
+- **Phase 2.3:** `BoardOperationWorker` serializes impedance, channel-enable, timing, and data-mode commands; `SessionStartWorker` starts the session stream off the GUI thread. The Start button is disabled while starting, failure restores it, and close waits for an in-flight start.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the remaining state-driven view-model refactor.
 
