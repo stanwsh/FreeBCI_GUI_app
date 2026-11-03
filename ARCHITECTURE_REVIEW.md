@@ -106,6 +106,7 @@ USER NOTES:
 - **Phase 5.9 (UI theme):** switched all presentation text to Segoe UI with a system-font fallback, added a shared dark theme and compact toolbar, introduced a first-run workspace card, tightened panel gutters, softened plot backgrounds/grids, and moved diagnostics into a two-column layout.
 - **Phase 4.6 (G.6/G.7):** added `examples/control_client.py`, `examples/raw_control.py`, and `examples/lsl_receive.py` with an integration guide, plus tests for discovery resolution and the raw control wire format. The examples use the implemented flat control envelope and the Time Series/marker LSL streams; the guide calls out asynchronous start/stop and the host-clock limits.
 - **Phase 2.20 (H.2):** recording no longer rounds AUX rows with `np.rint` or formats them with `%d`; every CSV/TXT column is written with six decimals, so accelerometer components keep fractional values. A regression test covers fractional X/Y/Z through the real `RecordingWriter`.
+- **Phase 2.21 (H.2):** every CSV/TXT data row now starts with a per-sample ISO 8601 UTC `timestamp`; the writer anchors the first recorded block's reconstructed host time and advances by sample index at the nominal rate, so block-boundary seams do not disturb spacing. `manifest.json` publishes `data_format` with the timestamp column, format, timebase, and complete column order. The value is a host-clock estimate, not a hardware timestamp.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
@@ -144,7 +145,7 @@ The GUI becomes a subscriber to immutable snapshots and sends commands through a
 
 **Recommended sequence:** Phase 0 baseline and packaging fix; Phase 1 recording integrity and session manifest; Phase 2 remove device/acquisition work from the GUI thread; Phase 3 bounded buffering and performance; Phase 4 timestamps, control IPC, and markers; Phase 5 state-driven GUI and workflow; Phase 6 hardware validation and documentation. Estimated effort for one experienced engineer is 12–15 weeks, with usable intermediate releases after Phases 1 and 2.
 
-**What not to do:** do not rewrite in another framework, do not introduce microservices, do not add ZeroMQ/gRPC/shared memory before measuring a need, and do not change the recording column format without a versioned migration path. The current CSV/TXT format has downstream value; preserve it and add sidecar metadata.
+**What not to do:** do not rewrite in another framework, do not introduce microservices, do not add ZeroMQ/gRPC/shared memory before measuring a need, and do not change channel/AUX column semantics without a versioned migration path. The per-sample `timestamp` column added in v0.1.11 is the documented exception: it is a new first column, and a legacy exporter can strip it. Preserve channel names, units, and the rest of the CSV/TXT layout.
 
 ---
 
@@ -436,8 +437,8 @@ This is a textbook case for an explicit state machine with guarded transitions.
 2. **The GUI is a subscriber, not a controller of hardware.** It sends commands to `SessionController` and renders immutable snapshots.
 3. **Data integrity outranks display smoothness.** Display frames may be dropped or decimated; recorded samples must not be silently dropped.
 4. **Explicit states, explicit transitions.** Invalid actions are prevented in the UI and rejected by the core.
-5. **Timestamps are block-level and honest.** Do not claim per-sample hardware synchronization that the hardware does not provide.
-6. **Preserve compatibility by default.** Keep CSV/TXT v1 and add sidecar metadata; introduce a new format only with an exporter.
+5. **Timestamps are honest host-clock estimates.** The first block's receive time plus sample-index spacing yields per-sample estimates; do not claim hardware synchronization that the hardware does not provide.
+6. **Preserve compatibility by default.** Keep the channel/AUX fields and layout stable. The v0.1.11 per-sample `timestamp` is an additive first column; provide a legacy exporter if exact v1 indexing is required.
 7. **Minimal machinery.** Threads, queues, dataclasses, and a small TCP control server are sufficient; no framework, no microservices.
 8. **Incremental seams.** Each phase must be independently testable and reversible; keep the old path behind a flag until the new path is validated.
 
@@ -772,7 +773,7 @@ Contracts:
 - `abort` marks the manifest `failed`, closes handles, and leaves recoverable partial files.
 - The writer owns file handles; no other module writes session files.
 - Rotation is by samples (configurable, default 90,000) or duration; not by call count.
-- File format v1 remains `1.txt` + `1.csv`; each chunk gets `1.meta.json`. A future v2 can use a binary chunk format.
+- The file layout remains `1.txt` + `1.csv`; each chunk gets `1.meta.json`, and every CSV/TXT row starts with the v0.1.11 timestamp column. A future binary chunk format can be added separately.
 
 ### E.8 Session controller (`freebci/core/session.py`)
 
@@ -978,7 +979,7 @@ Preserve the existing v1 layout:
   session.log
 ```
 
-`1.csv` keeps the exact header `channel1..channelN,<AUX 0>..<AUX 2>`; `1.txt` keeps the existing metadata header. Add `1.meta.json`:
+`1.csv` starts with the header `timestamp,channel1..channelN,<AUX 0>..<AUX 2>`; every data row begins with an ISO 8601 UTC per-sample host-clock estimate. `1.txt` keeps the existing metadata header and uses the same timestamp-first rows. Add `1.meta.json`:
 
 ```json
 {
@@ -1000,10 +1001,12 @@ Writer rules:
 - `flush()` after each chunk; `os.fsync()` at chunk close and session finalization.
 - On close, rename `*.partial` to final only after checksum and row-count validation.
 - Track `first_sample_index`, `n_samples`, `last_sample_index`, `expected_samples`, `gaps`.
+- Anchor the first recorded block's reconstructed host time, then compute per-sample timestamps as `origin + sample_index * 1e9 / sampling_rate` with integer nanosecond arithmetic. Do not stamp every block from its own receive time: block-boundary seams would break uniform spacing.
 - Never mutate the caller’s block; convert AUX values on a copy or during formatting.
 - Keep AUX rows as floating point. Accelerometer components are not counters: never round them with `np.rint` or format them as integers.
+- Document that the timestamp is a host-clock estimate, not a hardware timestamp; store it as ISO 8601 UTC with microseconds.
 
-Why keep CSV/TXT: downstream users already parse it; changing columns breaks them. A binary format can be added later as an optional `--format fbc2` with an exporter, not as the default.
+Why keep CSV/TXT: downstream users already parse it. The per-sample timestamp column is an intentional v0.1.11 format change; a legacy export can be added later if channel-index compatibility is needed. A binary format can be added later as an optional `--format fbc2` with an exporter, not as the default.
 
 ### F.6 Display and processing
 
@@ -1338,7 +1341,7 @@ Stream_YYYY_MM_DD_HHMMSS/
   session.log
 ```
 
-- Keep `1.txt`/`1.csv` compatible.
+- Keep the channel/AUX field names and units in `1.txt`/`1.csv`; every row starts with the v0.1.11 timestamp column.
 - Add sidecars for timing/checksums.
 - Use a `.writing` suffix while a chunk is open; rename atomically after `fsync`.
 - `markers.jsonl`: one JSON object per marker with `event`, `t_monotonic_ns`, `t_wall_ns`, `sample_index_estimate`, `source`.
@@ -1697,7 +1700,7 @@ Each PR should be independently testable and reversible. Keep the legacy path be
 - One active device per session in the first release.
 - BrainFlow remains the SDK; no vendor SDK replacement.
 - Windows 10/11 x64 and Python 3.9 remain the deployment target.
-- The existing CSV/TXT format has downstream consumers and must remain available.
+- The CSV/TXT channel/AUX layout has downstream consumers; the timestamp column is additive, and a legacy export can remove it if exact old indexing is required.
 - The GUI is operator-facing; external integrations use LSL and the control API, not the GUI.
 - No cloud connectivity or multi-user server is required.
 
@@ -1709,8 +1712,8 @@ Each PR should be independently testable and reversible. Keep the legacy path be
 | Qt-free core | Testability, fake gateway, clear ownership |
 | One process, threads not processes | Data rates are manageable; avoids serialization/lifecycle complexity |
 | TCP JSON control + LSL data | Simple, cross-language, minimal dependencies; LSL already present |
-| Keep CSV/TXT v1; add manifest/sidecars | Protects downstream compatibility |
-| Block-level timestamps only | Hardware timestamps are not guaranteed; honesty over false precision |
+| Keep channel/AUX CSV/TXT layout; add timestamp column, manifest, sidecars | Timestamp is additive and explicit; channel semantics stay stable |
+| Host-clock timestamps: block base plus per-sample interpolation | Hardware timestamps are not guaranteed; honesty over false precision |
 | Bounded writer queue, fail on overflow | Data integrity over silent loss |
 | Display may drop/decimate | GUI smoothness must not determine acquisition |
 | Source release zip, BrainFlow vendored | Keeps the validated build reproducible without adding a package-install dependency; no wheel packaging in current scope |
@@ -1766,16 +1769,16 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | F.1 bottlenecks | Aux buffers, `gc.collect`, `np.append` removed; decimation added; time-series plot curves are reused | Per-channel Python filter loops still on GUI thread; FFT/band-power/accelerometer items are recreated each frame | P2 |
 | F.2/F.3 pipeline/backpressure | Writer bounded; display may drop; LSL bounded with drop counter | No acquisition ring fan-out, no topography latest-only policy | P2 |
 | F.4 concurrency | Workers and writer threads | Some board commands still serialized through one worker rather than DeviceManager; no thread-stop timeout policy | P2 |
-| F.5 recording format | CSV/TXT + meta + manifest + markers + `session.log` + `.writing` marker + read-only recovery scan | No directory fsync or resume/repair of partial chunks | P2 |
+| F.5 recording format | CSV/TXT rows begin with ISO 8601 UTC per-sample timestamps; meta + manifest + `data_format` column map + markers + `session.log` + `.writing` marker + read-only recovery scan | No directory fsync or resume/repair of partial chunks | P2 |
 | F.6 display | Decimation to ~2,000 points; one topography figure claim; time-series curves reused | Other plot items recreated per frame; filtering remains on GUI | P2 |
 | F.7 metrics | Bench/soak tools; 64-channel 2-minute run | No 8-hour/64-channel gate; no measured p99 latency/CPU/fps dashboard | P3 |
-| G.1–G.3 sync/lifecycle | Host block timestamps, markers, manifest clock, READY/STREAMING device states | No `uncertainty_ns`, clock ID, per-sample estimate; no CONNECTING/ARMED lifecycle as drawn | P2 |
+| G.1–G.3 sync/lifecycle | Host block timestamps, per-sample interpolated host estimates, markers, manifest clock, READY/STREAMING device states | No `uncertainty_ns`, clock ID, or hardware sample timestamps; no CONNECTING/ARMED lifecycle as drawn | P2 |
 | G.5 protocol | Loopback JSON, token, selector start, clock exchange, request IDs, `busy`/`no_session` codes; discovery publishes `freebci.control/1`, host/pid | No `cmd`/`params` envelope, idempotent request cache, `prepare`/`connect`; discovery lives in the data folder, not `runtime/` | P2 |
 | G.6 client | `from_discovery`/`from_runtime_file`, `wait_started`, status/start/stop/marker/clock_offset | No reconnect/backoff helper | P3 |
 | G.7 LSL | Three streams, marker outlet, stable source IDs, bounded chunk queue with pending/drop counters | `source_id` is `FreeBCI:<name>`, not session id; no channel names/units; drop counter is UI-side | P2 |
 | G.8 clock | `time` exchange + half-RTT uncertainty; status exposes `clock_id`, `monotonic_ns`, `wall_ns` | Manifest clock is host wall only; no per-sample hardware estimate | P2 |
 | H.1 logging | Console/file logger exists | Not stdlib `QueueHandler`/JSONL; no levels/context | P2 |
-| H.2 manifest | schema string, schema_version, app version, device, config, start/stop, chunks, sample count, clock, samples, blocks, lost, gaps, markers, files, session log, errors | Firmware/serial and PGA/channel-map fields are not available from the current config; `device.family` is `unknown` | P2 |
+| H.2 manifest | schema string, schema_version, app version, device, config, `data_format` timestamp/column map, start/stop, chunks, sample count, clock, samples, blocks, lost, gaps, markers, files, session log, errors | Firmware/serial and PGA/channel-map fields are not available from the current config; `device.family` is `unknown` | P2 |
 | H.3 layout | CSV/TXT/meta/manifest/markers/session.log | `.writing` is a JSON marker, not a filename suffix | P2 |
 | H.4 gaps/loss | Sample-index gaps and lost counters | Packet counter and sample gap not clearly separated in manifest | P3 |
 | H.5–H.6 durability | Atomic manifest, checkpoint, failed status | No recovery scan for partial chunks; no directory fsync | P2 |

@@ -4,7 +4,8 @@ The writer owns the legacy CSV/TXT layout plus a machine-readable manifest and
 per-file sidecars.  It runs on its own thread so disk latency cannot stall the
 acquisition worker or the GUI.
 
-Legacy layout (kept for compatibility):
+The legacy file layout is preserved; every CSV/TXT data row now starts with an
+ISO 8601 UTC timestamp, followed by the EEG channels and three AUX columns:
 
     <root>/Recordings/Stream_YYYY_mm_dd_HHMMSS/
         1.csv, 1.txt, 1.meta.json
@@ -78,7 +79,9 @@ class RecordingWriter:
         self._file_samples = 0
         self._file_start_sample = 0
         self._pending: List[np.ndarray] = []
+        self._pending_times: List[np.ndarray] = []
         self._pending_samples = 0
+        self._timestamp_origin_ns: Optional[int] = None
         self._last_checkpoint = 0.0
         self._last_status = SessionStatus.RECORDING
         self._last_write_ns = 0
@@ -306,11 +309,13 @@ class RecordingWriter:
     def _write_block(self, block: SampleBlock) -> None:
         started = time.perf_counter()
         values = self._extract_rows(block)
+        times = self._sample_times_ns(block, values.shape[1])
         self._pending.append(values)
+        self._pending_times.append(times)
         self._pending_samples += values.shape[1]
         while self._pending_samples >= CHUNK_SAMPLES:
-            chunk = self._take_pending(CHUNK_SAMPLES)
-            self._write_chunk(chunk)
+            chunk, chunk_times = self._take_pending(CHUNK_SAMPLES)
+            self._write_chunk(chunk, chunk_times)
         now = time.monotonic()
         if now - self._last_checkpoint >= CHECKPOINT_SECONDS:
             self._last_checkpoint = now
@@ -335,37 +340,71 @@ class RecordingWriter:
         )
         return np.vstack([rows, aux])
 
-    def _take_pending(self, count: int) -> np.ndarray:
+    def _sample_times_ns(self, block: SampleBlock, count: int) -> np.ndarray:
+        """Extrapolate a host-wall estimate from the first block's anchor.
+
+        Using ``sample_index`` instead of each block's receive time keeps the
+        spacing uniform across block boundaries.  A gap in ``sample_index``
+        still appears as a gap in the timestamps.
+        """
+        rate = int(block.sampling_rate or self.config.sampling_rate)
+        if count <= 0:
+            return np.zeros(0, dtype=np.int64)
+        if rate <= 0:
+            return np.zeros(count, dtype=np.int64)
+        if self._timestamp_origin_ns is None:
+            first_ns = int(block.first_sample_time_ns or self._started_ns)
+            first_index = int(block.sample_index)
+            lead_ns = (first_index * 1_000_000_000 + rate // 2) // rate
+            self._timestamp_origin_ns = first_ns - lead_ns
+        indices = int(block.sample_index) + np.arange(count, dtype=np.int64)
+        offsets = (indices * 1_000_000_000 + rate // 2) // rate
+        return self._timestamp_origin_ns + offsets
+
+    def _take_pending(self, count: int) -> Tuple[np.ndarray, np.ndarray]:
         remaining = count
         parts: List[np.ndarray] = []
+        time_parts: List[np.ndarray] = []
         while remaining > 0:
             head = self._pending[0]
+            head_times = self._pending_times[0]
             if head.shape[1] <= remaining:
                 parts.append(head)
+                time_parts.append(head_times)
                 self._pending.pop(0)
+                self._pending_times.pop(0)
                 remaining -= head.shape[1]
             else:
                 parts.append(head[:, :remaining])
+                time_parts.append(head_times[:remaining])
                 self._pending[0] = head[:, remaining:]
+                self._pending_times[0] = head_times[remaining:]
                 remaining = 0
         self._pending_samples -= count
         if len(parts) == 1:
-            return parts[0]
-        return np.concatenate(parts, axis=1)
+            return parts[0], time_parts[0]
+        return np.concatenate(parts, axis=1), np.concatenate(time_parts)
 
     def _flush_pending(self) -> None:
         if self._pending_samples:
-            chunk = self._take_pending(self._pending_samples)
-            self._write_chunk(chunk)
+            chunk, chunk_times = self._take_pending(self._pending_samples)
+            self._write_chunk(chunk, chunk_times)
 
-    def _write_chunk(self, values: np.ndarray) -> None:
+    def _write_chunk(self, values: np.ndarray, timestamps: np.ndarray) -> None:
         if self._handle_csv is None:
             self._open_file()
         assert self._csv_writer is not None
         assert self._handle_txt is not None
         samples = values.shape[1]
-        for column in values.T:
-            row = ["%.6f" % float(value) for value in column]
+        if timestamps.shape[0] != samples:
+            raise RecordingError(
+                "timestamp count %s does not match %s samples"
+                % (timestamps.shape[0], samples)
+            )
+        for timestamp_ns, column in zip(timestamps, values.T):
+            row = [_format_timestamp_ns(int(timestamp_ns))] + [
+                "%.6f" % float(value) for value in column
+            ]
             self._csv_writer.writerow(row)
             self._handle_txt.write(",".join(row) + "\n")
         self._file_samples += samples
@@ -382,7 +421,8 @@ class RecordingWriter:
         self._handle_txt = open(txt_path, "w", encoding="utf-8", newline="\n")
         self._handle_csv = open(csv_path, "w", encoding="utf-8", newline="")
         self._csv_writer = csv.writer(self._handle_csv)
-        header = ["channel%d" % (i + 1) for i in range(self.config.channel_count)]
+        header = ["timestamp"]
+        header += ["channel%d" % (i + 1) for i in range(self.config.channel_count)]
         header += ["<AUX %d>" % i for i in range(AUX_CHANNELS)]
         self._csv_writer.writerow(header)
         self._handle_txt.write("FreeBCI Raw Data\n")
@@ -390,12 +430,14 @@ class RecordingWriter:
         self._handle_txt.write("Sampling Rate: %d Hz\n" % self.config.sampling_rate)
         self._handle_txt.write("Board: %s\n" % self.config.board_name)
         self._handle_txt.write(
-            "".join(["%d " % (i + 1) for i in range(self.config.channel_count)])
+            "timestamp "
+            + "".join(["%d " % (i + 1) for i in range(self.config.channel_count)])
             + "".join("<AUX %d> " % i for i in range(AUX_CHANNELS))
             + "\n"
         )
+        started = datetime.fromtimestamp(self._started_ns / 1e9)
         self._handle_txt.write(
-            "Start Time: %s\n" % datetime.fromtimestamp(self._started_ns / 1e9).strftime("%Y_%m_%d_%H%M%S")
+            "Start Time: %s\n" % started.strftime("%Y_%m_%d_%H%M%S")
         )
         self._file_samples = 0
         self._chunks_in_file = 0
@@ -476,6 +518,23 @@ class RecordingWriter:
                     "channel%d" % (index + 1)
                     for index in range(self.config.channel_count)
                 ],
+            },
+            "data_format": {
+                "timestamp_column": "timestamp",
+                "timestamp_format": "iso8601-utc",
+                "timestamp_resolution": "microsecond",
+                "timebase": "host-wall",
+                "columns": ["timestamp"]
+                + [
+                    "channel%d" % (index + 1)
+                    for index in range(self.config.channel_count)
+                ]
+                + ["<AUX %d>" % index for index in range(AUX_CHANNELS)],
+                "anchor": "first-block host-wall estimate",
+                "note": (
+                    "per-sample timestamps are host-clock estimates "
+                    "extrapolated by sample index; not hardware timestamps"
+                ),
             },
             "start": {
                 "first_sample_index": 0,
@@ -568,6 +627,15 @@ def _iso(ns: int) -> str:
     if not ns:
         return ""
     return datetime.fromtimestamp(ns / 1e9, tz=timezone.utc).isoformat()
+
+
+def _format_timestamp_ns(ns: int) -> str:
+    """Format a host-wall estimate as ISO 8601 UTC with microseconds."""
+    seconds, remainder = divmod(int(ns), 1_000_000_000)
+    moment = datetime.fromtimestamp(seconds, tz=timezone.utc).replace(
+        microsecond=remainder // 1000
+    )
+    return moment.isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 def _sha256_file(path: str) -> str:

@@ -13,6 +13,7 @@ Bluetooth, shows the signals live, and writes the raw data to disk.
 - LSL output for use with other acquisition software
 - External Python/LSL integration examples for online experiments
 - Automatic CSV/TXT recording while streaming
+- Per-sample UTC timestamps in every recorded row
 - Per-channel hardware settings and electrode mapping
 - Eight window layouts
 
@@ -389,8 +390,9 @@ logs\
 
 Each session gets its own `Stream_<date>_<time>` folder. Files roll over
 automatically: `1.csv` and `1.txt` hold the first 90,000 samples, `2.*` the next
-90,000, and so on. Every data file has a matching `.meta.json` sidecar with its
-sample count, checksum, and timing information. `manifest.json` describes the
+90,000, and so on. Every data row begins with a per-sample UTC timestamp; the
+matching `.meta.json` sidecar carries the file's sample count, checksum, and
+timing information. `manifest.json` describes the
 whole session and is finalized when the session stops. It is also written at
 session start and refreshed every few seconds, so an interrupted session leaves
 a manifest with `status: recording` instead of no metadata. It records
@@ -403,10 +405,11 @@ application or machine stops unexpectedly, the next launch reports how many
 unfinished sessions were found and leaves their files untouched for inspection.
 
 `manifest.json` follows the `freebci.session/1` schema: it includes the app
-version, device and sample-rate configuration, host start/stop timing, a chunk
-list with checksums, the sample count, and a stop reason alongside the legacy
-`files`/`samples_recorded` fields. Firmware and serial-number fields are not
-populated because the current transport layer does not expose them.
+version, device and sample-rate configuration, host start/stop timing, a
+`data_format` block describing the timestamp column and full column order, a
+chunk list with checksums, the sample count, and a stop reason alongside the
+legacy `files`/`samples_recorded` fields. Firmware and serial-number fields are
+not populated because the current transport layer does not expose them.
 
 ### Markers
 
@@ -432,12 +435,22 @@ clipboard for a bug report.
 
 ### CSV files
 
-The first row names the channels, followed by the three auxiliary inputs:
+Every data row starts with an ISO 8601 UTC timestamp, followed by the channels
+and the three auxiliary inputs:
 
 ```csv
-channel1,channel2,...,channel32,<AUX 0>,<AUX 1>,<AUX 2>
-12.345678,...
+timestamp,channel1,channel2,...,channel32,<AUX 0>,<AUX 1>,<AUX 2>
+2026-11-02T22:46:40.342288Z,12.345678,...
 ```
+
+The timestamp is a host-clock estimate for that individual sample. The first
+recorded block anchors the session; later rows advance by sample index at the
+nominal rate, so spacing stays uniform across block boundaries and a
+sample-index gap appears as a gap in the timestamps. It is not a hardware
+timestamp, and it does not remove host-clock or transport jitter. The column has
+microsecond resolution and is always UTC, so rows can be sorted or joined
+without a separate time-zone setting. Recordings made before 0.1.11 do not have
+this column; check the header before indexing columns by position.
 
 EEG values are in microvolts. Auxiliary values depend on the selected data mode
 (accelerometer, trigger, or battery). Both signal and auxiliary columns are
@@ -453,8 +466,9 @@ FreeBCI Raw Data
 Number of Channels: 32
 Sampling Rate: 250 Hz
 Board: FreeBCI-USB-32
-1 2 3 ... <AUX 0><AUX 1><AUX 2>
+timestamp 1 2 3 ... <AUX 0><AUX 1><AUX 2>
 Start Time:2026_11_01_143005
+2026-11-02T22:46:40.342288Z,12.345678,...
 ```
 
 ### Changing the data folder

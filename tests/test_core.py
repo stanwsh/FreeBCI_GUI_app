@@ -3,6 +3,7 @@ import os
 import shutil
 import time
 import unittest
+from datetime import datetime
 
 import numpy as np
 
@@ -104,6 +105,13 @@ class SessionControllerTest(unittest.TestCase):
         self.assertGreater(manifest["clock"]["started_wall_ns"], 0)
         self.assertGreater(manifest["clock"]["stopped_wall_ns"], 0)
         self.assertEqual(manifest["channel_count"], 4)
+        self.assertEqual(manifest["data_format"]["timestamp_column"], "timestamp")
+        self.assertEqual(manifest["data_format"]["timestamp_format"], "iso8601-utc")
+        self.assertEqual(
+            manifest["data_format"]["anchor"], "first-block host-wall estimate"
+        )
+        self.assertEqual(manifest["data_format"]["columns"][:2], ["timestamp", "channel1"])
+        self.assertEqual(manifest["data_format"]["columns"][-1], "<AUX 2>")
         self.assertEqual(len(manifest["files"]), 1)
         self.assertEqual(manifest["files"][0]["samples"], 12_000)
         self.assertTrue(manifest["files"][0]["sha256"])
@@ -128,9 +136,12 @@ class SessionControllerTest(unittest.TestCase):
         with open(first_csv, encoding="utf-8") as handle:
             lines = handle.readlines()
         self.assertEqual(len(lines), 12_001)
-        self.assertTrue(lines[0].startswith("channel1,channel2,channel3,channel4,<AUX 0>"))
+        self.assertTrue(
+            lines[0].startswith("timestamp,channel1,channel2,channel3,channel4,<AUX 0>")
+        )
         first_row = lines[1].rstrip("\r\n").split(",")
-        self.assertEqual(first_row[0], "1.000000")
+        self.assertTrue(first_row[0].endswith("Z"))
+        self.assertEqual(first_row[1], "1.000000")
         self.assertEqual(first_row[-1], "7.000000")
 
     def test_rotates_csv_after_nine_chunks(self):
@@ -207,6 +218,107 @@ class SessionControllerTest(unittest.TestCase):
             txt_rows = [line.rstrip("\r\n") for line in handle]
         self.assertTrue(txt_rows[-2].endswith("-0.987654,0.123456,0.500000"))
         self.assertTrue(txt_rows[-1].endswith("-1.000000,0.000000,1.000000"))
+
+    def test_each_sample_row_has_a_utc_timestamp(self):
+        profile = BoardProfile(board_id=999, name="FakeBoard", channels=4, sampling_rate=250)
+        config = SessionConfig(
+            session_id="test-timestamps",
+            board=profile,
+            sampling_rate=250,
+            output_root=self.root,
+            channel_count=4,
+        )
+        writer = RecordingWriter(config)
+        writer.start()
+        first_ns = 1_700_000_000_123_456_789
+        data = np.zeros((1 + 4 + 3, 3), dtype=np.float64)
+        data[1:5, :] = 1
+        data[5:, :] = 0
+        writer.submit(SampleBlock(0, 0, data, 250, first_ns, first_ns, first_ns))
+        writer.close()
+
+        with open(os.path.join(writer.session_dir, "1.csv"), encoding="utf-8") as handle:
+            rows = [line.rstrip("\r\n").split(",") for line in handle]
+        self.assertEqual(rows[0][0], "timestamp")
+        self.assertEqual(rows[0][1], "channel1")
+        self.assertEqual(
+            [row[0] for row in rows[1:]],
+            [
+                "2023-11-14T22:13:20.123456Z",
+                "2023-11-14T22:13:20.127456Z",
+                "2023-11-14T22:13:20.131456Z",
+            ],
+        )
+
+        with open(os.path.join(writer.session_dir, "1.txt"), encoding="utf-8") as handle:
+            txt_rows = [line.rstrip("\r\n") for line in handle]
+        self.assertTrue(txt_rows[4].startswith("timestamp "))
+        self.assertTrue(txt_rows[6].startswith("2023-11-14T22:13:20.123456Z,"))
+
+    def test_timestamps_follow_sample_index_across_blocks(self):
+        profile = BoardProfile(board_id=999, name="FakeBoard", channels=4, sampling_rate=250)
+        config = SessionConfig(
+            session_id="test-timestamp-blocks",
+            board=profile,
+            sampling_rate=250,
+            output_root=self.root,
+            channel_count=4,
+        )
+        writer = RecordingWriter(config)
+        writer.start()
+        first_ns = 1_700_000_000_000_000_000
+        data = np.zeros((1 + 4 + 3, 2), dtype=np.float64)
+        writer.submit(SampleBlock(0, 0, data, 250, first_ns, first_ns, first_ns))
+        writer.submit(
+            SampleBlock(
+                1,
+                2,
+                data,
+                250,
+                first_ns + 9_000_000,
+                first_ns + 9_000_000,
+                first_ns + 9_000_000,
+            )
+        )
+        writer.close()
+
+        with open(os.path.join(writer.session_dir, "1.csv"), encoding="utf-8") as handle:
+            rows = [line.rstrip("\r\n").split(",") for line in handle]
+        self.assertEqual(
+            [row[0] for row in rows[1:]],
+            [
+                "2023-11-14T22:13:20.000000Z",
+                "2023-11-14T22:13:20.004000Z",
+                "2023-11-14T22:13:20.008000Z",
+                "2023-11-14T22:13:20.012000Z",
+            ],
+        )
+
+    def test_timestamps_survive_a_file_boundary(self):
+        profile = BoardProfile(board_id=999, name="FakeBoard", channels=4, sampling_rate=250)
+        config = SessionConfig(
+            session_id="test-timestamp-boundary",
+            board=profile,
+            sampling_rate=250,
+            output_root=self.root,
+            channel_count=4,
+        )
+        writer = RecordingWriter(config)
+        writer.start()
+        first_ns = 1_700_000_000_000_000_000
+        data = np.zeros((1 + 4 + 3, 90_001), dtype=np.float64)
+        writer.submit(SampleBlock(0, 0, data, 250, first_ns, first_ns, first_ns))
+        writer.close()
+
+        with open(os.path.join(writer.session_dir, "1.csv"), encoding="utf-8") as handle:
+            first_file = [line.rstrip("\r\n").split(",") for line in handle]
+        with open(os.path.join(writer.session_dir, "2.csv"), encoding="utf-8") as handle:
+            second_file = [line.rstrip("\r\n").split(",") for line in handle]
+        self.assertEqual(len(first_file), 90_001)
+        self.assertEqual(len(second_file), 2)
+        last = datetime.fromisoformat(first_file[-1][0].replace("Z", "+00:00"))
+        first = datetime.fromisoformat(second_file[1][0].replace("Z", "+00:00"))
+        self.assertEqual((first - last).total_seconds(), 0.004)
 
     def test_manifest_reports_missing_samples(self):
         profile = BoardProfile(board_id=999, name="FakeBoard", channels=4, sampling_rate=250)
