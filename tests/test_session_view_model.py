@@ -11,6 +11,7 @@ class FakeController:
     def __init__(self):
         self.markers = []
         self.writer = None
+        self.config = SimpleNamespace(channel_count=16, sampling_rate=250)
 
     def snapshot(self):
         return SimpleNamespace(
@@ -69,6 +70,16 @@ class SessionViewModelTests(unittest.TestCase):
         self.assertEqual(self.view_model.history.tolist(), [[1, 2]])
         self.view_model.append_block(np.array([[99, 3, 4]]), limit=4)
         self.assertEqual(self.view_model.history.tolist(), [[2, 99, 3, 4]])
+
+    def test_display_snapshot_carries_state_and_history(self):
+        self.assertIsNone(self.view_model.display_snapshot())
+        self.controller = FakeController()
+        self.view_model.set_history(np.zeros((26, 12)))
+        view = self.view_model.display_snapshot()
+        self.assertEqual(view.channel_count, 16)
+        self.assertEqual(view.sampling_rate, 250)
+        self.assertEqual(view.state, "recording")
+        self.assertEqual(view.history.shape, (26, 12))
 
 
 if __name__ == "__main__":

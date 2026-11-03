@@ -7,6 +7,7 @@ stops individual widgets from reaching into the controller (and its writer)
 directly.
 """
 
+from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
 import numpy as np
@@ -15,6 +16,17 @@ from freebci.core.diagnostics import diagnostics_fields, idle_fields
 from freebci.core.history import append_bounded
 from freebci.core.models import StateSnapshot
 from freebci.core.session import SessionController
+
+
+@dataclass(frozen=True)
+class DisplaySnapshot:
+    """Immutable view of the data a plot may render."""
+
+    history: np.ndarray
+    channel_count: int
+    sampling_rate: int
+    state: str
+    sample_count: int
 
 
 class SessionViewModel:
@@ -45,6 +57,21 @@ class SessionViewModel:
         else:
             self._history = append_bounded(self._history, block, limit)
         return self._history
+
+    def display_snapshot(self) -> Optional[DisplaySnapshot]:
+        if self._history is None or self._history.shape[1] == 0:
+            return None
+        controller = self.controller
+        if controller is None:
+            return None
+        state_snapshot = controller.snapshot()
+        return DisplaySnapshot(
+            history=self._history,
+            channel_count=controller.config.channel_count,
+            sampling_rate=controller.config.sampling_rate,
+            state=state_snapshot.state.value,
+            sample_count=state_snapshot.sample_count,
+        )
 
     @property
     def controller(self) -> Optional[SessionController]:

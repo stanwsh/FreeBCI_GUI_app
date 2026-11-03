@@ -961,12 +961,14 @@ class MyMainWindow(MainWindowInterface):
 
     def processor_fun(self):
         try:
-            if self.data.shape[1] < self.SamplingRate * 3:
+            view = self.session_view_model.display_snapshot()
+            if view is None or view.history.shape[1] < self.SamplingRate * 3:
                 return
+            data = view.history
             start_time = datetime.datetime.now()
             fft_len_dict = {'125': 128, '250': 256, '500': 512, '1000': 1024, '2000': 2048, '4000': 4096, '8000': 8192, '16000': 16384}
             fft_bound = int(fft_len_dict[str(self.SamplingRate)])
-            t_data = self.data[1:, -self.SamplingRate * 3:]
+            t_data = data[1:, -self.SamplingRate * 3:]
             del fft_len_dict
             t_data = np.array(t_data, dtype=float64)
             nf_data = [ [] for row in range(self._chan) ]
@@ -1049,12 +1051,14 @@ class MyMainWindow(MainWindowInterface):
 
     def shower_fun(self):
         try:
-            if self.data.shape[1] < self.SamplingRate:
+            view = self.session_view_model.display_snapshot()
+            if view is None or view.history.shape[1] < self.SamplingRate:
                 return
+            data = view.history
             start_time = datetime.datetime.now()
             fft_len_dict = {'125': 128, '250': 256, '500': 512, '1000': 1024, '2000': 2048, '4000': 4096, '8000': 8192, '16000': 16384}
             fft_bound = int(fft_len_dict[str(self.SamplingRate)])
-            t_data = self.data[1:, -int(self.ts_plot_range + self.SamplingRate * 2):]
+            t_data = data[1:, -int(self.ts_plot_range + self.SamplingRate * 2):]
             t_data = np.array(t_data, dtype=float64)
             nf_data = [ [] for row in range(self._chan) ]
             bp_nf_data = [ [] for row in range(self._chan) ]

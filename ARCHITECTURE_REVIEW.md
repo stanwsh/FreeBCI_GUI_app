@@ -21,7 +21,7 @@ USER NOTES:
 | 2 — Device/acquisition decoupling | Complete | 2.1 DeviceManager, 2.2 async settings, and 2.3 async command/start execution landed; only non-blocking board metadata queries remain on the GUI thread. |
 | 3 — Bounded buffers/performance | Complete* | 3.1-3.3 landed and LSL pending counts are in diagnostics; the full 8-hour/64-channel GUI gate is endurance-gated. |
 | 4 — Timestamps/control/sync | Complete* | 4.1 clock-offset exchange, selector-based `start`, and manifest clock section landed; real-board control verification remains hardware-gated. |
-| 5 — GUI state/workflow | In progress | 5.1 action guards, 5.2 stop confirmation, and 5.3 bounded display history owned by the view model landed; full snapshot rendering of every view and operator usability remain. |
+| 5 — GUI state/workflow | In progress | 5.1-5.3 landed plus 5.4 immutable display snapshot for time-series/FFT/band-power; trigger/battery/topography snapshot views and usability remain. |
 | 6 — Validation/hardware matrix | Partial | USB 16-channel re-verified on COM3; Wi-Fi 16 verified earlier. Bluetooth, USB high-speed, 8/24/32/64-channel boards, and multi-hour soak remain hardware/time-gated. |
 
 ### Implementation progress
@@ -75,6 +75,7 @@ USER NOTES:
 - **Phase 5.1:** a single `_sync_action_states()` derives menu/action enablement from the current view-model state: Add Marker only while armed/recording, Demo only while idle, Boards only while idle, Disconnect only while a board is connected, and Hardware settings/electrode settings only while stopped.
 - **Phase 5.2:** stopping a session with acquired samples, or disconnecting while it is recording, asks for confirmation before finalizing; control-plane stop and window close remain unconfirmed so scripts and shutdown are not blocked.
 - **Phase 5.3:** the bounded display history now lives in `SessionViewModel`; `MyMainWindow.data` is a property over that history, and acquisition appends through `append_block()`. Time-series, FFT, band-power, trigger, battery, and topography consumers still read the shared property, so the remaining work is rendering every view directly from an explicit snapshot model.
+- **Phase 5.4:** `SessionViewModel.display_snapshot()` returns an immutable `DisplaySnapshot` (history, state, channel count, sampling rate, sample count). `processor_fun` and `shower_fun` now render from that snapshot instead of reading `self.data` directly.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
