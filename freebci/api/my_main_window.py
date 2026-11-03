@@ -504,6 +504,8 @@ class MyMainWindow(MainWindowInterface):
 
     def _confirm_close(self):
         """Ask before closing a window that would finalize a recording."""
+        if getattr(self, '_force_close', False):
+            return True
         if not (self.session_controller is not None or self.startButton_isclicked):
             return True
         answer = QtWidgets.QMessageBox.question(
@@ -1401,6 +1403,7 @@ class MyMainWindow(MainWindowInterface):
     @QtCore.pyqtSlot()
     def _shutdown_from_control(self):
         self.myLogger.write('FreeBCI: shutdown requested by control client')
+        self._force_close = True
         self.close()
 
     def _sync_action_states(self):

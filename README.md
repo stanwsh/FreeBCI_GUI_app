@@ -507,7 +507,8 @@ It returns `"start_requested"` and is rejected if a session is already active or
 starting. Poll `status()` until it reports `recording`. `stop()` asks the GUI to
 stop and returns `"stop_requested"`; the session finalizes on the next GUI event.
 `shutdown()` asks the GUI to close, which also stops the session and releases the
-board. `marker()` records a labeled event at the current sample offset and returns
+board; a control shutdown skips the manual close confirmation so it cannot block
+an automated caller. `marker()` records a labeled event at the current sample offset and returns
 the marker record; it requires an active session.
 
 Requests carry a client-generated `id` and the response echoes it. A failed
