@@ -23,6 +23,7 @@ import os
 import secrets
 import socket
 import threading
+import time
 from typing import Any, Callable, Dict, Optional
 
 from freebci.core.models import SessionStatus
@@ -52,7 +53,7 @@ class ControlServer:
         accept_timeout: float = 0.2,
         stop_callback: Optional[Callable[[], None]] = None,
         shutdown_callback: Optional[Callable[[], None]] = None,
-        start_callback: Optional[Callable[[], None]] = None,
+        start_callback: Optional[Callable[[str], None]] = None,
         controller_provider: Optional[Callable[[], Optional[SessionController]]] = None,
     ) -> None:
         self.controller = controller
@@ -193,11 +194,22 @@ class ControlServer:
         return request
 
     def _dispatch(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        received_ns = time.time_ns()
         if request.get("token") != self.token:
             raise ControlError("invalid control token")
         command = request.get("command")
         if command == "ping":
             return {"ok": True, "protocol": PROTOCOL_VERSION}
+        if command == "time":
+            client_send_ns = request.get("client_send_ns")
+            if not isinstance(client_send_ns, int) or client_send_ns < 0:
+                raise ControlError("time requires client_send_ns as an integer")
+            return {
+                "ok": True,
+                "client_send_ns": client_send_ns,
+                "server_receive_ns": received_ns,
+                "server_send_ns": time.time_ns(),
+            }
         if command == "status":
             controller = self.active_controller()
             if controller is None:
@@ -208,8 +220,11 @@ class ControlServer:
                 raise ControlError("start is not available for this control endpoint")
             if self.active_controller() is not None:
                 raise ControlError("a session is already active")
-            self.start_callback()
-            return {"ok": True, "status": "start_requested"}
+            board = request.get("board")
+            if board is None or not str(board).strip():
+                raise ControlError("start requires a board selector")
+            self.start_callback(str(board).strip())
+            return {"ok": True, "status": "start_requested", "board": str(board).strip()}
         if command == "marker":
             controller = self.active_controller()
             if controller is None:
@@ -290,8 +305,43 @@ class ControlClient:
     def marker(self, label: str) -> Dict[str, Any]:
         return self._request("marker", label=label)["marker"]
 
-    def start(self) -> str:
-        return self._request("start")["status"]
+    def start(self, board: Any) -> str:
+        return self._request("start", board=str(board))["status"]
+
+    def clock_offset(self, samples: int = 5) -> Dict[str, Any]:
+        """Estimate server-minus-client clock offset and its uncertainty.
+
+        The estimate is only meaningful for endpoints on the same host; the
+        round-trip term is still reported so callers can reject noisy samples.
+        """
+        count = max(1, int(samples))
+        best = None
+        for _ in range(count):
+            client_send_ns = time.time_ns()
+            response = self._request("time", client_send_ns=client_send_ns)
+            client_receive_ns = time.time_ns()
+            server_receive_ns = int(response["server_receive_ns"])
+            server_send_ns = int(response["server_send_ns"])
+            round_trip_ns = max(
+                0,
+                (client_receive_ns - client_send_ns)
+                - (server_send_ns - server_receive_ns),
+            )
+            offset_ns = int(
+                (
+                    (server_receive_ns - client_send_ns)
+                    + (server_send_ns - client_receive_ns)
+                )
+                / 2
+            )
+            if best is None or round_trip_ns < best["round_trip_ns"]:
+                best = {
+                    "offset_ns": offset_ns,
+                    "uncertainty_ns": round_trip_ns // 2,
+                    "round_trip_ns": round_trip_ns,
+                    "samples": count,
+                }
+        return best
 
     def stop(self) -> str:
         return self._request("stop")["status"]

@@ -33,7 +33,7 @@ from freebci.api.my_hardware_warn import MyHardwareWarning
 from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
-from freebci.core.control import ControlServer
+from freebci.core.control import ControlError, ControlServer
 from freebci.core.models import BoardProfile, SessionConfig
 from freebci.core.session import SessionController
 from brainflow import board_shim, data_filter, exit_codes, ml_model
@@ -1254,17 +1254,34 @@ class MyMainWindow(MainWindowInterface):
             self.control_server = None
         self._remove_control_discovery()
 
-    def _request_control_start(self):
-        """Queue a control-plane demo start onto the GUI thread."""
+    def _request_control_start(self, board):
+        """Validate a control-plane board selector and queue the start."""
+        selector = str(board).strip()
+        if selector != 'demo':
+            if not self.isSessionOn or self.connect_info.board is None:
+                raise ControlError('board %s is not connected' % selector)
+            row = self.connect_info.id_list[self.connect_info.board_id - 2023]
+            accepted = (str(self.connect_info.board_id), str(row[0]))
+            if selector not in accepted:
+                raise ControlError(
+                    'board %s is not the connected board (%s)'
+                    % (selector, accepted[0])
+                )
+        if self.startButton_isclicked or self._start_worker is not None:
+            raise ControlError('a session is already active or starting')
         QtCore.QMetaObject.invokeMethod(
             self,
             '_start_from_control',
             QtCore.Qt.QueuedConnection,
+            QtCore.Q_ARG(str, selector),
         )
 
-    @QtCore.pyqtSlot()
-    def _start_from_control(self):
-        self.demo_click()
+    @QtCore.pyqtSlot(str)
+    def _start_from_control(self, board):
+        if board == 'demo':
+            self.demo_click()
+            return
+        self.startButton_click()
 
     def _request_control_stop(self):
         """Queue a control-plane stop onto the GUI thread."""

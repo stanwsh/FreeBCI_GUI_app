@@ -139,6 +139,22 @@ class ControlPlaneTest(unittest.TestCase):
             controller.stop()
             server.stop()
 
+    def test_clock_offset_reports_uncertainty(self):
+        controller = self._controller()
+        controller.start()
+        server = ControlServer(controller, token="test-token")
+        server.start()
+        try:
+            client = ControlClient(server.host, server.port, "test-token")
+            result = client.clock_offset(samples=3)
+            self.assertGreaterEqual(result["uncertainty_ns"], 0)
+            self.assertGreaterEqual(result["round_trip_ns"], 0)
+            self.assertLess(abs(result["offset_ns"]), 5_000_000_000)
+            self.assertEqual(result["samples"], 3)
+        finally:
+            server.stop()
+            controller.stop()
+
     def test_server_stop_is_idempotent(self):
         controller = self._controller()
         server = ControlServer(controller, token="test-token")
@@ -152,7 +168,7 @@ class ControlPlaneTest(unittest.TestCase):
         server = ControlServer(
             None,
             token="test-token",
-            start_callback=lambda: called.append(True),
+            start_callback=lambda board: called.append(board),
         )
         server.start()
         try:
@@ -160,8 +176,10 @@ class ControlPlaneTest(unittest.TestCase):
             idle = client.status()
             self.assertEqual(idle["state"], "idle")
             self.assertEqual(idle["sample_count"], 0)
-            self.assertEqual(client.start(), "start_requested")
-            self.assertEqual(called, [True])
+            self.assertEqual(client.start("demo"), "start_requested")
+            self.assertEqual(called, ["demo"])
+            with self.assertRaises(ControlError):
+                client.start("")
             with self.assertRaises(ControlError):
                 client.marker("not yet")
             with self.assertRaises(ControlError):
