@@ -99,6 +99,7 @@ USER NOTES:
 - **Phase 4.4 (G.5):** discovery publishes `schema: freebci.control/1`, host, pid, and creation time alongside the endpoint/token.
 - **Phase 4.5 (G.8):** `status` now includes `clock_id`, `monotonic_ns`, and `wall_ns` for the server clock.
 - **Phase 5.7 (C.4/I.1):** `core/actions.py` is a pure state-to-action table; the window derives marker/demo/board/release/settings enablement from it.
+- **Phase 2.17 (D.4):** `core/gateway.py` is now the only BrainFlow importer; `core/dsp.py` delegates FFT/filter/power calls to it, and the virtual-connection dialog also uses the gateway preparation helpers.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
@@ -1718,7 +1719,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | C.7 tests/packaging | 97 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
 | D.2 layers | Core/application/device boundaries partly exist; catalog, ring, settings, logging, and an `app.py` bootstrap exist | No `freebci/ui/` package; presentation still owns LSL outlets and view state | Target |
 | D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
-| D.4 dependency rules | Core is Qt-free; `freebci/api` imports neither BrainFlow nor `DataFilter`; main window uses `core/dsp.py`; transport preparation lives in `core/gateway.py` | `core/dsp.py` still imports BrainFlow filtering directly rather than through the gateway | P1 |
+| D.4 dependency rules | Core is Qt-free; `freebci/api` imports no BrainFlow; `core/dsp.py` delegates filtering to `core/gateway.py`, which is the only BrainFlow importer | No `freebci/ui/` package yet | P1 |
 | D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
 | D.6 data flow | Block → writer + display queue + view-model history | No acquisition ring fan-out; LSL now uses a bounded chunk queue with a drop counter; no processing-worker snapshot | P2 |
 | E.1 models | `BoardProfile`, `SessionConfig`, `SampleBlock`, `SessionClock`, `StateSnapshot` | No `DeviceConfig`/`StopReason` as specified; model fields differ from the proposal | Documentation |
