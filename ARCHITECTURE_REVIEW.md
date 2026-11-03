@@ -1709,16 +1709,16 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 
 | Section | Landed | Still open / target-only | Priority |
 |---|---|---|---|
-| C.1 dependency map | Core no Qt; writer/acquisition separated; serial and Wi-Fi workers prepare boards through `core/gateway.py` helpers | The legacy virtual-connection dialog still imports BrainFlow; transport dialogs still own lifecycle | P1 |
+| C.1 dependency map | Core no Qt; writer/acquisition separated; serial, Wi-Fi, and virtual dialogs prepare boards through `core/gateway.py`; no `freebci/api` module imports BrainFlow | `connectInfo` still carries a live board handle; views own LSL outlets | P1 |
 | C.2 cohesion | Recording, acquisition, settings apply moved out of the window | `MyMainWindow` still owns timers, filters, plotting, LSL, menus, and state; views still own LSL/protocol choices | P1 |
 | C.3 concurrency | Acquisition, writer, settings, board-command, session-start workers | No core ring; GUI filters/FFTs on its thread; topography queue is unbounded | P1/P2 |
 | C.4 state model | Action guards and start/stop confirmation; `core/actions.py` derives menu/connection enablement from state | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded core state machine | P1 |
 | C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
 | C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write rotating structured `session.log` | GUI `MyLogger` still opens a file per message; no top-level correlation IDs | P2 |
 | C.7 tests/packaging | 97 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
-| D.2 layers | Core/application/device boundaries partly exist; catalog, ring, settings, and structured logging now exist in core | Presentation is not BrainFlow-free; no `ui/`, `app.py` | Target |
+| D.2 layers | Core/application/device boundaries partly exist; catalog, ring, settings, logging, and an `app.py` bootstrap exist | No `freebci/ui/` package; presentation still owns LSL outlets and view state | Target |
 | D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
-| D.4 dependency rules | Core is Qt-free; main window no longer imports BrainFlow and uses `core/dsp.py`; serial/Wi-Fi workers prepare boards via `core/gateway.py` | The legacy virtual-connection dialog still imports BrainFlow; `gateway.py` is not yet the only importer | P1 |
+| D.4 dependency rules | Core is Qt-free; `freebci/api` imports neither BrainFlow nor `DataFilter`; main window uses `core/dsp.py`; transport preparation lives in `core/gateway.py` | `core/dsp.py` still imports BrainFlow filtering directly rather than through the gateway | P1 |
 | D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
 | D.6 data flow | Block → writer + display queue + view-model history | No acquisition ring fan-out; LSL now uses a bounded chunk queue with a drop counter; no processing-worker snapshot | P2 |
 | E.1 models | `BoardProfile`, `SessionConfig`, `SampleBlock`, `SessionClock`, `StateSnapshot` | No `DeviceConfig`/`StopReason` as specified; model fields differ from the proposal | Documentation |

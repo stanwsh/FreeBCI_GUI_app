@@ -1,13 +1,10 @@
 import serial
 import sys
-import time
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from freebci.design.virtual_connection import Ui_VirtualDialog
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.myConnectionInfo import connectInfo
-from brainflow import board_shim, data_filter, exit_codes, ml_model
-from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
-from brainflow.data_filter import AggOperations, DataFilter, FilterTypes, WindowFunctions
+from freebci.core.gateway import prepare_serial_board, prepare_wifi_board
 from PyQt5.QtCore import Qt
 
 class MyVirtualConnection(QtWidgets.QDialog, Ui_VirtualDialog):
@@ -60,31 +57,10 @@ class MyVirtualConnection(QtWidgets.QDialog, Ui_VirtualDialog):
     
     def prepare_openbci(self, connect_type, boardID=0, wifi_address=None, wifi_port=0, serial_port=None, other_info='6040000'):
         if connect_type == 1:
-            try:
-                params = BrainFlowInputParams()
-                params.ip_port = wifi_port
-                params.ip_address = wifi_address
-                params.timeout = 3
-                board_id = boardID
-                self.board = BoardShim(board_id, params)
-                self.board.prepare_session()
-            except board_shim.BrainFlowError as ex:
-                self.board.release_session()
-                self.board = BoardShim(5, BrainFlowInputParams())
-                raise ex
+            self.board = prepare_wifi_board(boardID, wifi_address, wifi_port)
         elif connect_type == 2:
-            try:
-                params = BrainFlowInputParams()
-                params.serial_port = serial_port
-                params.timeout = 3
-                params.other_info = other_info
-                board_id = boardID
-                self.board = BoardShim(board_id, params)
-                self.board.prepare_session()
-                time.sleep(0.2)
-            except board_shim.BrainFlowError as ex:
-                self.board.release_session()
-                self.board = BoardShim(5, BrainFlowInputParams())
-                raise ex
+            self.board = prepare_serial_board(boardID, serial_port, other_info)
+        else:
+            raise ValueError('unsupported connection type: %r' % (connect_type,))
 
 

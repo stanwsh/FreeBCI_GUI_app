@@ -9,6 +9,7 @@ import numpy as np
 from freebci.core.models import BoardProfile, SampleBlock, SessionConfig, SessionStatus
 from freebci.core.recording import RecordingWriter
 from freebci.core.session import SessionController
+from freebci.version import VERSION
 
 TEST_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".test-tmp")
 
@@ -93,7 +94,7 @@ class SessionControllerTest(unittest.TestCase):
             manifest = json.load(handle)
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(manifest["schema"], "freebci.session/1")
-        self.assertEqual(manifest["app_version"], "0.1.4")
+        self.assertEqual(manifest["app_version"], VERSION)
         self.assertEqual(manifest["sample_count"], 12_000)
         self.assertEqual(manifest["chunks"][0]["n_samples"], 12_000)
         self.assertEqual(manifest["chunks"][0]["status"], "complete")
