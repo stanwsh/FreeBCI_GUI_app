@@ -17,6 +17,7 @@ from freebci.ui.views.battery import BatteryView
 from freebci.ui.layout_dialog import LayoutDialog
 from freebci.ui.console_window import ConsoleWindow
 from freebci.ui.console_logger import ConsoleLogger
+from freebci.ui.empty_state import EmptyState
 from freebci.ui.recording_paths import RecordingPaths
 
 
@@ -53,6 +54,9 @@ class MainWindowInterface(Ui_MainWindow, QtWidgets.QMainWindow):
         self.initWidget()
         self.setWindowIcon(QtGui.QIcon(self.parent_path + '\\freebci\\design\\main_icon.png'))
         self.stackedWidget.setCurrentIndex(0)
+        self.empty_state = EmptyState(self._show_board_menu, self.demo_click, self.page_0)
+        self.Layout00.hide()
+        self.gridLayout.addWidget(self.empty_state, 0, 0, 1, 1)
         self.startButton_isclicked = False
         self.plot_widgets = []
         self.channel_list = [ str(i + 1) for i in range(self._chan) ]
@@ -80,7 +84,27 @@ class MainWindowInterface(Ui_MainWindow, QtWidgets.QMainWindow):
             'Time Series', 'FFT Plot', 'Band Power', 'External trigger', 'Accelerometer', 'Networking', 'Battery', 'Brain topography']
         self.layoutdic = {
             'test': None}
+        self._apply_compact_layout()
         self.resized.connect(self.getWindowSize)
+
+    def _apply_compact_layout(self):
+        """Use consistent gutters between the dashboard panels."""
+        for index in range(self.stackedWidget.count()):
+            page = self.stackedWidget.widget(index)
+            layout = page.layout()
+            if layout is not None:
+                layout.setContentsMargins(8, 8, 8, 8)
+                layout.setSpacing(8)
+        for layouts in self.gridLayout_dict.values():
+            if not layouts:
+                continue
+            for layout in layouts:
+                layout.setContentsMargins(0, 0, 0, 0)
+                layout.setSpacing(8)
+
+    def _show_board_menu(self):
+        button = self.empty_state.connectButton
+        self.menu.popup(button.mapToGlobal(QtCore.QPoint(0, button.height())))
 
     def resizeEvent(self, event):
         self.resized.emit()
@@ -127,7 +151,7 @@ class MainWindowInterface(Ui_MainWindow, QtWidgets.QMainWindow):
         self.is_fft_plot = False
         self.NotchComboBox.setCurrentIndex(1)
         self.BPFiltComboBox.setCurrentIndex(1)
-        self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(192, 192, 192)')
+        self.startButton.setStyleSheet('background-color: #64748B; color: #FFFFFF;')
         settings = {
             'channel': self._chan, 'activeChannels': self.FFTactiveChannels}
         self.fft_plot = FFTPlotView(settings)

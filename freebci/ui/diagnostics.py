@@ -16,23 +16,24 @@ class DiagnosticsDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.provider = provider
         self.setWindowTitle("Session diagnostics")
-        self.resize(620, 560)
+        self.resize(760, 560)
+        self.setMinimumSize(720, 520)
         self.setModal(False)
 
         layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(22, 20, 22, 18)
+        layout.setSpacing(8)
         title = QtWidgets.QLabel("Session diagnostics")
-        title.setStyleSheet("font: 700 16pt 'Arial';")
+        title.setStyleSheet("font: 700 15pt 'Segoe UI'; color: #14263A;")
         layout.addWidget(title)
         subtitle = QtWidgets.QLabel(
             "Live view of acquisition, recording, and output health. "
             "The dialog refreshes every half second."
         )
+        subtitle.setStyleSheet("color: #52657A;")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
-        form = QtWidgets.QFormLayout()
-        form.setLabelAlignment(QtCore.Qt.AlignRight)
-        self.fields: Dict[str, QtWidgets.QLabel] = {}
         rows = [
             ("state", "State"),
             ("session", "Session"),
@@ -58,27 +59,38 @@ class DiagnosticsDialog(QtWidgets.QDialog):
             ("lsl", "LSL streams"),
             ("error", "Last error"),
         ]
-        for key, label in rows:
-            value = QtWidgets.QLabel("-")
-            value.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-            value.setWordWrap(True)
-            if key in ("output", "control", "lsl", "error"):
-                # Long paths must not force the whole dialog off screen.
-                value.setMinimumWidth(0)
-                value.setSizePolicy(
-                    QtWidgets.QSizePolicy.Ignored,
-                    QtWidgets.QSizePolicy.Preferred,
-                )
-            self.fields[key] = value
-            form.addRow(label + ":", value)
-        layout.addLayout(form)
+        columns = QtWidgets.QHBoxLayout()
+        columns.setSpacing(24)
+        self.fields: Dict[str, QtWidgets.QLabel] = {}
+        split = 12
+        for subset in (rows[:split], rows[split:]):
+            form = QtWidgets.QFormLayout()
+            form.setLabelAlignment(QtCore.Qt.AlignRight)
+            form.setFormAlignment(QtCore.Qt.AlignTop)
+            form.setVerticalSpacing(3)
+            form.setHorizontalSpacing(8)
+            for key, label in subset:
+                value = QtWidgets.QLabel("-")
+                value.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+                value.setWordWrap(True)
+                if key in ("output", "control", "lsl", "error"):
+                    # Long paths must not force the whole dialog off screen.
+                    value.setMinimumWidth(0)
+                    value.setSizePolicy(
+                        QtWidgets.QSizePolicy.Ignored,
+                        QtWidgets.QSizePolicy.Preferred,
+                    )
+                self.fields[key] = value
+                form.addRow(label + ":", value)
+            columns.addLayout(form, 1)
+        layout.addLayout(columns, 1)
 
         note = QtWidgets.QLabel(
             "Lost samples come from gaps in the board sample sequence. "
             "Display drops only affect what is drawn, not the recording."
         )
         note.setWordWrap(True)
-        note.setStyleSheet("color: #555;")
+        note.setStyleSheet("color: #5F7184; font-size: 9pt;")
         layout.addWidget(note)
 
         buttons = QtWidgets.QHBoxLayout()

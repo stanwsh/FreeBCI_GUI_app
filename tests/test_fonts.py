@@ -1,11 +1,11 @@
 import unittest
 from pathlib import Path
 
-LEGACY_FONT_NAMES = ("黑体", "等线", "SimSun", "宋体", "微软雅黑")
+LEGACY_FONT_NAMES = ("黑体", "等线", "SimSun", "宋体", "微软雅黑", "Arial")
 
 
 class FontTests(unittest.TestCase):
-    def test_presentation_uses_a_common_english_font(self):
+    def test_presentation_uses_the_preferred_ui_font(self):
         package = Path(__file__).resolve().parents[1] / "freebci"
         offenders = []
         for path in package.rglob("*.py"):

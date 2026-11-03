@@ -36,7 +36,7 @@ class hardwareSettings_interface(QtWidgets.QDialog, Ui_Hardware_settings):
                 self.nameButtons[i] = self.nameButton
                 self.gridLayout_2.addWidget(self.nameButton, 2 * i + 1, 0, 1, 1)
                 self.PCAGainComboBox = QtWidgets.QComboBox(self.scrollAreaWidgetContents)
-                self.PCAGainComboBox.setStyleSheet('font: 12pt "Arial";')
+                self.PCAGainComboBox.setStyleSheet('font: 12pt "Segoe UI";')
                 self.PCAGainComboBox.setObjectName('PCAGainComboBox' + str(i + 1))
                 self.PCAGainComboBox_list = [
                     'X24',
@@ -51,7 +51,7 @@ class hardwareSettings_interface(QtWidgets.QDialog, Ui_Hardware_settings):
                 self.PCAGainComboBoxs[i] = self.PCAGainComboBox
                 self.gridLayout_2.addWidget(self.PCAGainComboBox, 2 * i + 1, 1, 1, 1)
                 self.InputComboBox = QtWidgets.QComboBox(self.scrollAreaWidgetContents)
-                self.InputComboBox.setStyleSheet('font: 12pt "Arial";')
+                self.InputComboBox.setStyleSheet('font: 12pt "Segoe UI";')
                 self.InputComboBox.setObjectName('InputComboBox' + str(i + 1))
                 self.InputComboBox_list = [
                     'Normal',
@@ -66,28 +66,28 @@ class hardwareSettings_interface(QtWidgets.QDialog, Ui_Hardware_settings):
                 self.InputComboBoxs[i] = self.InputComboBox
                 self.gridLayout_2.addWidget(self.InputComboBox, 2 * i + 1, 2, 1, 1)
                 self.BiasComboBox = QtWidgets.QComboBox(self.scrollAreaWidgetContents)
-                self.BiasComboBox.setStyleSheet('font: 12pt "Arial";')
+                self.BiasComboBox.setStyleSheet('font: 12pt "Segoe UI";')
                 self.BiasComboBox.setObjectName('BiasComboBox' + str(i + 1))
                 self.BiasComboBox_list = ['Yes', 'No']
                 self.BiasComboBox.addItems(self.BiasComboBox_list)
-                self.BiasComboBox.setStyleSheet('font: 12pt "Arial"; background: rgb(240, 255, 240);')
+                self.BiasComboBox.setStyleSheet('font: 12pt "Segoe UI"; background: rgb(240, 255, 240);')
                 self.BiasComboBoxs[i] = self.BiasComboBox
                 self.gridLayout_2.addWidget(self.BiasComboBox, 2 * i + 1, 3, 1, 1)
                 self.SRB2comboBox = QtWidgets.QComboBox(self.scrollAreaWidgetContents)
-                self.SRB2comboBox.setStyleSheet('font: 12pt "Arial";')
+                self.SRB2comboBox.setStyleSheet('font: 12pt "Segoe UI";')
                 self.SRB2comboBox.setObjectName('SRB2comboBox' + str(i + 1))
                 self.SRB2comboBox_list = ['On', 'Off']
                 self.SRB2comboBox.addItems(self.SRB2comboBox_list)
-                self.SRB2comboBox.setStyleSheet('font: 12pt "Arial"; background: rgb(240, 255, 240);')
+                self.SRB2comboBox.setStyleSheet('font: 12pt "Segoe UI"; background: rgb(240, 255, 240);')
                 self.SRB2comboBox.setEnabled(True)
                 self.SRB2comboBoxs[i] = self.SRB2comboBox
                 self.gridLayout_2.addWidget(self.SRB2comboBox, 2 * i + 1, 4, 1, 1)
                 self.SRB1comboBox = QtWidgets.QComboBox(self.scrollAreaWidgetContents)
-                self.SRB1comboBox.setStyleSheet('font: 12pt "Arial";')
+                self.SRB1comboBox.setStyleSheet('font: 12pt "Segoe UI";')
                 self.SRB1comboBox.setObjectName('SRB1comboBox' + str(i + 1))
                 self.SRB1comboBox_list = ['Off', 'On']
                 self.SRB1comboBox.addItems(self.SRB1comboBox_list)
-                self.SRB1comboBox.setStyleSheet('font: 12pt "Arial"; background: rgb(255, 240, 245);')
+                self.SRB1comboBox.setStyleSheet('font: 12pt "Segoe UI"; background: rgb(255, 240, 245);')
                 self.SRB1comboBox.setEnabled(True)
                 self.SRB1ComboBoxs[i] = self.SRB1comboBox
                 self.gridLayout_2.addWidget(self.SRB1comboBox, 2 * i + 1, 5, 1, 1)

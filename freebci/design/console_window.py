@@ -26,7 +26,7 @@ class Ui_TerminalDialog(object):
         self.horizontalLayout_2.addWidget(self.jumpPushButton)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
         self.textEdit = QtWidgets.QTextEdit(TerminalDialog)
-        self.textEdit.setStyleSheet('font: 25 10pt "Arial";')
+        self.textEdit.setStyleSheet('font: 25 10pt "Segoe UI";')
         self.textEdit.setObjectName('textEdit')
         self.verticalLayout.addWidget(self.textEdit)
         self.gridLayout.addLayout(self.verticalLayout, 0, 0, 1, 1)
