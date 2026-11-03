@@ -1732,7 +1732,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | F.6 display | Decimation to ~2,000 points; one topography figure claim; time-series curves reused | Other plot items recreated per frame; filtering remains on GUI | P2 |
 | F.7 metrics | Bench/soak tools; 64-channel 2-minute run | No 8-hour/64-channel gate; no measured p99 latency/CPU/fps dashboard | P3 |
 | G.1–G.3 sync/lifecycle | Host block timestamps, markers, manifest clock, READY/STREAMING device states | No `uncertainty_ns`, clock ID, per-sample estimate; no CONNECTING/ARMED lifecycle as drawn | P2 |
-| G.5 protocol | Loopback JSON, token, discovery, selector start, clock exchange, request IDs, `busy`/`no_session` codes | No `cmd`/`params` envelope, idempotent request cache, `prepare`/`connect`; discovery schema differs | P2 |
+| G.5 protocol | Loopback JSON, token, selector start, clock exchange, request IDs, `busy`/`no_session` codes; discovery publishes `freebci.control/1`, host/pid | No `cmd`/`params` envelope, idempotent request cache, `prepare`/`connect`; discovery lives in the data folder, not `runtime/` | P2 |
 | G.6 client | `from_discovery`/`from_runtime_file`, `wait_started`, status/start/stop/marker/clock_offset | No reconnect/backoff helper | P3 |
 | G.7 LSL | Three streams, marker outlet, stable source IDs, bounded chunk queue with pending/drop counters | `source_id` is `FreeBCI:<name>`, not session id; no channel names/units; drop counter is UI-side | P2 |
 | G.8 clock | `time` exchange + half-RTT uncertainty | Status lacks `clock_id`, `monotonic_ns`, `wall_ns`; manifest clock is host wall only | P2 |

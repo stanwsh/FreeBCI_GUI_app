@@ -126,10 +126,14 @@ class ControlServer:
     def discovery_payload(self) -> Dict[str, Any]:
         controller = self.active_controller()
         return {
+            "schema": "freebci.control/1",
             "protocol": PROTOCOL_VERSION,
+            "host": self.host,
             "address": self.host,
             "port": self.port,
             "token": self.token,
+            "pid": os.getpid(),
+            "created_wall_ns": time.time_ns(),
             "session_id": controller.config.session_id if controller is not None else "",
         }
 

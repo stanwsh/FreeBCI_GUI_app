@@ -104,6 +104,11 @@ class ControlPlaneTest(unittest.TestCase):
         discovery = os.path.join(self.root, "control.json")
         try:
             server.write_discovery(discovery)
+            with open(discovery, encoding="utf-8") as handle:
+                payload = json.load(handle)
+            self.assertEqual(payload["schema"], "freebci.control/1")
+            self.assertEqual(payload["host"], "127.0.0.1")
+            self.assertGreater(payload["pid"], 0)
             client = ControlClient.from_runtime_file(discovery)
             self.assertTrue(client.ping())
             self.assertEqual(client.status()["markers"], 0)
