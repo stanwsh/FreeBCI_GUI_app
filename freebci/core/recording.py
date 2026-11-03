@@ -31,6 +31,7 @@ import numpy as np
 
 from freebci.core.logging import StructuredLogger
 from freebci.core.models import SampleBlock, SessionConfig, SessionStatus
+from freebci.version import VERSION
 
 CHUNK_SAMPLES = 10_000
 CHUNKS_PER_FILE = 9
@@ -52,6 +53,7 @@ class RecordingWriter:
         self._closed = False
         self._started_ns = 0
         self._stopped_ns = 0
+        self._stop_reason = "user"
         self.error: Optional[str] = None
         self.blocks_received = 0
         self.samples_received = 0
@@ -201,11 +203,12 @@ class RecordingWriter:
         )
         return marker
 
-    def close(self, status: SessionStatus = SessionStatus.COMPLETED) -> str:
+    def close(self, status: SessionStatus = SessionStatus.COMPLETED, reason: str = "user") -> str:
         """Flush remaining data, stop the writer, and write the manifest."""
         if self._closed:
             return self.session_dir or ""
         self._closed = True
+        self._stop_reason = str(reason)
         if self._thread is not None and self._thread.is_alive():
             self._queue.put(None)
             self._thread.join(timeout=30.0)
@@ -448,10 +451,37 @@ class RecordingWriter:
         with self._marker_lock:
             markers = list(self.markers)
         manifest = {
+            "schema": "freebci.session/1",
             "schema_version": 1,
+            "app_version": VERSION,
             "session_id": self.config.session_id,
             "status": status.value,
+            "created_wall_ns": self._started_ns,
             "board": {"id": self.config.board_id, "name": self.config.board_name},
+            "device": {
+                "board_id": self.config.board_id,
+                "name": self.config.board_name,
+                "channels": self.config.channel_count,
+                "family": "unknown",
+            },
+            "config": {
+                "sampling_rate": self.config.sampling_rate,
+                "channel_names": [
+                    "channel%d" % (index + 1)
+                    for index in range(self.config.channel_count)
+                ],
+            },
+            "start": {
+                "first_sample_index": 0,
+                "host_wall_ns": self._started_ns,
+                "host_monotonic_ns": 0,
+            },
+            "stop": {
+                "last_sample_index": max(0, self.samples_written - 1),
+                "host_wall_ns": self._stopped_ns or _wall_ns(),
+                "host_monotonic_ns": 0,
+                "reason": self._stop_reason,
+            },
             "channel_count": self.config.channel_count,
             "sampling_rate": self.config.sampling_rate,
             "started_at": _iso(self._started_ns),
@@ -464,11 +494,22 @@ class RecordingWriter:
                 "sampling_rate_hz": self.config.sampling_rate,
                 "note": "host-clock estimates; not hardware timestamps",
             },
+            "sample_count": self.samples_written,
             "samples_recorded": self.samples_written,
             "blocks_received": self.blocks_received,
             "lost_samples": self.lost_samples,
             "gaps": self.gaps,
             "markers": markers,
+            "chunks": [
+                {
+                    "file": item.get("file"),
+                    "first_sample_index": item.get("start_sample", 0),
+                    "n_samples": item.get("samples", 0),
+                    "sha256": item.get("sha256", ""),
+                    "status": "complete",
+                }
+                for item in self.files
+            ],
             "files": self.files,
             "session_log": "session.log",
             "errors": self._errors,

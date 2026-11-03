@@ -86,6 +86,7 @@ USER NOTES:
 - **Phase 2.5 (D.3/E.11):** added `freebci/core/settings.py`; channel XML load/save is validated and atomically replaced. The hardware-settings dialog uses the typed model and no longer hand-builds XML.
 - **Phase 2.6 (D.5/E.7):** added `freebci/core/logging.py`; each recording writes JSON-lines `session.log` with start/close/marker/gap/error events and size rotation.
 - **Phase 2.7 (E.7):** recordings now create a `.writing` marker and remove it on finalize. `recover_sessions()` reports unfinished sessions without modifying them, and the main window shows the count at startup.
+- **Phase 2.8 (H.2):** the manifest gained the `freebci.session/1` schema string, app version, device/config blocks, start/stop blocks, chunk list, sample count, and stop reason. `freebci/version.py` is now the shared app version and the release tool defaults to it.
 - **Phase 5.6:** diagnostics now show device id/name, configured rate, written samples, and disk free. Closing the window while recording asks to stop and finalize.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
@@ -1733,7 +1734,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | G.7 LSL | Three streams, marker outlet, source IDs | `source_id` is `FreeBCI:<name>`, not session id; `push_sample` not `push_chunk`; no channel names/units; no LSL drop counter beyond pending count | P2 |
 | G.8 clock | `time` exchange + half-RTT uncertainty | Status lacks `clock_id`, `monotonic_ns`, `wall_ns`; manifest clock is host wall only | P2 |
 | H.1 logging | Console/file logger exists | Not stdlib `QueueHandler`/JSONL; no levels/context | P2 |
-| H.2 manifest | schema_version, board, channels, rate, clock, samples, blocks, lost, gaps, markers, files, errors | Missing app version, device family/serial/firmware, config block, start/stop blocks, chunk count contract | P2 |
+| H.2 manifest | schema string, schema_version, app version, device, config, start/stop, chunks, sample count, clock, samples, blocks, lost, gaps, markers, files, session log, errors | Firmware/serial and PGA/channel-map fields are not available from the current config; `device.family` is `unknown` | P2 |
 | H.3 layout | CSV/TXT/meta/manifest/markers | No `session.log`; no `.writing` suffix | P2 |
 | H.4 gaps/loss | Sample-index gaps and lost counters | Packet counter and sample gap not clearly separated in manifest | P3 |
 | H.5–H.6 durability | Atomic manifest, checkpoint, failed status | No recovery scan for partial chunks; no directory fsync | P2 |

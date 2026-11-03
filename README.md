@@ -396,6 +396,12 @@ while the writer is active; the application removes it on a clean stop. If the
 application or machine stops unexpectedly, the next launch reports how many
 unfinished sessions were found and leaves their files untouched for inspection.
 
+`manifest.json` follows the `freebci.session/1` schema: it includes the app
+version, device and sample-rate configuration, host start/stop timing, a chunk
+list with checksums, the sample count, and a stop reason alongside the legacy
+`files`/`samples_recorded` fields. Firmware and serial-number fields are not
+populated because the current transport layer does not expose them.
+
 ### Markers
 
 Press **Ctrl+M** or choose **File > Add Marker** while a session is active to

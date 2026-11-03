@@ -5,16 +5,20 @@ not a Python wheel.  BrainFlow is intentionally bundled under ``brainflow/`` and
 is never installed from PyPI.
 
 Usage:
-    python tools/build_release.py --version 0.1.0
+    python tools/build_release.py --version 0.1.4
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import os
+import sys
 import zipfile
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+from freebci.version import VERSION  # noqa: E402
 
 REQUIRED_FILES = (
     "FreeBCI_GUI.py",
@@ -103,7 +107,7 @@ def build(version: str, output: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", default="0.1.0")
+    parser.add_argument("--version", default=VERSION)
     parser.add_argument(
         "--output",
         default=None,

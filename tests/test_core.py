@@ -92,6 +92,11 @@ class SessionControllerTest(unittest.TestCase):
         with open(manifest_path, encoding="utf-8") as handle:
             manifest = json.load(handle)
         self.assertEqual(manifest["schema_version"], 1)
+        self.assertEqual(manifest["schema"], "freebci.session/1")
+        self.assertEqual(manifest["app_version"], "0.1.4")
+        self.assertEqual(manifest["sample_count"], 12_000)
+        self.assertEqual(manifest["chunks"][0]["n_samples"], 12_000)
+        self.assertEqual(manifest["chunks"][0]["status"], "complete")
         self.assertEqual(manifest["status"], "completed")
         self.assertEqual(manifest["samples_recorded"], 12_000)
         self.assertEqual(manifest["clock"]["timebase"], "host-wall")
