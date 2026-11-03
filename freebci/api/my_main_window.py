@@ -488,8 +488,24 @@ class MyMainWindow(MainWindowInterface):
             plot_thread.wait(1000)
             self.plot_thread = None
 
+    def _confirm_close(self):
+        """Ask before closing a window that would finalize a recording."""
+        if not (self.session_controller is not None or self.startButton_isclicked):
+            return True
+        answer = QtWidgets.QMessageBox.question(
+            self,
+            'Close FreeBCI?',
+            'Stop and finalize the current recording before closing?',
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No,
+        )
+        return answer == QtWidgets.QMessageBox.Yes
+
     def closeEvent(self, event):
         try:
+            if not self._confirm_close():
+                event.ignore()
+                return
             start_worker = getattr(self, '_start_worker', None)
             if start_worker is not None and start_worker.isRunning():
                 start_worker.wait(5000)

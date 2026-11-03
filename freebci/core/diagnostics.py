@@ -6,16 +6,27 @@ without PyQt and prevents the dialog from reaching into acquisition internals.
 """
 from __future__ import annotations
 
+import shutil
 from typing import Dict
 
 from freebci.core.session import SessionController
+
+
+def _disk_free(output_root: str) -> str:
+    try:
+        usage = shutil.disk_usage(output_root)
+    except OSError:
+        return "unknown"
+    return "%.1f GB free" % (usage.free / (1024.0 ** 3))
 
 
 def idle_fields(output_root: str, lsl_summary: str) -> Dict[str, str]:
     return {
         "state": "idle",
         "session": "-",
+        "device": "-",
         "elapsed": "-",
+        "configured": "-",
         "rate": "-",
         "samples": "-",
         "blocks": "-",
@@ -24,7 +35,9 @@ def idle_fields(output_root: str, lsl_summary: str) -> Dict[str, str]:
         "since": "-",
         "markers": "-",
         "files": "-",
+        "written": "-",
         "queue": "-",
+        "disk": _disk_free(output_root),
         "recording": "not recording",
         "output": output_root,
         "control": "not running",
@@ -41,16 +54,22 @@ def diagnostics_fields(
 ) -> Dict[str, str]:
     snapshot = controller.snapshot()
     writer = controller.writer.snapshot() if controller.writer else {}
+    config = getattr(controller, "config", None)
     elapsed = float(snapshot.elapsed_seconds or 0.0)
     rate = float(snapshot.sample_count) / elapsed if elapsed > 0 else 0.0
     since = float(snapshot.seconds_since_block or 0.0)
     state = snapshot.state.value
     stalled = state == "recording" and since >= 2.0
+    device_name = getattr(config, "board_name", "unknown")
+    device_id = getattr(config, "board_id", 0)
+    configured_rate = getattr(config, "sampling_rate", 0)
 
     return {
         "state": state,
         "session": snapshot.session_id or "-",
+        "device": "%s (%s)" % (device_name, device_id),
         "elapsed": "%.1f s" % elapsed,
+        "configured": "%s Hz" % configured_rate,
         "rate": "%.1f Hz" % rate if rate else "-",
         "samples": "{:,}".format(snapshot.sample_count),
         "blocks": "{:,}".format(snapshot.blocks),
@@ -59,8 +78,10 @@ def diagnostics_fields(
         "since": "%.1f s%s" % (since, " (stalled)" if stalled else ""),
         "markers": "{:,}".format(snapshot.markers),
         "files": "{:,}".format(writer.get("files", 0)),
+        "written": "{:,}".format(writer.get("written", 0)),
         "queue": "%d / %d"
         % (writer.get("queue_depth", 0), writer.get("queue_capacity", 0)),
+        "disk": _disk_free(output_root),
         "recording": "recording" if state == "recording" else state,
         "output": snapshot.output_path or output_root,
         "control": control_endpoint or "not running",

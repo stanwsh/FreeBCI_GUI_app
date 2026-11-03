@@ -13,8 +13,8 @@ from typing import Callable, Dict, Optional
 import numpy as np
 
 from freebci.core.diagnostics import diagnostics_fields, idle_fields
-from freebci.core.history import append_bounded
 from freebci.core.models import StateSnapshot
+from freebci.core.ring import RingBuffer
 from freebci.core.session import SessionController
 
 
@@ -42,41 +42,53 @@ class SessionViewModel:
         self._output_root_provider = output_root_provider
         self._control_provider = control_provider
         self._lsl_provider = lsl_provider
-        self._history: Optional[np.ndarray] = None
-        self._total_samples = 0
+        self._ring: Optional[RingBuffer] = None
 
     @property
     def history(self) -> Optional[np.ndarray]:
-        return self._history
+        if self._ring is None or self._ring.count == 0:
+            return None
+        return self._ring.latest()
 
     def set_history(self, history: Optional[np.ndarray]) -> None:
-        self._history = history
-        self._total_samples = 0 if history is None else int(history.shape[1])
+        if history is None:
+            self._ring = None
+            return
+        rows = int(history.shape[0])
+        self._ring = RingBuffer(rows=rows, capacity=60000)
+        if history.shape[1] > 1:
+            self._ring.write(history)
 
     def append_block(self, block: np.ndarray, limit: int = 60000) -> np.ndarray:
-        """Append one display block to the bounded history."""
-        if self._history is None or self._history.shape[1] <= 1:
-            self._history = block[:, 1:]
-            self._total_samples = self._history.shape[1]
+        """Append one display block to the bounded ring history."""
+        if self._ring is None:
+            self._ring = RingBuffer(rows=int(block.shape[0]), capacity=int(limit))
+        elif limit != self._ring.capacity:
+            existing = self._ring.latest()
+            self._ring = RingBuffer(rows=int(block.shape[0]), capacity=int(limit))
+            if existing.shape[1]:
+                self._ring.write(existing)
+        if self._ring.count == 0:
+            self._ring.write(block[:, 1:])
         else:
-            self._history = append_bounded(self._history, block, limit)
-            self._total_samples += int(block.shape[1])
-        return self._history
+            self._ring.write(block)
+        return self._ring.latest()
 
     def display_snapshot(self) -> Optional[DisplaySnapshot]:
-        if self._history is None or self._history.shape[1] == 0:
+        if self._ring is None or self._ring.count == 0:
             return None
         controller = self.controller
         if controller is None:
             return None
         state_snapshot = controller.snapshot()
+        history = self._ring.latest()
         return DisplaySnapshot(
-            history=self._history,
+            history=history,
             channel_count=controller.config.channel_count,
             sampling_rate=controller.config.sampling_rate,
             state=state_snapshot.state.value,
             sample_count=state_snapshot.sample_count,
-            total_samples=self._total_samples,
+            total_samples=self._ring.total_written,
         )
 
     @property

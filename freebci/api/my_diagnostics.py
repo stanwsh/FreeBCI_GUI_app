@@ -36,7 +36,9 @@ class MyDiagnostics(QtWidgets.QDialog):
         rows = [
             ("state", "State"),
             ("session", "Session"),
+            ("device", "Device"),
             ("elapsed", "Elapsed"),
+            ("configured", "Configured rate"),
             ("rate", "Effective rate"),
             ("samples", "Samples received"),
             ("blocks", "Blocks"),
@@ -45,7 +47,9 @@ class MyDiagnostics(QtWidgets.QDialog):
             ("since", "Since last block"),
             ("markers", "Markers"),
             ("files", "Recorded files"),
+            ("written", "Samples written"),
             ("queue", "Writer queue"),
+            ("disk", "Disk free"),
             ("recording", "Recording"),
             ("output", "Output folder"),
             ("control", "Control endpoint"),
@@ -108,7 +112,9 @@ class MyDiagnostics(QtWidgets.QDialog):
         self.fields["state"].setStyleSheet("font-weight: 700; color: %s;" % color)
 
         self.fields["session"].setText(str(data.get("session", "-")))
+        self.fields["device"].setText(str(data.get("device", "-")))
         self.fields["elapsed"].setText(str(data.get("elapsed", "-")))
+        self.fields["configured"].setText(str(data.get("configured", "-")))
         self.fields["rate"].setText(str(data.get("rate", "-")))
         self.fields["samples"].setText(str(data.get("samples", "-")))
         self.fields["blocks"].setText(str(data.get("blocks", "-")))
@@ -117,7 +123,9 @@ class MyDiagnostics(QtWidgets.QDialog):
         self.fields["since"].setText(str(data.get("since", "-")))
         self.fields["markers"].setText(str(data.get("markers", "-")))
         self.fields["files"].setText(str(data.get("files", "-")))
+        self.fields["written"].setText(str(data.get("written", "-")))
         self.fields["queue"].setText(str(data.get("queue", "-")))
+        self.fields["disk"].setText(str(data.get("disk", "-")))
         self.fields["recording"].setText(str(data.get("recording", "-")))
         self.fields["output"].setText(str(data.get("output", "-")))
         self.fields["control"].setText(str(data.get("control", "-")))
@@ -131,7 +139,9 @@ class MyDiagnostics(QtWidgets.QDialog):
         for key, label in (
             ("state", "State"),
             ("session", "Session"),
+            ("device", "Device"),
             ("elapsed", "Elapsed"),
+            ("configured", "Configured rate"),
             ("rate", "Effective rate"),
             ("samples", "Samples received"),
             ("blocks", "Blocks"),
@@ -140,7 +150,9 @@ class MyDiagnostics(QtWidgets.QDialog):
             ("since", "Since last block"),
             ("markers", "Markers"),
             ("files", "Recorded files"),
+            ("written", "Samples written"),
             ("queue", "Writer queue"),
+            ("disk", "Disk free"),
             ("recording", "Recording"),
             ("output", "Output folder"),
             ("control", "Control endpoint"),
