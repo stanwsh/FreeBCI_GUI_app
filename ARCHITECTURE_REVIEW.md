@@ -11,6 +11,7 @@ USER NOTES:
 **Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, local control plane, fast port discovery, background serial/Wi-Fi/Bluetooth setup, three-stream LSL output, stalled-acquisition diagnostics, and the redesigned Wi-Fi connector are landed. Real FreeBCI_WiFi_16_I boards were verified on 2026-11-02 in both USB mode (id 2037, COM3, 16 channels, 2 Mbaud) and Wi-Fi mode (id 2038, 192.168.4.1, 16 channels): GUI sessions record CSV/TXT/meta/manifest and finalize with `status: completed`; control-plane stop returns the GUI to idle. The remaining hardware acceptance work is the full transport/channel matrix and long-duration soak, not a correctness gap in the verified paths. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild, blocking connections) are already addressed in the implementation commits.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
 **Goal:** Improve maintainability, acquisition reliability, recording integrity, synchronization, and operator usability without discarding the validated BrainFlow/board behavior.
+**Current goal (revised):** Preserve the verified USB/Wi-Fi 16-channel paths; finish the remaining observability, logging, packaging, and workflow gaps that are actionable without unavailable hardware; treat the full D/E target and the hardware matrix as future work, not prerequisites for closing the current implementation phase.
 
 ### Phase tracker
 
@@ -23,6 +24,8 @@ USER NOTES:
 | 4 — Timestamps/control/sync | Complete* | 4.1 clock-offset exchange, selector-based `start`, and manifest clock section landed; real-board control verification remains hardware-gated. |
 | 5 — GUI state/workflow | Complete* | 5.1-5.5 landed: action guards, stop confirmation, view-model history, immutable display snapshot, and trigger/battery snapshot rendering. Operator usability testing is external. |
 | 6 — Validation/hardware matrix | Partial | USB 16-channel re-verified on COM3 and release/reconnect lifecycle covered by tests. Bluetooth, USB high-speed, 8/24/32/64-channel boards, and multi-hour soak remain hardware/time-gated. |
+
+**Document realignment:** Sections A–I mix the original assessment (written before the reconstruction) with the proposed target architecture. Section D is a **target**, not a description of the current code. The authoritative current status is this phase tracker plus Section M; Appendix A is a planning map, not a file inventory. In particular, `freebci/core/catalog.py`, `ring.py`, `logging.py`, `settings.py`, `freebci/ui/`, and `freebci/app.py` do not exist yet. The implemented adapter is `freebci/api/session_view_model.py`, and the bounded display history lives there rather than in a core ring buffer. See Section M for the section-by-section gap register.
 
 ### Implementation progress
 
@@ -300,6 +303,9 @@ These are plausible but not yet proven by a benchmark:
 
 ## C. Architecture and Dependency Analysis
 
+> Historical baseline from the initial assessment. Several concurrency and
+> buffer findings have since been addressed; use Section M for current status.
+
 ### C.1 Dependency map
 
 | From | To | Coupling | Assessment |
@@ -390,6 +396,12 @@ This is a textbook case for an explicit state machine with guarded transitions.
 ---
 
 ## D. Proposed Target Architecture
+
+> **Target only.** This section describes the intended architecture, not the
+> current package layout. Current code keeps the view-model adapter in
+> `freebci/api/session_view_model.py` and has no `freebci/ui/`, `core/ring.py`,
+> `core/catalog.py`, `core/settings.py`, `core/logging.py`, or `freebci/app.py`.
+> See Section M before treating any path or contract here as implemented.
 
 ### D.1 Principles
 
@@ -1424,11 +1436,11 @@ Effort assumes one experienced engineer familiar with PyQt/BrainFlow; multiply f
 
 **Goal:** Make the repo installable and measurable before changing behavior.
 
-- Add `brainflow` to `requirements.txt`; remove `nptyping` if unused; verify a clean Windows VM install.
-- Add `pyproject.toml` (project metadata, Python 3.9, optional dev dependencies: pytest, pytest-qt, ruff).
+- Keep BrainFlow vendored; do **not** add it to `requirements.txt`. Remove `nptyping` if unused; verify a clean Windows install from the release archive.
+- No `pyproject.toml` is planned while the source release zip is the supported distribution.
 - Add `tests/` with a fake gateway skeleton and smoke tests for imports, board catalog, ring buffer, timestamps.
-- Add `tools/bench_pipeline.py` with synthetic data; record baseline CPU/RSS/throughput at 16/32/64 channels.
-- Add a `--fake` or environment-variable path to launch the GUI without hardware.
+- Add `tools/benchmark_session.py` with synthetic data; record baseline CPU/RSS/throughput at 16/32/64 channels.
+- Add a `--fake` or environment-variable path to launch the GUI without hardware (implemented as the demo session).
 - Document the current file format and known limitations.
 
 **Exit criteria:** fresh `setup_env.cmd` succeeds; `pytest` runs headless; baseline metrics captured; no behavior change for hardware users.
@@ -1515,7 +1527,7 @@ Effort assumes one experienced engineer familiar with PyQt/BrainFlow; multiply f
 
 Suggested PRs:
 
-1. `chore: add brainflow to requirements, pyproject, pytest skeleton`
+1. `chore: verify vendored BrainFlow, release build, pytest skeleton`
 2. `feat(core): models, catalog, clock, ring buffer + tests`
 3. `feat(recording): writer, manifest, checksums, gap detector + tests`
 4. `feat(device): gateway, device manager, fake gateway + tests`
@@ -1613,7 +1625,7 @@ Each PR should be independently testable and reversible. Keep the legacy path be
 | Clock/sync expectations exceed reality | High | High | Explicit uncertainty; distinguish command/clock/physical; measure |
 | Disk-full or slow disk causes silent loss | Medium | High | Bounded writer, fail session, manifest status, diagnostics |
 | PyQt5/pyqtgraph performance at 64 channels | High | Medium | Reuse items, decimate, 30–60 Hz, profile |
-| Packaging/install drift | Medium | Medium | pyproject, clean VM test, CI |
+| Packaging/install drift | Medium | Medium | Source release zip + clean extraction test; no wheel package in current scope |
 | Scope creep into multi-device/microservices | Medium | Medium | Phase gates; one device first; no new IPC without need |
 
 ### L.2 Open questions for the user
@@ -1650,6 +1662,98 @@ Each PR should be independently testable and reversible. Keep the legacy path be
 | Block-level timestamps only | Hardware timestamps are not guaranteed; honesty over false precision |
 | Bounded writer queue, fail on overflow | Data integrity over silent loss |
 | Display may drop/decimate | GUI smoothness must not determine acquisition |
+| Source release zip, BrainFlow vendored | Keeps the validated build reproducible without adding a package-install dependency; no wheel packaging in current scope |
+| Control `start` requires a board selector | Prevents an idle app from guessing which hardware to start |
+
+---
+
+## M. Implementation Reality and Gap Register (C–I)
+
+This section is authoritative when A–I disagree with the code. It distinguishes **landed**, **partial**, and **target-only** work so the documents do not imply that the D/E architecture is already implemented.
+
+### M.1 What the code actually is
+
+| Area | Current implementation | Status |
+|---|---|---|
+| Core | `freebci/core`: models, clock, gateway adapter, acquisition worker, recording writer, session controller, control server, diagnostics formatter, history helper, device adoption manager | Landed |
+| GUI | `freebci/api`: `MyMainWindow`, connection dialogs, views, hardware settings, `session_view_model.py` | Landed, still a large coordinator |
+| Composition | `FreeBCI_GUI.py` and generated `freebci/design` UI | No `freebci/app.py`; no `freebci/ui/` package |
+| Display data | `SessionViewModel` bounded history plus `display_snapshot()` | No `core/ring.py` |
+| Device lifecycle | `DeviceManager` adopts an already-prepared board, creates gateways, releases | No `connect()/prepare()/configure()` state machine |
+| Hardware discovery | Dialogs use `serial_worker`, Wi-Fi discovery workers, Bluetooth worker | Transport preparation is still dialog-owned |
+| Settings | XML load/save inside `my_hardware_settings.py`; apply command sequence in `SettingsCommandWorker` | No `core/settings.py` |
+| Logging | `MyLogger` per-message file append, console window | No structured `core/logging.py` |
+
+### M.2 Section-by-section gaps
+
+| Section | Landed | Still open / target-only | Priority |
+|---|---|---|---|
+| C.1 dependency map | Core no Qt; writer/acquisition separated | Presentation still imports BrainFlow/pylsl; dialogs prepare boards; `connectInfo` carries a live board | P1 |
+| C.2 cohesion | Recording, acquisition, settings apply moved out of the window | `MyMainWindow` still owns timers, filters, plotting, LSL, menus, and state; views still own LSL/protocol choices | P1 |
+| C.3 concurrency | Acquisition, writer, settings, board-command, session-start workers | No core ring; GUI filters/FFTs on its thread; topography queue is unbounded | P1/P2 |
+| C.4 state model | Action guards and start/stop confirmation | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded state machine | P1 |
+| C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model | No ring buffer; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
+| C.6 errors/logging | Start failure restores the UI; session errors carry text | No structured logging, correlation IDs, or severity; `MyLogger` still opens per message | P2 |
+| C.7 tests/packaging | 63 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
+| D.2 layers | Core/application/device boundaries partly exist | Presentation is not BrainFlow-free; no `catalog.py`, `ring.py`, `logging.py`, `settings.py`, `ui/`, `app.py` | Target |
+| D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
+| D.4 dependency rules | Core is Qt-free | `ui` still imports BrainFlow and `pylsl`; `gateway` is not the only BrainFlow importer (dialogs and settings still use it) | P1 |
+| D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
+| D.6 data flow | Block → writer + display queue + view-model history | No ring fan-out; no bounded LSL queue with drop counter; no processing-worker snapshot | P2 |
+| E.1 models | `BoardProfile`, `SessionConfig`, `SampleBlock`, `SessionClock`, `StateSnapshot` | No `DeviceConfig`/`StopReason` as specified; model fields differ from the proposal | Documentation |
+| E.2 catalog | Board table remains in `myConnectionInfo` | `core/catalog.py` absent; UI hardcodes channel/capability assumptions | P2 |
+| E.3 gateway | `BrainFlowGateway` wraps a prepared `BoardShim` | No `prepare()/configure()/sampling_rate()/is_prepared()`; no stable error codes; `FakeBoardGateway` is `SimulatedBoard` | P2 |
+| E.4 DeviceManager | Adopt/release/replace/gateway creation | No connect/prepare/cancel/start-stop ownership; transport dialogs still prepare | P1 |
+| E.5 AcquisitionService | Worker loop, block assembly, error stop | Takes a callback, not `BlockSink`; no ring; no `stop()` stats contract | P2 |
+| E.6 RingBuffer | View-model bounded history only | `core/ring.py` absent; display path is queue + history copy | P2 |
+| E.7 RecordingWriter | Thread, bounded queue, rotation, manifest, checksums, gaps, markers | Chunk `status`/`.writing` rename and recovery scan not implemented | P2 |
+| E.8 SessionController | Start/stop, markers, snapshots, clock | Start does not return `StartInfo` after first block; no `connect()/prepare()/shutdown()` contract | P2 |
+| E.9 Control API | status/start/stop/marker/shutdown, token, discovery, clock offset | Protocol differs from G.5; no `id`, `cmd`, `params`, request cache, `BUSY`, `prepare`, `connect` | P2 |
+| E.10 View model | `SessionViewModel` with diagnostics, markers, history, display snapshot | Not a `QObject`; no state/stats/error/recording signals; no command queue | P2 |
+| E.11 Settings | XML dialog with async apply | No `core/settings.py`, schema versioning, validation, atomic save, last-known-good | P2 |
+| E.12/E.13 failure/connection semantics | Worker errors, reconnect test, retries | No unified retry/cancel/multi-device policy; dialogs still own lifecycle | P2 |
+| F.1 bottlenecks | Aux buffers, `gc.collect`, `np.append` removed; decimation added | Per-channel Python filter loops still on GUI thread; plot items recreated each frame | P2 |
+| F.2/F.3 pipeline/backpressure | Writer bounded; display may drop | No ring, no bounded LSL queue, no topography latest-only policy | P2 |
+| F.4 concurrency | Workers and writer threads | Some board commands still serialized through one worker rather than DeviceManager; no thread-stop timeout policy | P2 |
+| F.5 recording format | CSV/TXT + meta + manifest + markers | No `.writing` rename, directory fsync, recovery scan, `session.log` | P2 |
+| F.6 display | Decimation to ~2,000 points; one topography figure claim | `ts_plot.clear()` + `plot()` creates items per frame; filtering remains on GUI | P2 |
+| F.7 metrics | Bench/soak tools; 64-channel 2-minute run | No 8-hour/64-channel gate; no measured p99 latency/CPU/fps dashboard | P3 |
+| G.1–G.3 sync/lifecycle | Host block timestamps, markers, manifest clock, READY/STREAMING device states | No `uncertainty_ns`, clock ID, per-sample estimate; no CONNECTING/ARMED lifecycle as drawn | P2 |
+| G.5 protocol | Loopback JSON, token, discovery, selector start, clock exchange | No request IDs/idempotency/BUSY; discovery path/schema differ; no `prepare`/`connect` | P2 |
+| G.6 client | `from_discovery`, status/start/stop/marker/clock_offset | No `from_runtime_file()` or `wait_started()` | P3 |
+| G.7 LSL | Three streams, marker outlet, source IDs | `source_id` is `FreeBCI:<name>`, not session id; `push_sample` not `push_chunk`; no channel names/units; no LSL drop counter beyond pending count | P2 |
+| G.8 clock | `time` exchange + half-RTT uncertainty | Status lacks `clock_id`, `monotonic_ns`, `wall_ns`; manifest clock is host wall only | P2 |
+| H.1 logging | Console/file logger exists | Not stdlib `QueueHandler`/JSONL; no levels/context | P2 |
+| H.2 manifest | schema_version, board, channels, rate, clock, samples, blocks, lost, gaps, markers, files, errors | Missing app version, device family/serial/firmware, config block, start/stop blocks, chunk count contract | P2 |
+| H.3 layout | CSV/TXT/meta/manifest/markers | No `session.log`; no `.writing` suffix | P2 |
+| H.4 gaps/loss | Sample-index gaps and lost counters | Packet counter and sample gap not clearly separated in manifest | P3 |
+| H.5–H.6 durability | Atomic manifest, checkpoint, failed status | No recovery scan for partial chunks; no directory fsync | P2 |
+| H.7 settings schema | XML presets | No schema version, range validation, last-known-good | P2 |
+| I.1 state UI | Initial state fixed; guards added; start disabled while starting | Still flag-driven; no single state-to-enablement table | P1 |
+| I.2 connection | Async discovery/prepare; fast port list | Dialogs still prepare boards; no DeviceManager.connect; no reconnect prompt | P1 |
+| I.3 streaming | Async start, stop confirmation | Window close does not prompt “Stop and finalize?”; error banner is a status label | P2 |
+| I.4 diagnostics | State, rate, counts, loss, queue, files, output, control, LSL, error | Missing disk free, last write latency, manifest status, clock/sync uncertainty, device name/id | P2 |
+| I.5 rendering | One timer per concern? Decimation; topography figure reuse | Plot item reuse not implemented; each view still filters its own full buffer | P2 |
+| I.6 UI defects | Channel rebuild, sfreq, LSL streams, async settings | Wildcard imports, console singleton, and some fixed sleeps remain | P2 |
+| I.7 usability | Stop confirmation; destination in diagnostics | No “Connect again”, no remembered last config, no pre-start destination preview | P3 |
+
+### M.3 Revised sequencing
+
+The original Phase 0 packaging goal is closed by decision: the source release zip is the distribution and BrainFlow stays vendored. `pyproject.toml` is not a current goal. The D/E target remains a **future architecture**, not a completion checklist.
+
+Recommended next software order:
+
+1. **P1 — explicit state and ownership:** finish the DeviceManager connect/prepare boundary, remove the remaining presentation BrainFlow imports from connection paths, and replace the flag cluster with a single state-to-action mapping.
+2. **P2 — observability and format truth:** structured logging, diagnostics disk/latency/sync fields, LSL chunk/source-id/drop behavior, manifest schema completion, and recovery scan.
+3. **P2 — display performance:** reuse plot items, move per-channel filtering off the GUI only if measured, and replace the display queue with a small ring if profiling justifies it.
+4. **P3 — validation:** 8-hour/64-channel gate, hardware matrix, and multi-hour soak once hardware/time is available.
+
+Document rules after this realignment:
+
+- Do not cite D/E paths as implemented files.
+- Quote the phase tracker and Section M for status, not Sections A–I.
+- Mark validation claims with the transport, channel count, and duration actually exercised.
+- Keep the source-release decision and vendored-BrainFlow constraint explicit in every packaging update.
 
 ---
 
@@ -1657,13 +1761,13 @@ Each PR should be independently testable and reversible. Keep the legacy path be
 
 | File/area | Phase | Change |
 |---|---|---|
-| `requirements.txt`, `pyproject.toml` | 0 | Remove unused entries; BrainFlow stays vendored and is not installed from PyPI |
-| `tests/`, `tools/bench_pipeline.py` | 0 | Fake gateway, unit/integration tests, benchmarks |
+| `requirements.txt` | 0 | BrainFlow stays vendored; source release zip is the distribution; no `pyproject.toml` in current scope |
+| `tests/`, `tools/benchmark_session.py` | 0 | Fake gateway, unit/integration tests, benchmarks |
 | `freebci/core/models.py` | 1 | DTOs, state enum |
 | `freebci/core/recording.py`, `freebci/api/my_recording.py` | 1 | Writer thread, manifest, sidecars; keep compatibility wrapper |
 | `freebci/core/clock.py` | 1/4 | Block timestamps, sample index |
 | `freebci/core/gateway.py`, `device.py` | 2 | BrainFlow adapter, state machine |
-| `freebci/core/acquisition.py`, `ring.py` | 2/3 | Worker, ring buffer, fan-out |
+| `freebci/core/acquisition.py` | 2/3 | Worker and fan-out; no core ring yet |
 | `freebci/api/my_main_window.py` | 2–5 | Remove acquisition/timers; use controller/view model |
 | `freebci/design/main_window_interface.py` | 2/5 | State-driven UI; logger/recording construction moves to app |
 | Connection dialogs | 2 | Config-only; async manager calls; no scan in constructor |
@@ -1671,7 +1775,7 @@ Each PR should be independently testable and reversible. Keep the legacy path be
 | `freebci/api/w_brain_topography.py` | 3 | One figure, update-in-place, profile sfreq/channels |
 | `freebci/api/w_networking.py` | 3/4 | Real streams 2/3, timestamps, source IDs |
 | `freebci/api/my_logger.py`, `my_console_window.py` | 2 | Queue logging; singleton fix |
-| `freebci/core/control.py`, `ui/viewmodel.py` | 4/5 | Control server/client, state snapshots |
+| `freebci/core/control.py`, `freebci/api/session_view_model.py` | 4/5 | Control server/client; current view-model adapter (D's `freebci/ui/viewmodel.py` is target-only) |
 | `README.md` | 6 | Data format, control API, limitations, troubleshooting |
 
 ## Appendix B: Evidence Index

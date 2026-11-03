@@ -573,3 +573,12 @@ setup_env.py              environment finishing step
 run.cmd                   start the application
 logs/                     created at first run
 ```
+
+`brainflow/` is bundled and intentionally not installed from PyPI. The source
+release zip is the supported distribution; no wheel/`pyproject.toml` package is
+planned.
+
+The target architecture in `ARCHITECTURE_REVIEW.md` Sections D–I is a design
+proposal, not a file inventory. Current implementation status and the
+section-by-section gaps are recorded in that document's phase tracker and
+Section M.
