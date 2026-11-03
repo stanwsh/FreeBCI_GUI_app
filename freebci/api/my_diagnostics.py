@@ -49,6 +49,8 @@ class MyDiagnostics(QtWidgets.QDialog):
             ("files", "Recorded files"),
             ("written", "Samples written"),
             ("queue", "Writer queue"),
+            ("write", "Last write"),
+            ("manifest", "Manifest status"),
             ("disk", "Disk free"),
             ("recording", "Recording"),
             ("output", "Output folder"),
@@ -125,6 +127,8 @@ class MyDiagnostics(QtWidgets.QDialog):
         self.fields["files"].setText(str(data.get("files", "-")))
         self.fields["written"].setText(str(data.get("written", "-")))
         self.fields["queue"].setText(str(data.get("queue", "-")))
+        self.fields["write"].setText(str(data.get("write", "-")))
+        self.fields["manifest"].setText(str(data.get("manifest", "-")))
         self.fields["disk"].setText(str(data.get("disk", "-")))
         self.fields["recording"].setText(str(data.get("recording", "-")))
         self.fields["output"].setText(str(data.get("output", "-")))
@@ -152,6 +156,8 @@ class MyDiagnostics(QtWidgets.QDialog):
             ("files", "Recorded files"),
             ("written", "Samples written"),
             ("queue", "Writer queue"),
+            ("write", "Last write"),
+            ("manifest", "Manifest status"),
             ("disk", "Disk free"),
             ("recording", "Recording"),
             ("output", "Output folder"),

@@ -203,6 +203,10 @@ class SessionControllerTest(unittest.TestCase):
         self.assertEqual(manifest["lost_samples"], 10)
         self.assertEqual(manifest["gaps"][0]["start_sample"], 10)
         self.assertEqual(manifest["gaps"][0]["end_sample"], 20)
+        snapshot = writer.snapshot()
+        self.assertGreater(snapshot["last_write_ns"], 0)
+        self.assertGreaterEqual(snapshot["last_write_seconds"], 0.0)
+        self.assertEqual(snapshot["manifest_status"], "completed")
 
 
 if __name__ == "__main__":

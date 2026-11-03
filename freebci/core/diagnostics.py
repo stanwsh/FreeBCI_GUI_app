@@ -37,6 +37,8 @@ def idle_fields(output_root: str, lsl_summary: str) -> Dict[str, str]:
         "files": "-",
         "written": "-",
         "queue": "-",
+        "write": "-",
+        "manifest": "-",
         "disk": _disk_free(output_root),
         "recording": "not recording",
         "output": output_root,
@@ -63,6 +65,8 @@ def diagnostics_fields(
     device_name = getattr(config, "board_name", "unknown")
     device_id = getattr(config, "board_id", 0)
     configured_rate = getattr(config, "sampling_rate", 0)
+    last_write_seconds = float(writer.get("last_write_seconds", 0.0) or 0.0)
+    since_write = float(writer.get("seconds_since_write", 0.0) or 0.0)
 
     return {
         "state": state,
@@ -81,6 +85,12 @@ def diagnostics_fields(
         "written": "{:,}".format(writer.get("written", 0)),
         "queue": "%d / %d"
         % (writer.get("queue_depth", 0), writer.get("queue_capacity", 0)),
+        "write": (
+            "%.0f ms (%.1f s ago)" % (last_write_seconds * 1000.0, since_write)
+            if writer.get("last_write_ns")
+            else "-"
+        ),
+        "manifest": str(writer.get("manifest_status", "-")),
         "disk": _disk_free(output_root),
         "recording": "recording" if state == "recording" else state,
         "output": snapshot.output_path or output_root,

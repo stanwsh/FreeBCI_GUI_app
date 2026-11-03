@@ -80,6 +80,9 @@ class RecordingWriter:
         self._pending: List[np.ndarray] = []
         self._pending_samples = 0
         self._last_checkpoint = 0.0
+        self._last_status = SessionStatus.RECORDING
+        self._last_write_ns = 0
+        self._last_write_seconds = 0.0
 
     # ------------------------------------------------------------------ API
     def start(self) -> str:
@@ -259,6 +262,14 @@ class RecordingWriter:
             "lost_samples": self.lost_samples,
             "queue_depth": self._queue.qsize(),
             "queue_capacity": self._queue.maxsize,
+            "last_write_ns": self._last_write_ns,
+            "last_write_seconds": self._last_write_seconds,
+            "seconds_since_write": (
+                max(0.0, (_wall_ns() - self._last_write_ns) / 1e9)
+                if self._last_write_ns
+                else 0.0
+            ),
+            "manifest_status": self._last_status.value,
             "error": self.error,
         }
 
@@ -293,6 +304,7 @@ class RecordingWriter:
                 return
 
     def _write_block(self, block: SampleBlock) -> None:
+        started = time.perf_counter()
         values = self._extract_rows(block)
         self._pending.append(values)
         self._pending_samples += values.shape[1]
@@ -303,6 +315,8 @@ class RecordingWriter:
         if now - self._last_checkpoint >= CHECKPOINT_SECONDS:
             self._last_checkpoint = now
             self._write_manifest(SessionStatus.RECORDING)
+        self._last_write_ns = _wall_ns()
+        self._last_write_seconds = time.perf_counter() - started
 
     def _extract_rows(self, block: SampleBlock) -> np.ndarray:
         data = np.asarray(block.data)
@@ -448,6 +462,7 @@ class RecordingWriter:
             return
         if self.error:
             status = SessionStatus.FAILED
+        self._last_status = status
         with self._marker_lock:
             markers = list(self.markers)
         manifest = {

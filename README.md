@@ -422,9 +422,9 @@ requested. It is not a hardware trigger timestamp.
 Press **Ctrl+D** or choose **File > Session Diagnostics...** to open a live
 status window. It shows the session state, effective sample rate, sample and
 block counts, lost samples, display drops, time since the last block, marker
-count, writer queue depth, recorded file count, output folder, control endpoint,
-and active LSL streams. A growing "Since last block" value warns that the board
-has stopped delivering data. **Copy summary** puts the same information on the
+count, writer queue depth, last write duration, manifest status, recorded file
+count, output folder, control endpoint, and active LSL streams. A growing
+"Since last block" value warns that the board has stopped delivering data. **Copy summary** puts the same information on the
 clipboard for a bug report.
 
 ### CSV files

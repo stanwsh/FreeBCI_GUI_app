@@ -1745,7 +1745,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | I.1 state UI | Initial state fixed; guards added; start disabled while starting | Still flag-driven; no single state-to-enablement table | P1 |
 | I.2 connection | Async discovery/prepare; fast port list | Dialogs still prepare boards; no DeviceManager.connect; no reconnect prompt | P1 |
 | I.3 streaming | Async start, stop confirmation, window-close stop/finalize confirmation | Error banner is still a status label | P2 |
-| I.4 diagnostics | State, device/id, configured vs effective rate, written samples, disk free, counts, loss, queue, files, output, control, LSL, error | Missing last-write latency, manifest status, and clock/sync uncertainty | P2 |
+| I.4 diagnostics | State, device/id, configured vs effective rate, written samples, disk free, last-write latency, manifest status, counts, loss, queue, files, output, control, LSL, error | Missing clock/sync uncertainty in the GUI | P2 |
 | I.5 rendering | One timer per concern? Decimation; topography figure reuse | Plot item reuse not implemented; each view still filters its own full buffer | P2 |
 | I.6 UI defects | Channel rebuild, sfreq, LSL streams, async settings | Wildcard imports, console singleton, and some fixed sleeps remain | P2 |
 | I.7 usability | Stop confirmation; destination in diagnostics | No “Connect again”, no remembered last config, no pre-start destination preview | P3 |

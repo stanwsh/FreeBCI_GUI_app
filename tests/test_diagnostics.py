@@ -65,13 +65,23 @@ class DiagnosticsTest(unittest.TestCase):
             output_path=r"C:\data\Stream_1",
         )
         writer = SimpleNamespace(
-            snapshot=lambda: {"files": 1, "queue_depth": 3, "queue_capacity": 512}
+            snapshot=lambda: {
+                "files": 1,
+                "queue_depth": 3,
+                "queue_capacity": 512,
+                "last_write_ns": 1,
+                "last_write_seconds": 0.004,
+                "seconds_since_write": 0.2,
+                "manifest_status": "recording",
+            }
         )
         controller = SimpleNamespace(snapshot=lambda: snapshot, writer=writer)
         fields = diagnostics_fields(controller, r"C:\fallback", "tcp://127.0.0.1:5555", "none")
         self.assertEqual(fields["state"], "recording")
         self.assertEqual(fields["samples"], "3,120")
         self.assertEqual(fields["queue"], "3 / 512")
+        self.assertEqual(fields["manifest"], "recording")
+        self.assertIn("ms", fields["write"])
         self.assertIn("stalled", fields["since"])
         self.assertEqual(fields["output"], snapshot.output_path)
 
