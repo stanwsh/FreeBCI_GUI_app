@@ -3,6 +3,7 @@ import shutil
 import time
 import unittest
 import xml.etree.ElementTree as ET
+from unittest.mock import patch
 
 from freebci.core.settings import (
     ChannelSettings,
@@ -10,6 +11,7 @@ from freebci.core.settings import (
     SettingsError,
     load_settings,
     save_settings,
+    writable_settings_path,
 )
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -71,6 +73,13 @@ class SettingsTests(unittest.TestCase):
         save_settings(self.path, HardwareSettings((_channel(gain="X24"),), sampling_rate=250))
         self.assertEqual(load_settings(self.path).sampling_rate, 250)
         self.assertGreaterEqual(os.stat(self.path).st_mtime_ns, before)
+
+    def test_read_only_app_settings_fall_back_to_user_data(self):
+        default = os.path.join(self.directory, "app", "send_settings.xml")
+        with patch.dict(os.environ, {"FREEBCI_HOME": self.directory}):
+            with patch("freebci.core.settings._can_write", side_effect=[False, True]):
+                resolved = writable_settings_path(default)
+        self.assertEqual(resolved, os.path.join(self.directory, "settings", "send_settings.xml"))
 
 
 if __name__ == "__main__":

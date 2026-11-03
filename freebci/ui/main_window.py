@@ -188,6 +188,14 @@ class MainWindow(MainWindowInterface):
         else:
             self.stateLabel.setText('Ready — connect a board or start a demo session.')
 
+    def _make_info(self):
+        """Build MNE metadata for the current channels and sampling rate."""
+        return mne.create_info(
+            ch_names=self.channels.tolist(),
+            sfreq=self.SamplingRate,
+            ch_types='eeg',
+        )
+
     def configure_electrodes(self, channel_count):
         """Build channel names, montage and topography buffers for a board."""
         self._chan = int(channel_count)
@@ -206,9 +214,7 @@ class MainWindow(MainWindowInterface):
             lpa=[*(-0.08609924, -0.0, -0.04014873)],
             rpa=[*(0.08609924, 0.0, -0.04014873)],
         )
-        self.info = mne.create_info(
-            ch_names=self.channels.tolist(), sfreq=self.SamplingRate, ch_types='eeg'
-        )
+        self.info = self._make_info()
         rows = {16: 16, 32: 31, 64: 62}.get(self._chan, self._chan)
         columns = 500 if self._chan <= 16 else 1250
         self.Topography_data = [[0 for _ in range(columns)] for _ in range(rows)]
@@ -671,7 +677,7 @@ class MainWindow(MainWindowInterface):
         self.chanMatched_index = self.hardwareInfo.chanMatched_index
         self.baudRate = self.hardwareInfo.baudRate
         self.SamplingRate = int(self.hardwareInfo.SamplingRate)
-        self.info['sfreq'] = self.SamplingRate
+        self.info = self._make_info()
         self.networking.refreshSamplingRate(self.SamplingRate)
         self.ts_plot_range = int(self.ts_time * self.SamplingRate)
 

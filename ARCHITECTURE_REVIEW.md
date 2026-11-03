@@ -862,7 +862,7 @@ def validate(settings: HardwareSettings, profile: BoardProfile) -> list[str]: ..
 - Save to a temporary file in the same directory, `flush`/`fsync`, then `os.replace`.
 - Presets in `settings/` are read-only defaults; user changes go to a separate user file unless the user explicitly saves a preset.
 
-Current implementation note: `core/settings.py` exposes `ChannelSettings` plus optional `sampling_rate`/`baud_rate` metadata, validates channel numbering and required fields, and performs the atomic replace above. The richer v2 fields and profile-aware `validate()` remain target work.
+Current implementation note: `core/settings.py` exposes `ChannelSettings` plus optional `sampling_rate`/`baud_rate` metadata, validates channel numbering and required fields, and performs the atomic replace above. When the application `settings/` directory is read-only (for example after installation under a protected folder), the settings editor redirects its autosave `send_settings.xml` to a writable per-user directory (`FREEBCI_HOME`, `%LOCALAPPDATA%/FreeBCI`, or `~/Documents/FreeBCI`) instead of failing. The richer v2 fields and profile-aware `validate()` remain target work.
 
 ### E.12 Failure semantics
 

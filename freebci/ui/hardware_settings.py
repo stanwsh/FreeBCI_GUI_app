@@ -1,7 +1,14 @@
 import os
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from freebci.ui.connection_info import HardwareInfo, ConnectionInfo
-from freebci.core.settings import ChannelSettings, HardwareSettings, load_settings, save_settings
+from freebci.core.settings import (
+    ChannelSettings,
+    HardwareSettings,
+    SettingsError,
+    load_settings,
+    save_settings,
+    writable_settings_path,
+)
 from freebci.design.hardware_settings_interface import hardwareSettings_interface
 from freebci.core.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.ui.workers.settings_commands import SettingsCommandWorker
@@ -45,16 +52,29 @@ class HardwareSettingsDialog(hardwareSettings_interface):
                 self.SRB2comboBoxs[i].setItemText(0, 'Off')
                 self.SRB2comboBoxs[i].setEnabled(False)
         self.parent_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        default_send_path = os.path.join(self.parent_path, 'settings', 'send_settings.xml')
+        try:
+            self.send_settings_path = writable_settings_path(default_send_path)
+        except SettingsError as ex:
+            # Keep the dialog usable even when no writable settings location
+            # exists; the send operation itself can still succeed.
+            self.logger.write('WARNNING: no writable settings directory: %s' % ex)
+            self.send_settings_path = default_send_path
+        read_send_path = (
+            self.send_settings_path
+            if os.path.exists(self.send_settings_path)
+            else default_send_path
+        )
         self.system_xml = ET.parse(self.parent_path + '\\settings\\hardware_settings' + str(self._chan) + '.xml').getroot()
         selected_file = [
-            self.parent_path + '/settings/send_settings.xml',
+            read_send_path,
             'xml files(*.xml)']
         self.loadSendXML([
             self.parent_path + '/settings/hardware_settings' + str(self._chan) + '.xml',
             'xml files(*.xml)'])
         if self.hardwareInfo.isSend == True:
             self.loadSendXML(selected_file)
-            self.saveSettings(selected_file, True)
+            self.saveSettings([self.send_settings_path, 'xml files(*.xml)'], True)
         else:
             self.hardwareInfo.SamplingRate = 250
         if self.connect_info.iswifi:
@@ -295,7 +315,7 @@ class HardwareSettingsDialog(hardwareSettings_interface):
         self._signal.emit(self.hardwareInfo)
         self._signal_con.emit(self.connect_info)
         selected_file = [
-            self.parent_path + '/settings/send_settings.xml',
+            self.send_settings_path,
             'xml files(*.xml)']
         try:
             self.saveSettings(selected_file, True)

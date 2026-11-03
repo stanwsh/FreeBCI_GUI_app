@@ -105,6 +105,58 @@ def load_settings(path: str, expected_channels: Optional[int] = None) -> Hardwar
     )
 
 
+def _can_write(directory: str) -> bool:
+    """Probe a directory without relying on Windows ACL reporting."""
+    probe = None
+    try:
+        os.makedirs(directory, exist_ok=True)
+        probe = os.path.join(
+            directory, ".freebci-write-%d-%d" % (os.getpid(), time.time_ns())
+        )
+        with open(probe, "x", encoding="utf-8"):
+            pass
+        os.unlink(probe)
+        return True
+    except OSError:
+        if probe is not None:
+            try:
+                os.unlink(probe)
+            except OSError:
+                pass
+        return False
+
+
+def _fallback_settings_directory() -> str:
+    """Return a per-user settings directory outside the application folder."""
+    roots = []
+    home = os.environ.get("FREEBCI_HOME")
+    if home:
+        roots.append(home)
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        roots.append(os.path.join(local_app_data, "FreeBCI"))
+    roots.append(os.path.join(os.path.expanduser("~"), "Documents", "FreeBCI"))
+    for root in roots:
+        candidate = os.path.join(root, "settings")
+        if _can_write(candidate):
+            return candidate
+    raise SettingsError("no writable directory for hardware settings")
+
+
+def writable_settings_path(path: str) -> str:
+    """Keep the shipped path when writable, otherwise use the user profile.
+
+    Application folders are often read-only after installation.  The settings
+    editor still needs a durable place for its last-sent configuration, so it
+    redirects that one autosave file to the writable user data directory.
+    """
+    path = os.path.abspath(path)
+    if _can_write(os.path.dirname(path)):
+        return path
+    fallback = os.path.join(_fallback_settings_directory(), os.path.basename(path))
+    return fallback
+
+
 def save_settings(path: str, settings: HardwareSettings) -> None:
     """Write settings to a temporary file, fsync it, then atomically replace."""
     if not settings.channels:
