@@ -22,6 +22,7 @@ from freebci.api.session_start_worker import SessionStartWorker
 from freebci.api.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
 from freebci.core.device import DeviceManager
+from freebci.core.history import append_bounded
 from freebci.core.packets import PacketLossCounter
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.my_electrodes_position import ElectrodesPosition
@@ -1526,9 +1527,7 @@ class MyMainWindow(MainWindowInterface):
             if self.data.shape[1] == 1:
                 self.data = buffer_data[:, 1:]
             else:
-                self.data = np.append(self.data, buffer_data, axis=1)
-            if self.data.shape[1] > 60000:
-                self.data = self.data[:, -60000:]
+                self.data = append_bounded(self.data, buffer_data, 60000)
             # The trigger and battery views use the same bounded block history;
             # keeping separate copies doubled memory without adding information.
             self.extri_data = self.data
