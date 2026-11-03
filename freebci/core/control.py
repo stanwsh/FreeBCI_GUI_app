@@ -334,11 +334,29 @@ class ControlClient:
             token=str(payload["token"]),
         )
 
+    @classmethod
+    def from_runtime_file(cls, path: str) -> "ControlClient":
+        """Alias for :meth:`from_discovery`, matching the protocol document."""
+        return cls.from_discovery(path)
+
     def ping(self) -> bool:
         return bool(self._request("ping").get("ok"))
 
     def status(self) -> Dict[str, Any]:
         return self._request("status")["snapshot"]
+
+    def wait_started(self, timeout: float = 10.0) -> Dict[str, Any]:
+        """Poll until the session is armed or recording, or raise on timeout."""
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        while True:
+            snapshot = self.status()
+            if snapshot.get("state") in ("armed", "recording"):
+                return snapshot
+            if snapshot.get("state") == "failed":
+                raise ControlError(snapshot.get("error") or "session failed to start")
+            if time.monotonic() >= deadline:
+                raise ControlError("timed out waiting for the session to start")
+            time.sleep(0.05)
 
     def marker(self, label: str) -> Dict[str, Any]:
         return self._request("marker", label=label)["marker"]

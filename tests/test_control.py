@@ -104,7 +104,7 @@ class ControlPlaneTest(unittest.TestCase):
         discovery = os.path.join(self.root, "control.json")
         try:
             server.write_discovery(discovery)
-            client = ControlClient.from_discovery(discovery)
+            client = ControlClient.from_runtime_file(discovery)
             self.assertTrue(client.ping())
             self.assertEqual(client.status()["markers"], 0)
             marker = client.marker("event")
@@ -208,6 +208,8 @@ class ControlPlaneTest(unittest.TestCase):
                 client.marker("not yet")
             with self.assertRaises(ControlError):
                 client.stop()
+            with self.assertRaises(ControlError):
+                client.wait_started(0.1)
         finally:
             server.stop()
 

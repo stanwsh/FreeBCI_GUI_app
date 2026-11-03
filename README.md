@@ -489,8 +489,10 @@ board, add a marker, stop the recording, or close the application:
 from freebci.core import ControlClient
 
 client = ControlClient.from_discovery(r"logs\control.json")
+# from_runtime_file(path) is an equivalent alias.
 print(client.status())          # {"state": "idle", ...} before a session
 client.start("demo")            # synthetic demo session
+client.wait_started()           # poll until armed/recording, or time out
 # client.start("2038")          # already-connected FreeBCI Wi-Fi 16 board
 # client.start("FreeBCI_WiFi_16_I")
 client.marker("stimulus on")
