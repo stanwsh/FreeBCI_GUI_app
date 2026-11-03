@@ -20,6 +20,7 @@ from freebci.api.my_wifi_connection import MyWifiConnection
 from freebci.api.my_diagnostics import MyDiagnostics
 from freebci.api.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
+from freebci.core.device import DeviceManager
 from freebci.core.packets import PacketLossCounter
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.my_electrodes_position import ElectrodesPosition
@@ -32,7 +33,6 @@ from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
 from freebci.core.control import ControlServer
-from freebci.core.gateway import BrainFlowGateway
 from freebci.core.models import BoardProfile, SessionConfig
 from freebci.core.session import SessionController
 from brainflow import board_shim, data_filter, exit_codes, ml_model
@@ -73,6 +73,7 @@ class MyMainWindow(MainWindowInterface):
         self.hardwareInfo = HardwareInfo()
         self.connect_info = connectInfo()
         self.board = None
+        self.device_manager = DeviceManager()
         self.session_controller = None
         self.control_server = None
         self.control_discovery_path = None
@@ -374,10 +375,9 @@ class MyMainWindow(MainWindowInterface):
             self.startButton.setText('Start Session')
             self.stopThread()
             self.myLogger.write('Data stream stopped.')
-        try:
-            self.board.release_session()
-        except:
-            pass
+        self.device_manager.release()
+        self.board = None
+        self.connect_info.board = None
         self.isSessionOn = False
         self.hardwareInfo.isSend = False
         self.myLogger.write('Board Session stopped')
@@ -385,6 +385,18 @@ class MyMainWindow(MainWindowInterface):
         self.refreshBoardMenu()
         self.stateLabel.setText('Board Session stopped')
         self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(192, 192, 192)')
+
+    def _board_profile(self):
+        row = self.connect_info.id_list[self.connect_info.board_id - 2023]
+        return BoardProfile(
+            board_id=self.connect_info.board_id,
+            name=str(row[0]),
+            channels=self._chan,
+            sampling_rate=int(self.SamplingRate),
+            has_accelerometer=bool(row[9]),
+            has_external_trigger=bool(row[10]),
+            has_battery=bool(row[11]),
+        )
 
     def initLayout(self, connection_info: connectInfo):
         if isinstance(connection_info, connectInfo):
@@ -397,6 +409,7 @@ class MyMainWindow(MainWindowInterface):
             if self._chan == 16 and self.hardwareInfo.sendMode != 'FreeBCI' and self.connect_info.isbluetooth == False:
                 self.SamplingRate = 125
                 self.ts_plot_range = 725
+            self.device_manager.adopt(self.board, self._board_profile())
             self.configure_electrodes(self._chan)
             self.activeChannels = [ True for i in range(self._chan) ]
             self.resistanceArray = [ 0 for i in range(self._chan) ]
@@ -462,9 +475,9 @@ class MyMainWindow(MainWindowInterface):
                 self.stop_openbci()
                 self.stopThread()
             self._stop_control_server()
-            if self.board != None:
-                self.board.release_session()
-                event.accept()
+            self.device_manager.release()
+            self.board = None
+            event.accept()
             console = getattr(self, 'ConsoleWindow', None)
             if console is not None:
                 console.close()
@@ -1299,21 +1312,11 @@ class MyMainWindow(MainWindowInterface):
 
     def start_openbci(self):
         try:
-            time.sleep(0.2)
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
             self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
             self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
             self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
-            row = self.connect_info.id_list[self.connect_info.board_id - 2023]
-            profile = BoardProfile(
-                board_id=self.connect_info.board_id,
-                name=str(row[0]),
-                channels=self._chan,
-                sampling_rate=int(self.SamplingRate),
-                has_accelerometer=bool(row[9]),
-                has_external_trigger=bool(row[10]),
-                has_battery=bool(row[11]),
-            )
+            profile = self.device_manager.profile or self._board_profile()
             config = SessionConfig(
                 session_id=datetime.datetime.now().strftime('FreeBCI_%Y%m%d_%H%M%S'),
                 board=profile,
@@ -1328,15 +1331,11 @@ class MyMainWindow(MainWindowInterface):
                 post_start_config = (chr(34) + ',',)
             self.session_controller = SessionController(
                 config,
-                BrainFlowGateway(
-                    self.board,
-                    self.connect_info.board_id,
-                    self._chan,
-                    post_start_config=post_start_config,
-                ),
+                self.device_manager.gateway(post_start_config=post_start_config),
                 marker_callback=self._on_session_marker,
             )
             self.session_controller.start()
+            self.device_manager.mark_streaming()
             if self.control_server is not None and self.control_discovery_path:
                 self.control_server.write_discovery(self.control_discovery_path)
             self.myLogger.write(
@@ -1372,13 +1371,13 @@ class MyMainWindow(MainWindowInterface):
                 status = self.session_controller.stop()
                 self.myLogger.write('FreeBCI: session stopped with status %s' % status.value)
                 self.session_controller = None
+            self.device_manager.mark_ready()
             if self.control_server is not None and self.control_discovery_path:
                 self.control_server.write_discovery(self.control_discovery_path)
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
             self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
             self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
             self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
-            time.sleep(0.2)
             self.myLogger.write('FreeBCI: stopButton was pressed. Stopping data transfer. wait a few seconds.')
         except Exception as ex:
             self.myLogger.write('WARNNING: could not stop board.')

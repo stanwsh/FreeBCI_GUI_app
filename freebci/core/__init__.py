@@ -6,6 +6,7 @@ through a small number of data objects (``SessionConfig``, ``SampleBlock``,
 """
 
 from freebci.core.control import ControlClient, ControlError, ControlServer
+from freebci.core.device import DeviceError, DeviceManager, DeviceState
 from freebci.core.models import (
     BoardProfile,
     SampleBlock,
@@ -21,6 +22,9 @@ __all__ = [
     "ControlClient",
     "ControlError",
     "ControlServer",
+    "DeviceError",
+    "DeviceManager",
+    "DeviceState",
     "SampleBlock",
     "SessionConfig",
     "SessionState",

@@ -4,13 +4,25 @@ USER NOTES:
 
 
 - No BT hardware was available for testing, so the Bluetooth path is unverified. The GUI code is present and compiles, but the `my_blueTooth.py` dialog has not been exercised.
-- A real board broadcasting on wifi "FreeBCI-1018" can be used to verify the following, using "FreeBCI_WiFi_16_I" hardware settings preset [Wi-Fi Mode only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->Wi-Fi;Prompted IP selection window (preserve original, may need to wait for a few timeout if first connected)->select. The board server has a web interface at http://192.168.4.1/tcp http://192.168.4.1/wifi if connected to the board's AP. The board is a 16-channel Wi-Fi board with a TCP interface. [current mode of the board for wifi testing] You may prompt me to restart the device because some time it is buggy.
+- A real board broadcasting on wifi "FreeBCI-1018" can be used to verify the following, using "FreeBCI_WiFi_16_I" hardware settings preset [Wi-Fi Mode only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->Wi-Fi;Prompted IP selection window (preserve original, may need to wait for a few timeout if first connected)->select. The board server has a web interface at http://192.168.4.1/tcp http://192.168.4.1/wifi if connected to the board's AP. The board is a 16-channel Wi-Fi board with a TCP interface. [current mode of the board for wifi testing] You may prompt me to restart the device because some time it is buggy. [closed, turn on only if prompted]
 
-- A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode turn on only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
+- A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode turned on]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
 
 **Status:** Implementation in progress. The Qt-free core, durable session recording, GUI acquisition integration, local control plane, fast port discovery, background serial/Wi-Fi/Bluetooth setup, three-stream LSL output, stalled-acquisition diagnostics, and the redesigned Wi-Fi connector are landed. Real FreeBCI_WiFi_16_I boards were verified on 2026-11-02 in both USB mode (id 2037, COM3, 16 channels, 2 Mbaud) and Wi-Fi mode (id 2038, 192.168.4.1, 16 channels): GUI sessions record CSV/TXT/meta/manifest and finalize with `status: completed`; control-plane stop returns the GUI to idle. The remaining hardware acceptance work is the full transport/channel matrix and long-duration soak, not a correctness gap in the verified paths. The findings below are the original assessment; several items (GUI-thread acquisition/recording, unbounded auxiliary buffers, plot-thread and topography leaks, initial startup state, channel metadata rebuild, blocking connections) are already addressed in the implementation commits.
 **Scope:** `freebci/` (51 Python modules), `FreeBCI_GUI.py`, `settings/`, and the Windows/PyQt5 runtime.
 **Goal:** Improve maintainability, acquisition reliability, recording integrity, synchronization, and operator usability without discarding the validated BrainFlow/board behavior.
+
+### Phase tracker
+
+| Phase | State | Current milestone |
+|---|---|---|
+| 0 — Baseline/packaging | Accepted | Source release zip is the supported distribution; no wheel package planned. |
+| 1 — Recording integrity | Code complete | Endurance gate merged into Phase 6. |
+| 2 — Device/acquisition decoupling | In progress | 2.1 DeviceManager adopted by the GUI; 2.2 asynchronous hardware settings remains. |
+| 3 — Bounded buffers/performance | Pending | Auxiliary buffers, decimation, and 64-channel gate. |
+| 4 — Timestamps/control/sync | Partial | Clock offset and selector-based real-board `start` remain. |
+| 5 — GUI state/workflow | Partial | Full state-driven view model and async settings workflow remain. |
+| 6 — Validation/hardware matrix | Pending | Hardware matrix and multi-hour soak; depends on available devices. |
 
 ### Implementation progress
 
@@ -52,8 +64,9 @@ USER NOTES:
 - The control endpoint now has an application lifetime: one stable address/token and `control.json` while idle or recording, controller lookup through a provider, and a `start` command that queues the synthetic demo session onto the GUI thread (`start_requested`), then reports `recording` through `status`. Re-verified on the real Wi-Fi board: status, marker, and shutdown still work through the persistent endpoint.
 - A first presentation view model (`freebci/api/session_view_model.py`) now owns the diagnostics and marker lookups, so the window no longer reaches into the controller/writer for those surfaces. State-driven enable/disable and the command queue are still open.
 - A five-minute synthetic soak (16 channels, 250 Hz) completed 73,624 samples at 244.3 Hz effective, with `lost=0`, `dropped=0`, queue 0, and ~34.4 MB working set; this is a stability check, not the multi-hour soak gate.
+- **Phase 2.1:** `freebci/core/device.py` adds `DeviceManager` with explicit `READY`/`STREAMING`/`DISCONNECTED` states, single-owner adoption, replacement-release, and gateway creation. The GUI adopts prepared boards, obtains its gateway from the manager, and releases through it; start/stop no longer sleep on the GUI thread.
 
-Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the remaining state-driven view-model refactor, and an installable `pyproject.toml` package. A source release zip is available in the meantime.
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the remaining state-driven view-model refactor, and async settings.
 
 ---
 
