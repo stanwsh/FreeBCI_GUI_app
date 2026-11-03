@@ -24,7 +24,7 @@ class BandPowerView(QtWidgets.QWidget):
         self.horizontalLayout_3.setSpacing(0)
         self.horizontalLayout_3.setObjectName('horizontalLayout_3')
         self.layoutComboBox = QtWidgets.QComboBox(self.widget_2)
-        self.layoutComboBox.setStyleSheet('font: 75 10pt "等线";\nbackground-color: white')
+        self.layoutComboBox.setStyleSheet('font: 75 10pt "Arial";\nbackground-color: white')
         self.layoutComboBox.setObjectName('layoutComboBox')
         self.layoutComboBox.addItem('')
         self.layoutComboBox.addItem('')

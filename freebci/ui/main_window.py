@@ -420,7 +420,7 @@ class MainWindow(MainWindowInterface):
         self.refreshBoardMenu()
         self._sync_action_states()
         self.stateLabel.setText('Board Session stopped')
-        self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(192, 192, 192)')
+        self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(192, 192, 192)')
 
     def _board_profile(self):
         row = self.connect_info.id_list[self.connect_info.board_id - 2023]
@@ -464,27 +464,27 @@ class MainWindow(MainWindowInterface):
 
             self.initWidget()
             self.reConFuncToWidget()
-            self.startButton.setStyleSheet('font: 12pt "等线"; background-color: rgb(204,255,153)')
+            self.startButton.setStyleSheet('font: 12pt "Arial"; background-color: rgb(204,255,153)')
             self.changeLayout(2)
             self.refreshBoardMenu()
             self.stateLabel.setText('Session started!')
             if self.connect_info.id_list[self.connect_info.board_id - 2023][9]:
                 self.accelerometer.DateModepushButton.setEnabled(True)
-                self.accelerometer.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
+                self.accelerometer.DateModepushButton.setStyleSheet('font: 75 10pt "Arial";background-color: rgb(204,255,153)')
                 self.accelerometer.DateModepushButton.setText('Start Accelerometer')
             else:
                 self.accelerometer.DateModepushButton.setEnabled(False)
                 self.accelerometer.DateModepushButton.setText('Start Accelerometer')
             if self.connect_info.id_list[self.connect_info.board_id - 2023][11]:
                 self.battery.DateModepushButton.setEnabled(True)
-                self.battery.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
+                self.battery.DateModepushButton.setStyleSheet('font: 75 10pt "Arial";background-color: rgb(204,255,153)')
                 self.battery.DateModepushButton.setText('Start Battery')
             else:
                 self.battery.DateModepushButton.setEnabled(False)
                 self.battery.DateModepushButton.setText('Start Battery')
             if self.connect_info.id_list[self.connect_info.board_id - 2023][10]:
                 self.external_trigger.DateModepushButton.setEnabled(True)
-                self.external_trigger.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
+                self.external_trigger.DateModepushButton.setStyleSheet('font: 75 10pt "Arial";background-color: rgb(204,255,153)')
                 self.external_trigger.DateModepushButton.setText('Start Extrigger')
             else:
                 self.external_trigger.DateModepushButton.setEnabled(False)
@@ -552,13 +552,13 @@ class MainWindow(MainWindowInterface):
     def _apply_resistance_style(self, channel, enabled):
         widget = self.time_series.plot_widgets[channel]
         if enabled:
-            widget.dataLabel.setStyleSheet('font: 8pt "黑体";background:transparent; color: white')
+            widget.dataLabel.setStyleSheet('font: 8pt "Arial";background:transparent; color: white')
             widget.dataLabelColor = 'white'
             widget.isResistance = False
-            widget.resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: white;font: 12pt "黑体";background: black ;}')
+            widget.resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: white;font: 12pt "Arial";background: black ;}')
         else:
             widget.isResistance = True
-            widget.resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: black;font: 12pt "黑体";background: None ;}')
+            widget.resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: black;font: 12pt "Arial";background: None ;}')
 
     def resistancePushButtons_click(self, channel):
         if self.board is None:
@@ -808,7 +808,7 @@ class MainWindow(MainWindowInterface):
                 self.startLSLButton_isclicked = True
                 self.logger.write('start lsl stream...')
                 self.networking.startLSLButton.setText(' Stop ')
-                self.networking.startLSLButton.setStyleSheet('font: 12pt "黑体";background-color:red')
+                self.networking.startLSLButton.setStyleSheet('font: 12pt "Arial";background-color:red')
                 self._ensure_marker_outlet()
                 for index in (1, 2, 3):
                     queue = getattr(self, 'lsl_queues', {}).get(index)
@@ -823,7 +823,7 @@ class MainWindow(MainWindowInterface):
                 self.startLSLButton_isclicked = False
                 self.logger.write('close lsl stream.')
                 self.networking.startLSLButton.setText('Start LSL Stream')
-                self.networking.startLSLButton.setStyleSheet('font: 12pt "等线"; background-color: rgb(204,255,153)')
+                self.networking.startLSLButton.setStyleSheet('font: 12pt "Arial"; background-color: rgb(204,255,153)')
                 self.marker_outlet = None
                 for index in (1, 2, 3):
                     streamer = getattr(self, 'LSLstreamer%d' % index, None)
@@ -841,7 +841,7 @@ class MainWindow(MainWindowInterface):
         self.stateLabel.setText('Data stream started.   samples received: {}'.format(self.total_len))
         self.startButton.setEnabled(True)
         self.startButton.setText('Stop Session')
-        self.startButton.setStyleSheet('font: 12pt "黑体";background-color:red')
+        self.startButton.setStyleSheet('font: 12pt "Arial";background-color:red')
         self.startButton_isclicked = True
         self.total_len = 0
         self.pak_count = 0
@@ -885,7 +885,7 @@ class MainWindow(MainWindowInterface):
                 pass
         self.startButton.setEnabled(True)
         self.startButton.setText('Start Session')
-        self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+        self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(204,255,153)')
         self.startButton_isclicked = False
         self.stateLabel.setText('session error: %s' % message)
         self.logger.write('WARNNING: session start failed: %s' % message)
@@ -938,7 +938,7 @@ class MainWindow(MainWindowInterface):
             self.stop_count += 1
             self.startButton.setText('Start Session')
             self.stateLabel.setText('Data stream stopped.')
-            self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+            self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(204,255,153)')
             self.stopThread()
             self.logger.write('Data stream stopped.')
             self._sync_action_states()
@@ -951,7 +951,7 @@ class MainWindow(MainWindowInterface):
         self.stop_openbci()
         self.startButton_isclicked = False
         self.startButton.setText('Start Session')
-        self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+        self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(204,255,153)')
         self.stopThread()
         self.stateLabel.setText('Error: Please check connection!')
         self.logger.write('Data stream stopped.')
@@ -997,7 +997,7 @@ class MainWindow(MainWindowInterface):
             self.stopThread()
             self.startButton_isclicked = False
             self.startButton.setText('Start Session')
-            self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+            self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(204,255,153)')
 
     def processor_fun(self):
         try:
@@ -1087,7 +1087,7 @@ class MainWindow(MainWindowInterface):
             self.startButton_isclicked = False
             self.startButton.setText('Start Session')
             self.stateLabel.setText('Updater stream error! Data stream stopped!')
-            self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+            self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(204,255,153)')
 
     def _ts_curve(self, index):
         curve = self.ts_curves.get(index)
@@ -1140,43 +1140,43 @@ class MainWindow(MainWindowInterface):
                 self.extri_flag = visible_start
                 while self.extri_flag < data.shape[1]:
                     if data[self._chan + 1][self.extri_flag]:
-                        self.external_trigger.label33.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightblue")
+                        self.external_trigger.label33.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightblue")
                         self.external_trigger.label33.setText('1')
                         self.external_trigger.label33.setAlignment(Qt.AlignCenter)
                     else:
-                        self.external_trigger.label33.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label33.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.external_trigger.label33.setText('0')
                         self.external_trigger.label33.setAlignment(Qt.AlignCenter)
                     if data[self._chan + 2][self.extri_flag]:
-                        self.external_trigger.label34.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightgreen")
+                        self.external_trigger.label34.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightgreen")
                         self.external_trigger.label34.setText('1')
                         self.external_trigger.label34.setAlignment(Qt.AlignCenter)
                     else:
-                        self.external_trigger.label34.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label34.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.external_trigger.label34.setText('0')
                         self.external_trigger.label34.setAlignment(Qt.AlignCenter)
                     if data[self._chan + 3][self.extri_flag]:
-                        self.external_trigger.label35.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightpurple")
+                        self.external_trigger.label35.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightpurple")
                         self.external_trigger.label35.setText('1')
                         self.external_trigger.label35.setAlignment(Qt.AlignCenter)
                     else:
-                        self.external_trigger.label35.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label35.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.external_trigger.label35.setText('0')
                         self.external_trigger.label35.setAlignment(Qt.AlignCenter)
                     if data[self._chan + 4][self.extri_flag]:
-                        self.external_trigger.label36.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(0,255,255)")
+                        self.external_trigger.label36.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(0,255,255)")
                         self.external_trigger.label36.setText('1')
                         self.external_trigger.label36.setAlignment(Qt.AlignCenter)
                     else:
-                        self.external_trigger.label36.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label36.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.external_trigger.label36.setText('0')
                         self.external_trigger.label36.setAlignment(Qt.AlignCenter)
                     if data[self._chan + 5][self.extri_flag]:
-                        self.external_trigger.label37.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(210,180,140)")
+                        self.external_trigger.label37.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(210,180,140)")
                         self.external_trigger.label37.setText('1')
                         self.external_trigger.label37.setAlignment(Qt.AlignCenter)
                     else:
-                        self.external_trigger.label37.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label37.setStyleSheet("font: 15pt 'Arial';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.external_trigger.label37.setText('0')
                         self.external_trigger.label37.setAlignment(Qt.AlignCenter)
                     self.extri_flag += 1
@@ -1291,7 +1291,7 @@ class MainWindow(MainWindowInterface):
                         notification = 'Railed ' + format(percent, '.2f') + '% '
                         notificationColor = 'red'
                     if notificationColor != self.time_series.plot_widgets[j].dataLabelColor:
-                        self.time_series.plot_widgets[j].dataLabel.setStyleSheet('font: 8pt "黑体";background:transparent; color:' + notificationColor)
+                        self.time_series.plot_widgets[j].dataLabel.setStyleSheet('font: 8pt "Arial";background:transparent; color:' + notificationColor)
                         self.time_series.plot_widgets[j].dataLabelColor = notificationColor
                     std_data = np.std(bp_nf_data[j][-int(fft_bound):])
                     rms_value = np.sqrt(np.mean(np.square(bp_nf_data[j][-int(fft_bound):])))
@@ -1311,7 +1311,7 @@ class MainWindow(MainWindowInterface):
             self.startButton.setText('Start Session')
             self.stateLabel.setText('Updater stream error! Data stream stopped!')
             self.stateLabel.setStyleSheet('')
-            self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+            self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(204,255,153)')
 
     def _start_control_server(self):
         """Publish one stable loopback endpoint for the application lifetime."""
@@ -1390,7 +1390,7 @@ class MainWindow(MainWindowInterface):
         self.startButton_isclicked = False
         self.startButton.setText('Start Session')
         self.stateLabel.setText('Data stream stopped by control client.')
-        self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
+        self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(204,255,153)')
 
     def _request_control_shutdown(self):
         """Queue a control-plane application shutdown onto the GUI thread."""

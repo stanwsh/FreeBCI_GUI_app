@@ -21,7 +21,7 @@ class DiagnosticsDialog(QtWidgets.QDialog):
 
         layout = QtWidgets.QVBoxLayout(self)
         title = QtWidgets.QLabel("Session diagnostics")
-        title.setStyleSheet("font: 700 16pt 'Segoe UI';")
+        title.setStyleSheet("font: 700 16pt 'Arial';")
         layout.addWidget(title)
         subtitle = QtWidgets.QLabel(
             "Live view of acquisition, recording, and output health. "

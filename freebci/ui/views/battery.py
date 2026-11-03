@@ -33,7 +33,7 @@ class BatteryView(QtWidgets.QWidget):
         self.horizontalLayout_3.setSpacing(0)
         self.horizontalLayout_3.setObjectName('horizontalLayout_3')
         self.layoutComboBox = QtWidgets.QComboBox(self.widget_2)
-        self.layoutComboBox.setStyleSheet('font: 75 10pt "等线";\nbackground-color: white')
+        self.layoutComboBox.setStyleSheet('font: 75 10pt "Arial";\nbackground-color: white')
         self.layoutComboBox.setObjectName('layoutComboBox')
         self.layoutComboBox.addItem('')
         self.layoutComboBox.addItem('')
@@ -68,7 +68,7 @@ class BatteryView(QtWidgets.QWidget):
         self.horizontalLayout_4.setSpacing(0)
         self.horizontalLayout_4.setObjectName('horizontalLayout_4')
         self.DateModepushButton = QtWidgets.QPushButton(self.widget_3)
-        self.DateModepushButton.setStyleSheet('font: 75 10pt "等线";')
+        self.DateModepushButton.setStyleSheet('font: 75 10pt "Arial";')
         self.DateModepushButton.setObjectName('Start Battery')
         self.horizontalLayout_4.addWidget(self.DateModepushButton)
         spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -122,7 +122,7 @@ class BatteryView(QtWidgets.QWidget):
         self.layoutComboBox.setItemText(5, _translate('MainWindow', 'Networking'))
         self.layoutComboBox.setItemText(6, _translate('MainWindow', 'Battery'))
         self.layoutComboBox.setItemText(7, _translate('MainWindow', 'Brain topography'))
-        self.label.setStyleSheet("font: 15pt '黑体';color: black;")
+        self.label.setStyleSheet("font: 15pt 'Arial';color: black;")
         self.DateModepushButton.setText(_translate('MainWindow', 'Start Battery'))
 
 

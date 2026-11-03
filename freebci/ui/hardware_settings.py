@@ -152,9 +152,9 @@ class HardwareSettingsDialog(hardwareSettings_interface):
         elif self.isActiveSetting[channel] == False:
             self.change_line_color(channel)
         if self.BiasComboBoxs[channel].currentText() == 'Yes':
-            self.BiasComboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+            self.BiasComboBoxs[channel].setStyleSheet('font: 12pt "Arial"; background: rgb(240, 255, 240);')
         else:
-            self.BiasComboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+            self.BiasComboBoxs[channel].setStyleSheet('font: 12pt "Arial"; background: rgb(255, 240, 245);')
 
     def SRB1ComboBoxs_click(self, channel):
         if self.compareLine(channel):
@@ -163,9 +163,9 @@ class HardwareSettingsDialog(hardwareSettings_interface):
         elif self.isActiveSetting[channel] == False:
             self.change_line_color(channel)
         if self.SRB1ComboBoxs[channel].currentText() == 'On':
-            self.SRB1ComboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+            self.SRB1ComboBoxs[channel].setStyleSheet('font: 12pt "Arial"; background: rgb(240, 255, 240);')
         else:
-            self.SRB1ComboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+            self.SRB1ComboBoxs[channel].setStyleSheet('font: 12pt "Arial"; background: rgb(255, 240, 245);')
 
     def SRB2ComboBoxs_click(self, channel):
         if self.compareLine(channel):
@@ -174,9 +174,9 @@ class HardwareSettingsDialog(hardwareSettings_interface):
         elif self.isActiveSetting[channel] == False:
             self.change_line_color(channel)
         if self.SRB2comboBoxs[channel].currentText() == 'On':
-            self.SRB2comboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+            self.SRB2comboBoxs[channel].setStyleSheet('font: 12pt "Arial"; background: rgb(240, 255, 240);')
         else:
-            self.SRB2comboBoxs[channel].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+            self.SRB2comboBoxs[channel].setStyleSheet('font: 12pt "Arial"; background: rgb(255, 240, 245);')
 
     def change_line_color(self, channel):
         if self.isActiveSetting[channel] == False:
@@ -352,9 +352,9 @@ class HardwareSettingsDialog(hardwareSettings_interface):
                     (self.SRB1ComboBoxs[row], 'On'),
                 ):
                     if combo.currentText() == on_value:
-                        combo.setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+                        combo.setStyleSheet('font: 12pt "Arial"; background: rgb(240, 255, 240);')
                     else:
-                        combo.setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+                        combo.setStyleSheet('font: 12pt "Arial"; background: rgb(255, 240, 245);')
                 if self.compareLine(row):
                     if self.isActiveSetting[row] == True:
                         self.change_line_color(row)

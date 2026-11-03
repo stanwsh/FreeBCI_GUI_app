@@ -9,13 +9,14 @@ from __future__ import annotations
 import sys
 from typing import Optional, Sequence
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtGui, QtWidgets
 
 
 def create_application(argv: Optional[Sequence[str]] = None) -> QtWidgets.QApplication:
     app = QtWidgets.QApplication.instance()
     if app is None:
         app = QtWidgets.QApplication(list(argv) if argv is not None else sys.argv)
+    app.setFont(QtGui.QFont("Arial", 10))
     return app
 
 

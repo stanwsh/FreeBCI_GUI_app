@@ -127,7 +127,7 @@ class MainWindowInterface(Ui_MainWindow, QtWidgets.QMainWindow):
         self.is_fft_plot = False
         self.NotchComboBox.setCurrentIndex(1)
         self.BPFiltComboBox.setCurrentIndex(1)
-        self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(192, 192, 192)')
+        self.startButton.setStyleSheet('font: 12pt "Arial";background-color: rgb(192, 192, 192)')
         settings = {
             'channel': self._chan, 'activeChannels': self.FFTactiveChannels}
         self.fft_plot = FFTPlotView(settings)

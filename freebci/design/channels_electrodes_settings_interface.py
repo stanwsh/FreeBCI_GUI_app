@@ -37,11 +37,11 @@ class channels_electrodes_Settings_interface(QtWidgets.QDialog, Ui_Channels_elec
                 self.nameButtons[i] = self.nameButton
                 self.gridLayout_2.addWidget(self.nameButton, 2 * i + 1, 0, 1, 1)
                 self.electrodeNameComboBox = QtWidgets.QComboBox(self.scrollAreaWidgetContents)
-                self.electrodeNameComboBox.setStyleSheet('font: 12pt "黑体";')
+                self.electrodeNameComboBox.setStyleSheet('font: 12pt "Arial";')
                 self.electrodeNameComboBox.setObjectName('electrodeNameComboBox' + str(i + 1))
                 self.electrodeNameComboBox.setEditable(True)
                 self.electrodeNameComboBox.lineEdit().setAlignment(QtCore.Qt.AlignCenter)
-                self.electrodeNameComboBox.lineEdit().setStyleSheet('font: 12pt "黑体";')
+                self.electrodeNameComboBox.lineEdit().setStyleSheet('font: 12pt "Arial";')
                 self.electrodeNameComboBox_list = [ None for i in range(self._chan) ]
                 Electrodes_name = ElectrodesPosition.ElectrodesName_32
                 self.channels32 = np.array(Electrodes_name)

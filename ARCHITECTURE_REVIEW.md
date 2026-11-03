@@ -103,6 +103,7 @@ USER NOTES:
 
 - **Phase 2.18 (D.1–D.3):** the presentation layer moved from `freebci/api/my_*` and `w_*` modules to `freebci/ui/*` and `freebci/ui/views/*`; classes lost the `My` prefix (`MainWindow`, `DiagnosticsDialog`, `TimeSeriesView`, `NetworkView`, and peers), workers moved under `freebci/ui/workers/`, and the generated window/interface imports were updated. The GUI was imported and instantiated offscreen, and the full suite remained 97/97.
 - **Phase 2.19 (D.2–D.4):** the remaining `freebci/api` modules were removed: the adapter is now `freebci/ui/session_view_model.py`, and hardware command constants live in `freebci/core/hardware_settings_protocol.py`. No presentation module imports BrainFlow; only `core/gateway.py` does.
+- **Phase 5.8 (UI font):** every presentation stylesheet now uses Arial instead of the previous Chinese-only `黑体`/`等线` families, and the QApplication default font is Arial as a fallback for widgets without an explicit family.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
