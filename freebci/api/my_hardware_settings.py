@@ -1,8 +1,8 @@
 import os
 import time
-import xml.dom.minidom as minidom
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
+from freebci.core.settings import ChannelSettings, HardwareSettings, load_settings, save_settings
 from freebci.design.hardware_settings_interface import hardwareSettings_interface
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.settings_worker import SettingsCommandWorker
@@ -326,46 +326,44 @@ class MyHardwareSettings(hardwareSettings_interface):
         return elem
 
     def loadSendXML(self, load_xml_path):
-        file_path = os.path.dirname(__file__)
-        qFileDialog = QtWidgets.QFileDialog()
         if load_xml_path[0] != '':
             self.myLogger.write(load_xml_path[0])
-            tree = ET.parse(load_xml_path[0])
-            root = tree.getroot()
-            for row in range(len(root)):
-                if self.ischanClick[row]:
-                    combobox_index = self.PCAGainComboBoxs[row].findText(self.string_pre(root[row][0]), QtCore.Qt.MatchFixedString)
+            settings = load_settings(load_xml_path[0], expected_channels=len(self.ischanClick))
+            for row, channel in enumerate(settings.channels):
+                if not self.ischanClick[row]:
+                    continue
+                values = (
+                    channel.pca_gain,
+                    channel.input_type,
+                    channel.bias_include,
+                    channel.srb2,
+                    channel.srb1,
+                )
+                combos = (
+                    self.PCAGainComboBoxs[row],
+                    self.InputComboBoxs[row],
+                    self.BiasComboBoxs[row],
+                    self.SRB2comboBoxs[row],
+                    self.SRB1ComboBoxs[row],
+                )
+                for combo, value in zip(combos, values):
+                    combobox_index = combo.findText(value, QtCore.Qt.MatchFixedString)
                     if combobox_index >= 0:
-                        self.PCAGainComboBoxs[row].setCurrentIndex(combobox_index)
-                    combobox_index = self.InputComboBoxs[row].findText(self.string_pre(root[row][1]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.InputComboBoxs[row].setCurrentIndex(combobox_index)
-                    combobox_index = self.BiasComboBoxs[row].findText(self.string_pre(root[row][2]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.BiasComboBoxs[row].setCurrentIndex(combobox_index)
-                    if self.BiasComboBoxs[row].currentText() == 'Yes':
-                        self.BiasComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
+                        combo.setCurrentIndex(combobox_index)
+                for combo, on_value in (
+                    (self.BiasComboBoxs[row], 'Yes'),
+                    (self.SRB2comboBoxs[row], 'On'),
+                    (self.SRB1ComboBoxs[row], 'On'),
+                ):
+                    if combo.currentText() == on_value:
+                        combo.setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
                     else:
-                        self.BiasComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
-                    combobox_index = self.SRB2comboBoxs[row].findText(self.string_pre(root[row][3]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.SRB2comboBoxs[row].setCurrentIndex(combobox_index)
-                    if self.SRB2comboBoxs[row].currentText() == 'On':
-                        self.SRB2comboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
-                    else:
-                        self.SRB2comboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
-                    combobox_index = self.SRB1ComboBoxs[row].findText(self.string_pre(root[row][4]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.SRB1ComboBoxs[row].setCurrentIndex(combobox_index)
-                    if self.SRB1ComboBoxs[row].currentText() == 'On':
-                        self.SRB1ComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
-                    else:
-                        self.SRB1ComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
-                    if self.compareLine(row):
-                        if self.isActiveSetting[row] == True:
-                            self.change_line_color(row)
-                    elif self.isActiveSetting[row] == False:
+                        combo.setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
+                if self.compareLine(row):
+                    if self.isActiveSetting[row] == True:
                         self.change_line_color(row)
+                elif self.isActiveSetting[row] == False:
+                    self.change_line_color(row)
 
     def loadButton_click(self):
         qFileDialog = QtWidgets.QFileDialog()
@@ -373,66 +371,36 @@ class MyHardwareSettings(hardwareSettings_interface):
         load_xml_path = qFileDialog.getOpenFileName(self, 'Open file', default_dir, 'xml files(*.xml)')
         if load_xml_path[0] != '':
             self.myLogger.write('Load xml: ' + load_xml_path[0])
-            tree = ET.parse(load_xml_path[0])
-            root = tree.getroot()
-            for row in range(len(root)):
-                if self.ischanClick[row]:
-                    combobox_index = self.PCAGainComboBoxs[row].findText(self.string_pre(root[row][0]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.PCAGainComboBoxs[row].setCurrentIndex(combobox_index)
-                    combobox_index = self.InputComboBoxs[row].findText(self.string_pre(root[row][1]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.InputComboBoxs[row].setCurrentIndex(combobox_index)
-                    combobox_index = self.BiasComboBoxs[row].findText(self.string_pre(root[row][2]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.BiasComboBoxs[row].setCurrentIndex(combobox_index)
-                    if self.BiasComboBoxs[row].currentText() == 'Yes':
-                        self.BiasComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
-                    else:
-                        self.BiasComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
-                    combobox_index = self.SRB2comboBoxs[row].findText(self.string_pre(root[row][3]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.SRB2comboBoxs[row].setCurrentIndex(combobox_index)
-                    if self.SRB2comboBoxs[row].currentText() == 'On':
-                        self.SRB2comboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
-                    else:
-                        self.SRB2comboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
-                    combobox_index = self.SRB1ComboBoxs[row].findText(self.string_pre(root[row][4]), QtCore.Qt.MatchFixedString)
-                    if combobox_index >= 0:
-                        self.SRB1ComboBoxs[row].setCurrentIndex(combobox_index)
-                    if self.SRB1ComboBoxs[row].currentText() == 'On':
-                        self.SRB1ComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(240, 255, 240);')
-                    else:
-                        self.SRB1ComboBoxs[row].setStyleSheet('font: 12pt "黑体"; background: rgb(255, 240, 245);')
-                    if self.compareLine(row):
-                        if self.isActiveSetting[row] == True:
-                            self.change_line_color(row)
-                    elif self.isActiveSetting[row] == False:
-                        self.change_line_color(row)
+            self.loadSendXML(load_xml_path)
 
     def saveSettings(self, my_file, isRefresh):
         if my_file[0] != '':
-            xml_root = ET.Element('Channels')
-            xml_root.set('version', '1.0')
-            xml_root.set('encoding', 'UTF-8')
-            for row in range(len(self.PCAGainComboBoxs)):
-                channel = ET.SubElement(xml_root, 'Channel' + str(row + 1))
-                pca_gain = ET.SubElement(channel, 'pca_gain')
-                pca_gain.text = self.PCAGainComboBoxs[row].currentText()
-                input_type = ET.SubElement(channel, 'input_type')
-                input_type.text = self.InputComboBoxs[row].currentText()
-                bias_include = ET.SubElement(channel, 'bias_include')
-                bias_include.text = self.BiasComboBoxs[row].currentText()
-                srb2 = ET.SubElement(channel, 'srb2')
-                srb2.text = self.SRB2comboBoxs[row].currentText()
-                srb1 = ET.SubElement(channel, 'srb1')
-                srb1.text = self.SRB1ComboBoxs[row].currentText()
-            xml_string = ET.tostring(xml_root, encoding='utf-8')
-            xml_reparsed = minidom.parseString(xml_string)
-            xml_to_file = xml_reparsed.toprettyxml()
-            file = open(my_file[0], 'w', encoding='utf-8')
-            file.write(xml_to_file)
-            file.close()
+            channels = tuple(
+                ChannelSettings(
+                    pca_gain=self.PCAGainComboBoxs[row].currentText(),
+                    input_type=self.InputComboBoxs[row].currentText(),
+                    bias_include=self.BiasComboBoxs[row].currentText(),
+                    srb2=self.SRB2comboBoxs[row].currentText(),
+                    srb1=self.SRB1ComboBoxs[row].currentText(),
+                )
+                for row in range(len(self.PCAGainComboBoxs))
+            )
+            try:
+                sampling_rate = int(str(self.rateComboBox.currentText()).split()[0])
+            except (ValueError, IndexError):
+                sampling_rate = self.hardwareInfo.SamplingRate
+            try:
+                baud_rate = int(str(self.connect_info.baudRate))
+            except (TypeError, ValueError):
+                baud_rate = None
+            save_settings(
+                my_file[0],
+                HardwareSettings(
+                    channels=channels,
+                    sampling_rate=sampling_rate,
+                    baud_rate=baud_rate,
+                ),
+            )
             self.system_xml = ET.parse(my_file[0]).getroot()
             if isRefresh == True:
                 self.refreshHardwareSetting()

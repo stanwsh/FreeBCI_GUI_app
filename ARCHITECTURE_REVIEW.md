@@ -25,7 +25,7 @@ USER NOTES:
 | 5 — GUI state/workflow | Complete* | 5.1-5.5 landed: action guards, stop confirmation, view-model history, immutable display snapshot, and trigger/battery snapshot rendering. Operator usability testing is external. |
 | 6 — Validation/hardware matrix | Partial | USB 16-channel re-verified on COM3 and release/reconnect lifecycle covered by tests. Bluetooth, USB high-speed, 8/24/32/64-channel boards, and multi-hour soak remain hardware/time-gated. |
 
-**Document realignment:** Sections A–I mix the original assessment (written before the reconstruction) with the proposed target architecture. Section D is a **target**, not a description of the current code. The authoritative current status is this phase tracker plus Section M; Appendix A is a planning map, not a file inventory. `freebci/core/catalog.py` and `freebci/core/ring.py` now exist; `freebci/core/logging.py`, `settings.py`, `freebci/ui/`, and `freebci/app.py` do not. The implemented adapter is `freebci/api/session_view_model.py`, and the bounded display history is ring-backed there rather than in the acquisition fan-out. See Section M for the section-by-section gap register.
+**Document realignment:** Sections A–I mix the original assessment (written before the reconstruction) with the proposed target architecture. Section D is a **target**, not a description of the current code. The authoritative current status is this phase tracker plus Section M; Appendix A is a planning map, not a file inventory. `freebci/core/catalog.py`, `freebci/core/ring.py`, and `freebci/core/settings.py` now exist; `freebci/core/logging.py`, `freebci/ui/`, and `freebci/app.py` do not. The implemented adapter is `freebci/api/session_view_model.py`, and the bounded display history is ring-backed there rather than in the acquisition fan-out. See Section M for the section-by-section gap register.
 
 ### Implementation progress
 
@@ -83,6 +83,7 @@ USER NOTES:
 - **Phase 5.5:** trigger and battery indicators read the same snapshot; the duplicate trigger/battery buffers are gone. Trigger processing tracks a logical sample offset so it handles the bounded history trimming without reprocessing or dropping samples.
 - **Phase 3.6 (D.2/E.6):** added `freebci/core/ring.py` with a thread-safe fixed-capacity ring and wrap-safe `latest()`. The session view model now stores its bounded history in the ring.
 - **Phase 2.4 (D.2/E.2):** added `freebci/core/catalog.py` as the board-table source; `connectInfo.id_list` is now a legacy-shaped copy of the catalog.
+- **Phase 2.5 (D.3/E.11):** added `freebci/core/settings.py`; channel XML load/save is validated and atomically replaced. The hardware-settings dialog uses the typed model and no longer hand-builds XML.
 - **Phase 5.6:** diagnostics now show device id/name, configured rate, written samples, and disk free. Closing the window while recording asks to stop and finalize.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
@@ -402,8 +403,8 @@ This is a textbook case for an explicit state machine with guarded transitions.
 
 > **Target only.** This section describes the intended architecture, not the
 > current package layout. Current code keeps the view-model adapter in
-> `freebci/api/session_view_model.py`, has `core/catalog.py` and `core/ring.py`,
-> and has no `freebci/ui/`, `core/settings.py`, `core/logging.py`, or
+> `freebci/api/session_view_model.py`, has `core/catalog.py`, `core/ring.py`,
+> and `core/settings.py`, and has no `freebci/ui/`, `core/logging.py`, or
 > `freebci/app.py`. See Section M before treating any path or contract here as
 > implemented.
 
@@ -840,6 +841,8 @@ def validate(settings: HardwareSettings, profile: BoardProfile) -> list[str]: ..
 - Parse with a schema/version check; unknown versions produce a clear error, not a crash.
 - Save to a temporary file in the same directory, `flush`/`fsync`, then `os.replace`.
 - Presets in `settings/` are read-only defaults; user changes go to a separate user file unless the user explicitly saves a preset.
+
+Current implementation note: `core/settings.py` exposes `ChannelSettings` plus optional `sampling_rate`/`baud_rate` metadata, validates channel numbering and required fields, and performs the atomic replace above. The richer v2 fields and profile-aware `validate()` remain target work.
 
 ### E.12 Failure semantics
 
@@ -1696,10 +1699,10 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | C.2 cohesion | Recording, acquisition, settings apply moved out of the window | `MyMainWindow` still owns timers, filters, plotting, LSL, menus, and state; views still own LSL/protocol choices | P1 |
 | C.3 concurrency | Acquisition, writer, settings, board-command, session-start workers | No core ring; GUI filters/FFTs on its thread; topography queue is unbounded | P1/P2 |
 | C.4 state model | Action guards and start/stop confirmation | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded state machine | P1 |
-| C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model | No ring buffer; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
+| C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
 | C.6 errors/logging | Start failure restores the UI; session errors carry text | No structured logging, correlation IDs, or severity; `MyLogger` still opens per message | P2 |
-| C.7 tests/packaging | 70 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
-| D.2 layers | Core/application/device boundaries partly exist; catalog and ring now exist in core | Presentation is not BrainFlow-free; no `logging.py`, `settings.py`, `ui/`, `app.py` | Target |
+| C.7 tests/packaging | 74 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
+| D.2 layers | Core/application/device boundaries partly exist; catalog, ring, and settings now exist in core | Presentation is not BrainFlow-free; no `logging.py`, `ui/`, `app.py` | Target |
 | D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
 | D.4 dependency rules | Core is Qt-free | `ui` still imports BrainFlow and `pylsl`; `gateway` is not the only BrainFlow importer (dialogs and settings still use it) | P1 |
 | D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
@@ -1714,7 +1717,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | E.8 SessionController | Start/stop, markers, snapshots, clock | Start does not return `StartInfo` after first block; no `connect()/prepare()/shutdown()` contract | P2 |
 | E.9 Control API | status/start/stop/marker/shutdown, token, discovery, clock offset | Protocol differs from G.5; no `id`, `cmd`, `params`, request cache, `BUSY`, `prepare`, `connect` | P2 |
 | E.10 View model | `SessionViewModel` with diagnostics, markers, history, display snapshot | Not a `QObject`; no state/stats/error/recording signals; no command queue | P2 |
-| E.11 Settings | XML dialog with async apply | No `core/settings.py`, schema versioning, validation, atomic save, last-known-good | P2 |
+| E.11 Settings | `core/settings.py` validates channel files and writes them atomically; the dialog uses it for load/save | No last-known-good fallback; no profile-aware validation; apply is still a command sequence | P2 |
 | E.12/E.13 failure/connection semantics | Worker errors, reconnect test, retries | No unified retry/cancel/multi-device policy; dialogs still own lifecycle | P2 |
 | F.1 bottlenecks | Aux buffers, `gc.collect`, `np.append` removed; decimation added | Per-channel Python filter loops still on GUI thread; plot items recreated each frame | P2 |
 | F.2/F.3 pipeline/backpressure | Writer bounded; display may drop | No ring, no bounded LSL queue, no topography latest-only policy | P2 |
