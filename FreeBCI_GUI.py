@@ -7,8 +7,6 @@ import logging
 import os
 import sys
 
-from PyQt5 import QtWidgets
-
 # Writable data (console logs and recordings) lives in logs\ next to the app.
 # Set FREEBCI_HOME to keep it somewhere else.
 DATA_ROOT = os.environ.get("FREEBCI_HOME") or os.path.join(
@@ -19,13 +17,9 @@ os.makedirs(DATA_ROOT, exist_ok=True)
 
 
 def main():
-    from freebci.api.my_main_window import MyMainWindow
+    from freebci.app import run
 
-    app = QtWidgets.QApplication(sys.argv)
-    window = MyMainWindow.instance()
-    window.setWindowTitle("FreeBCI GUI")
-    window.showMaximized()
-    sys.exit(app.exec_())
+    sys.exit(run(sys.argv))
 
 
 if __name__ == "__main__":

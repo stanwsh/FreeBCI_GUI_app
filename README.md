@@ -581,6 +581,7 @@ settings**, or use a USB connection instead of Wi-Fi or Bluetooth.
 FreeBCI_GUI.py            application entry point
 brainflow/                bundled BrainFlow build for FreeBCI hardware
 freebci/                  application package
+  app.py                  Qt composition root and window bootstrap
   api/                    acquisition, recording, and view logic
   core/                   session, acquisition, and recording services
   design/                 window and dialog layouts

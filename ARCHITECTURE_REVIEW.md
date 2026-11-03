@@ -410,8 +410,8 @@ This is a textbook case for an explicit state machine with guarded transitions.
 > **Target only.** This section describes the intended architecture, not the
 > current package layout. Current code keeps the view-model adapter in
 > `freebci/api/session_view_model.py`, has `core/catalog.py`, `core/ring.py`,
-> `core/settings.py`, and `core/logging.py`, and has no `freebci/ui/` or
-> `freebci/app.py`. See Section M before treating any path or contract here as
+> `core/settings.py`, `core/logging.py`, and an `app.py` Qt bootstrap, and has
+> no `freebci/ui/`. See Section M before treating any path or contract here as
 > implemented.
 
 ### D.1 Principles
@@ -1690,7 +1690,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 |---|---|---|
 | Core | `freebci/core`: models, clock, board catalog, gateway adapter, acquisition worker, ring buffer, recording writer, session controller, control server, diagnostics formatter, history helper, device adoption manager | Landed |
 | GUI | `freebci/api`: `MyMainWindow`, connection dialogs, views, hardware settings, `session_view_model.py` | Landed, still a large coordinator |
-| Composition | `FreeBCI_GUI.py` and generated `freebci/design` UI | No `freebci/app.py`; no `freebci/ui/` package |
+| Composition | `FreeBCI_GUI.py` prepares the data directory; `freebci/app.py` owns Qt application/window bootstrap; generated `freebci/design` UI remains | No `freebci/ui/` package |
 | Display data | `SessionViewModel` ring-backed history plus `display_snapshot()` | `core/ring.py` exists; acquisition still feeds it through the view-model adapter, not a core fan-out |
 | Device lifecycle | `DeviceManager` adopts an already-prepared board, creates gateways, releases | No `connect()/prepare()/configure()` state machine |
 | Hardware discovery | Dialogs use `serial_worker`, Wi-Fi discovery workers, Bluetooth worker; serial/Wi-Fi workers call `core.gateway.prepare_*_board` | Preparation is worker-owned, not a DeviceManager `connect()` transition |
