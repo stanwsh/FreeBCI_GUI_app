@@ -1,8 +1,9 @@
 """Single-owner device lifecycle for prepared boards.
 
-Transport-specific dialogs still perform the vendor handshake (COM port,
-Wi-Fi address, Bluetooth pairing), but once a board is prepared the manager is
-the only object that decides whether it is ready, streaming, or released.
+Transport workers perform the vendor handshake (COM port, Wi-Fi address,
+Bluetooth pairing) through the preparation helpers in ``core.gateway``.  Once a
+board is prepared, the manager is the only object that decides whether it is
+ready, streaming, or released.
 """
 
 from __future__ import annotations
