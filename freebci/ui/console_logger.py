@@ -3,11 +3,11 @@ import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class MyLogger(QtWidgets.QWidget):
+class ConsoleLogger(QtWidgets.QWidget):
     _signal = QtCore.pyqtSignal(str)
 
     def __init__(self, filename='Default.log'):
-        super(MyLogger, self).__init__()
+        super(ConsoleLogger, self).__init__()
         self.terminal = sys.stdout
         self.file = filename
         self.log = open(filename, 'a')

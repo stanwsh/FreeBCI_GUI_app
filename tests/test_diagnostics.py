@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt5 import QtWidgets
 
-from freebci.api.my_diagnostics import MyDiagnostics
+from freebci.ui.diagnostics import DiagnosticsDialog
 from freebci.core.diagnostics import diagnostics_fields, idle_fields
 from freebci.core.models import SessionState
 
@@ -37,7 +37,7 @@ class DiagnosticsTest(unittest.TestCase):
             "lsl": "2 active",
             "error": "-",
         }
-        dialog = MyDiagnostics(lambda: data)
+        dialog = DiagnosticsDialog(lambda: data)
         try:
             dialog.refresh()
             self.assertEqual(dialog.fields["state"].text(), "recording")

@@ -11,7 +11,7 @@ from typing import Callable, Dict
 from PyQt5 import QtCore, QtWidgets
 
 
-class MyDiagnostics(QtWidgets.QDialog):
+class DiagnosticsDialog(QtWidgets.QDialog):
     def __init__(self, provider: Callable[[], Dict[str, str]], parent=None) -> None:
         super().__init__(parent)
         self.provider = provider

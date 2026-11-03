@@ -1,7 +1,7 @@
 from freebci.core.catalog import rows as catalog_rows
 
 
-class connectInfo:
+class ConnectionInfo:
     def __init__(self) -> None:
         self.id_list = catalog_rows()
         self.board_id = 2049

@@ -2,10 +2,10 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import PlotWidget
 from functools import partial
 
-class MyFFT_plot(QtWidgets.QWidget):
+class FFTPlotView(QtWidgets.QWidget):
     
     def __init__(self, settings, parent=None):
-        super(MyFFT_plot, self).__init__(parent)
+        super(FFTPlotView, self).__init__(parent)
         self.mainLayout = QtWidgets.QGridLayout(self)
         self.mainLayout.setSpacing(0)
         self.mainLayout.setContentsMargins(0, 0, 0, 0)

@@ -2,10 +2,10 @@ import os
 import time
 import xml.dom.minidom as minidom
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
-from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
-from freebci.api.my_electrodes_position import ElectrodesPosition
+from freebci.ui.connection_info import HardwareInfo, ConnectionInfo
+from freebci.ui.electrodes_position import ElectrodesPosition
 from freebci.design.channels_electrodes_settings_interface import channels_electrodes_Settings_interface
-from freebci.api.my_hardware_warn import MyHardwareWarning
+from freebci.ui.hardware_warning import HardwareWarningDialog
 from functools import partial
 import xml.etree.ElementTree as ET
 from PyQt5.QtGui import QPixmap
@@ -16,12 +16,12 @@ import numpy as np
 import pandas as pd
 
 
-class MyChannels_electrodes_Settings(channels_electrodes_Settings_interface):
+class ChannelSettingsDialog(channels_electrodes_Settings_interface):
     _signal = QtCore.pyqtSignal(HardwareInfo)
-    _signal_con = QtCore.pyqtSignal(connectInfo)
+    _signal_con = QtCore.pyqtSignal(ConnectionInfo)
 
     def __init__(self, connect_info, hardwareInfo):
-        super(MyChannels_electrodes_Settings, self).__init__(hardwareInfo)
+        super(ChannelSettingsDialog, self).__init__(hardwareInfo)
         self.connect_info = connect_info
         self.hardwareInfo = hardwareInfo
         self.saveButton.clicked.connect(self.saveButton_click)
@@ -34,15 +34,15 @@ class MyChannels_electrodes_Settings(channels_electrodes_Settings_interface):
 
         self.parent_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.system_xml = ET.parse(self.parent_path + '\\settings\\channels_electrodes_settings' + str(self._chan) + '.xml').getroot()
-        my_file = [
+        selected_file = [
             self.parent_path + '/settings/chanels_electrodes_apply_settings.xml',
             'xml files(*.xml)']
         self.loadApplyXML([
             self.parent_path + '/settings/channels_electrodes_settings' + str(self._chan) + '.xml',
             'xml files(*.xml)'])
         if self.hardwareInfo.isApply == True:
-            self.loadApplyXML(my_file)
-            self.saveSettings(my_file, True)
+            self.loadApplyXML(selected_file)
+            self.saveSettings(selected_file, True)
 
         Electrodes_Position = ElectrodesPosition()
         electrodes_name = f'ElectrodesName_{str(self.connect_info.channel_num)}'
@@ -117,12 +117,12 @@ class MyChannels_electrodes_Settings(channels_electrodes_Settings_interface):
         self.applyButton.setEnabled(False)
         self.applyButton.repaint()
         if self.check_mutual_exclusion_electrodes() == False:
-            self.my_hardware_warning = MyHardwareWarning()
-            self.my_hardware_warning.label_2.setText(QtCore.QCoreApplication.translate('hardware_warning', 'Multiple channels correspond to one electrode. Set the channels and electrodes to correspond one by one'))
-            self.my_hardware_warning.show()
+            self.hardware_warning_dialog = HardwareWarningDialog()
+            self.hardware_warning_dialog.label_2.setText(QtCore.QCoreApplication.translate('hardware_warning', 'Multiple channels correspond to one electrode. Set the channels and electrodes to correspond one by one'))
+            self.hardware_warning_dialog.show()
             self.applyButton.setEnabled(True)
         else:
-            my_file = [
+            selected_file = [
                 self.parent_path + '/settings/chanels_electrodes_apply_settings.xml',
                 'xml files(*.xml)']
             self.step = 20
@@ -145,10 +145,10 @@ class MyChannels_electrodes_Settings(channels_electrodes_Settings_interface):
             self.step = 100
             self.progressBar.setValue(self.step)
             self.progressBar.repaint()
-            my_file = [
+            selected_file = [
                 self.parent_path + '/settings/chanels_electrodes_apply_settings.xml',
                 'xml files(*.xml)']
-            self.saveSettings(my_file, True)
+            self.saveSettings(selected_file, True)
 
     def string_pre(self, s):
         elem = str(s.text).replace(' ', '')
@@ -190,8 +190,8 @@ class MyChannels_electrodes_Settings(channels_electrodes_Settings_interface):
                     elif self.isActiveSetting[row] == False:
                         self.change_line_color(row)
 
-    def saveSettings(self, my_file, isRefresh):
-        if my_file[0] != '':
+    def saveSettings(self, selected_file, isRefresh):
+        if selected_file[0] != '':
             xml_root = ET.Element('Channels')
             xml_root.set('version', '1.0')
             xml_root.set('encoding', 'UTF-8')
@@ -205,16 +205,16 @@ class MyChannels_electrodes_Settings(channels_electrodes_Settings_interface):
             xml_string = ET.tostring(xml_root, encoding='utf-8')
             xml_reparsed = minidom.parseString(xml_string)
             xml_to_file = xml_reparsed.toprettyxml()
-            file = open(my_file[0], 'w', encoding='utf-8')
+            file = open(selected_file[0], 'w', encoding='utf-8')
             file.write(xml_to_file)
             file.close()
-            self.system_xml = ET.parse(my_file[0]).getroot()
+            self.system_xml = ET.parse(selected_file[0]).getroot()
             if isRefresh == True:
                 self.refreshHardwareSetting()
 
     def saveButton_click(self):
         dialog_save = QtWidgets.QFileDialog()
         default_dir = os.path.join(self.parent_path, 'settings')
-        my_file = dialog_save.getSaveFileName(self, 'Open file', default_dir, 'xml files(*.xml)')
-        if my_file[0] != '':
-            self.saveSettings(my_file, False)
+        selected_file = dialog_save.getSaveFileName(self, 'Open file', default_dir, 'xml files(*.xml)')
+        if selected_file[0] != '':
+            self.saveSettings(selected_file, False)

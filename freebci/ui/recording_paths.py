@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import csv
 
-class MyRecording:
+class RecordingPaths:
     
     def __init__(self):
         self.user_path = os.path.expanduser('~')

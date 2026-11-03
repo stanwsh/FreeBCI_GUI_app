@@ -1,7 +1,7 @@
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 from freebci.design.channels_electrodes_settings import Ui_Channels_electrodes_settings
-from freebci.api.my_electrodes_position import ElectrodesPosition
+from freebci.ui.electrodes_position import ElectrodesPosition
 from PyQt5.QtCore import Qt
 import numpy as np
 import numpy as np

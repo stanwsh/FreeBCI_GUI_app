@@ -19,10 +19,10 @@ def create_application(argv: Optional[Sequence[str]] = None) -> QtWidgets.QAppli
     return app
 
 
-def create_window() -> "MyMainWindow":
-    from freebci.api.my_main_window import MyMainWindow
+def create_window() -> "MainWindow":
+    from freebci.ui.main_window import MainWindow
 
-    return MyMainWindow.instance()
+    return MainWindow.instance()
 
 
 def run(argv: Optional[Sequence[str]] = None) -> int:

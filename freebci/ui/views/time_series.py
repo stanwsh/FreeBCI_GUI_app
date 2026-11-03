@@ -1,17 +1,17 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import PlotWidget
-from freebci.design.plotWidget import myplotWidget
+from freebci.design.plotWidget import plot_widget
 from PyQt5.QtCore import Qt
 import math
-from freebci.api.my_hardware_settings import MyHardwareSettings
-from freebci.api.my_hardware_warn import MyHardwareWarning
+from freebci.ui.hardware_settings import HardwareSettingsDialog
+from freebci.ui.hardware_warning import HardwareWarningDialog
 from functools import partial
 
-class MyTimeSeries(QtWidgets.QWidget):
+class TimeSeriesView(QtWidgets.QWidget):
     _signal = QtCore.pyqtSignal(int)
     
     def __init__(self, settings, parent=None):
-        super(MyTimeSeries, self).__init__(parent)
+        super(TimeSeriesView, self).__init__(parent)
         self.mainLayout = QtWidgets.QGridLayout(self)
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.mainLayout.setSpacing(0)
@@ -144,7 +144,7 @@ class MyTimeSeries(QtWidgets.QWidget):
         self.window_w = settings['width']
         self.window_h = settings['height']
         self.isTimeSeriesLong = False
-        self.my_plot_widgets = [ myplotWidget(i + 1) for i in (range(self._chan)) ]
+        self.plot_widgets = [ plot_widget(i + 1) for i in (range(self._chan)) ]
         self.ischan_pushButtons = []
         self.resistanceList = [ True for i in (range(self._chan)) ]
         self.channelList = [ False for i in (range(self._chan)) ]
@@ -186,13 +186,13 @@ class MyTimeSeries(QtWidgets.QWidget):
         self.plot_widget_height = window_h * 30 / 32
         critical_num = math.floor((self.plot_widget_height + self.spcing_height) / (120 + self.spcing_height))
         activeChannels_num = int(self.activeChannels.count(True))
-        for i in range(len(self.my_plot_widgets)):
+        for i in range(len(self.plot_widgets)):
             if self.activeChannels[i]:
                 if not isLong:
                     if activeChannels_num > critical_num:
-                        self.my_plot_widgets[i].dataLabel.move(int(self.window_w / 2 - 260), 100)
-                        self.my_plot_widgets[i].maxLabel.move(int(self.window_w / 50 + 50), 0)
-                        self.my_plot_widgets[i].minLabel.move(int(self.window_w / 50 + 50), 100)
+                        self.plot_widgets[i].dataLabel.move(int(self.window_w / 2 - 260), 100)
+                        self.plot_widgets[i].maxLabel.move(int(self.window_w / 50 + 50), 0)
+                        self.plot_widgets[i].minLabel.move(int(self.window_w / 50 + 50), 100)
                     else:
                         moveHeight = -25 + (self.plot_widget_height - self.spcing_height * (activeChannels_num - 1)) / activeChannels_num
                         if window_h > 500:
@@ -200,21 +200,21 @@ class MyTimeSeries(QtWidgets.QWidget):
                         else:
                             moveHeight1 = -35 + (self.plot_widget_height - self.spcing_height * (activeChannels_num - 1)) / activeChannels_num
                         if activeChannels_num != 1:
-                            self.my_plot_widgets[i].dataLabel.move(int(self.window_w / 2 - 260), moveHeight)
-                            self.my_plot_widgets[i].maxLabel.move(int(self.window_w / 50 + 50), 0)
-                            self.my_plot_widgets[i].minLabel.move(int(self.window_w / 50 + 50), moveHeight)
+                            self.plot_widgets[i].dataLabel.move(int(self.window_w / 2 - 260), moveHeight)
+                            self.plot_widgets[i].maxLabel.move(int(self.window_w / 50 + 50), 0)
+                            self.plot_widgets[i].minLabel.move(int(self.window_w / 50 + 50), moveHeight)
                         elif activeChannels_num == 1:
-                            self.my_plot_widgets[i].dataLabel.move(int(self.window_w / 2 - 260), moveHeight1)
-                            self.my_plot_widgets[i].maxLabel.move(int(self.window_w / 50 + 50), 0)
-                            self.my_plot_widgets[i].minLabel.move(int(self.window_w / 50 + 50), moveHeight1)
+                            self.plot_widgets[i].dataLabel.move(int(self.window_w / 2 - 260), moveHeight1)
+                            self.plot_widgets[i].maxLabel.move(int(self.window_w / 50 + 50), 0)
+                            self.plot_widgets[i].minLabel.move(int(self.window_w / 50 + 50), moveHeight1)
                 else:
-                    self.my_plot_widgets[i].dataLabel.move(int(self.window_w - 300), 100)
-                    self.my_plot_widgets[i].maxLabel.move(int(self.window_w / 30 + 90), 0)
-                    self.my_plot_widgets[i].minLabel.move(int(self.window_w / 30 + 90), 100)
+                    self.plot_widgets[i].dataLabel.move(int(self.window_w - 300), 100)
+                    self.plot_widgets[i].maxLabel.move(int(self.window_w / 30 + 90), 0)
+                    self.plot_widgets[i].minLabel.move(int(self.window_w / 30 + 90), 100)
                     if activeChannels_num > critical_num:
-                        self.my_plot_widgets[i].dataLabel.move(int(self.window_w - 300), 100)
-                        self.my_plot_widgets[i].maxLabel.move(int(self.window_w / 30 + 90), 0)
-                        self.my_plot_widgets[i].minLabel.move(int(self.window_w / 30 + 90), 100)
+                        self.plot_widgets[i].dataLabel.move(int(self.window_w - 300), 100)
+                        self.plot_widgets[i].maxLabel.move(int(self.window_w / 30 + 90), 0)
+                        self.plot_widgets[i].minLabel.move(int(self.window_w / 30 + 90), 100)
                     else:
                         moveHeight = -25 + (self.plot_widget_height - self.spcing_height * (activeChannels_num - 1)) / activeChannels_num
                         if window_h > 500:
@@ -222,13 +222,13 @@ class MyTimeSeries(QtWidgets.QWidget):
                         else:
                             moveHeight1 = -35 + (self.plot_widget_height - self.spcing_height * (activeChannels_num - 1)) / activeChannels_num
                         if activeChannels_num != 1:
-                            self.my_plot_widgets[i].dataLabel.move(int(self.window_w - 300), moveHeight)
-                            self.my_plot_widgets[i].maxLabel.move(int(self.window_w / 30 + 90), 0)
-                            self.my_plot_widgets[i].minLabel.move(int(self.window_w / 30 + 90), moveHeight)
+                            self.plot_widgets[i].dataLabel.move(int(self.window_w - 300), moveHeight)
+                            self.plot_widgets[i].maxLabel.move(int(self.window_w / 30 + 90), 0)
+                            self.plot_widgets[i].minLabel.move(int(self.window_w / 30 + 90), moveHeight)
                         elif activeChannels_num == 1:
-                            self.my_plot_widgets[i].dataLabel.move(int(self.window_w - 300), moveHeight1)
-                            self.my_plot_widgets[i].maxLabel.move(int(self.window_w / 30 + 90), 0)
-                            self.my_plot_widgets[i].minLabel.move(int(self.window_w / 30 + 90), moveHeight1)
+                            self.plot_widgets[i].dataLabel.move(int(self.window_w - 300), moveHeight1)
+                            self.plot_widgets[i].maxLabel.move(int(self.window_w / 30 + 90), 0)
+                            self.plot_widgets[i].minLabel.move(int(self.window_w / 30 + 90), moveHeight1)
 
     def ischan_pushButton_click(self, _chan):
         if self.activeChannels[_chan]:
@@ -252,21 +252,21 @@ class MyTimeSeries(QtWidgets.QWidget):
             widget.deleteLater()
         for i in range(self._chan):
             if self.activeChannels[i]:
-                self.my_plot_widget = myplotWidget(i + 1)
-                self.my_plot_widget.setObjectName('my_plot_widget' + str(i + 1))
+                self.plot_widget = plot_widget(i + 1)
+                self.plot_widget.setObjectName('plot_widget' + str(i + 1))
                 if self.channelList[i] == True:
-                    self.my_plot_widget.channelButton.setStyleSheet('width: 30px;height: 30px; border-radius: 15px;font-size: 15px;color: white; background: gray;')
-                    self.my_plot_widget.ischannelClick = True
+                    self.plot_widget.channelButton.setStyleSheet('width: 30px;height: 30px; border-radius: 15px;font-size: 15px;color: white; background: gray;')
+                    self.plot_widget.ischannelClick = True
                 if self.resistanceList[i] == False:
-                    self.my_plot_widget.resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: white;font: 12pt "黑体";background: black ;}')
-                    self.my_plot_widget.isResistance = False
-                self.my_plot_widgets[i] = self.my_plot_widget
-                self.verticalLayout.addWidget(self.my_plot_widget)
+                    self.plot_widget.resistancePushButton.setStyleSheet('QPushButton {width: 30px;height: 30px;border-radius: 15px;font-size: 15px;color: white;font: 12pt "黑体";background: black ;}')
+                    self.plot_widget.isResistance = False
+                self.plot_widgets[i] = self.plot_widget
+                self.verticalLayout.addWidget(self.plot_widget)
                 if not self.isTimeSeriesLong:
                     if activeChannels_num > critical_num:
-                        self.my_plot_widget.dataLabel.move(int(self.window_w / 2 - 260), 100)
-                        self.my_plot_widget.maxLabel.move(int(self.window_w / 50 + 50), 0)
-                        self.my_plot_widget.minLabel.move(int(self.window_w / 50 + 50), 100)
+                        self.plot_widget.dataLabel.move(int(self.window_w / 2 - 260), 100)
+                        self.plot_widget.maxLabel.move(int(self.window_w / 50 + 50), 0)
+                        self.plot_widget.minLabel.move(int(self.window_w / 50 + 50), 100)
                     else:
                         moveHeight = -25 + (self.plot_widget_height - self.spcing_height * (activeChannels_num - 1)) / activeChannels_num
                         if window_h > 500:
@@ -274,18 +274,18 @@ class MyTimeSeries(QtWidgets.QWidget):
                         else:
                             moveHeight1 = -35 + (self.plot_widget_height - self.spcing_height * (activeChannels_num - 1)) / activeChannels_num
                         if activeChannels_num != 1:
-                            self.my_plot_widget.dataLabel.move(int(self.window_w / 2 - 260), moveHeight)
-                            self.my_plot_widget.maxLabel.move(int(self.window_w / 50 + 50), 0)
-                            self.my_plot_widget.minLabel.move(int(self.window_w / 50 + 50), moveHeight)
+                            self.plot_widget.dataLabel.move(int(self.window_w / 2 - 260), moveHeight)
+                            self.plot_widget.maxLabel.move(int(self.window_w / 50 + 50), 0)
+                            self.plot_widget.minLabel.move(int(self.window_w / 50 + 50), moveHeight)
                         elif activeChannels_num == 1:
-                            self.my_plot_widget.dataLabel.move(int(self.window_w / 2 - 260), moveHeight1)
-                            self.my_plot_widget.maxLabel.move(int(self.window_w / 50 + 50), 0)
-                            self.my_plot_widget.minLabel.move(int(self.window_w / 50 + 50), moveHeight1)
+                            self.plot_widget.dataLabel.move(int(self.window_w / 2 - 260), moveHeight1)
+                            self.plot_widget.maxLabel.move(int(self.window_w / 50 + 50), 0)
+                            self.plot_widget.minLabel.move(int(self.window_w / 50 + 50), moveHeight1)
                 else:
                     if activeChannels_num > critical_num:
-                        self.my_plot_widget.dataLabel.move(int(self.window_w - 300), 100)
-                        self.my_plot_widget.maxLabel.move(int(self.window_w / 30 + 90), 0)
-                        self.my_plot_widget.minLabel.move(int(self.window_w / 30 + 90), 100)
+                        self.plot_widget.dataLabel.move(int(self.window_w - 300), 100)
+                        self.plot_widget.maxLabel.move(int(self.window_w / 30 + 90), 0)
+                        self.plot_widget.minLabel.move(int(self.window_w / 30 + 90), 100)
                     else:
                         moveHeight = -25 + (self.plot_widget_height - self.spcing_height * (activeChannels_num - 1)) / activeChannels_num
                         if window_h > 500:
@@ -293,13 +293,13 @@ class MyTimeSeries(QtWidgets.QWidget):
                         else:
                             moveHeight1 = -35 + (self.plot_widget_height - self.spcing_height * (activeChannels_num - 1)) / activeChannels_num
                         if activeChannels_num != 1:
-                            self.my_plot_widget.dataLabel.move(int(self.window_w - 300), moveHeight)
-                            self.my_plot_widget.maxLabel.move(int(self.window_w / 30 + 90), 0)
-                            self.my_plot_widget.minLabel.move(int(self.window_w / 30 + 90), moveHeight)
+                            self.plot_widget.dataLabel.move(int(self.window_w - 300), moveHeight)
+                            self.plot_widget.maxLabel.move(int(self.window_w / 30 + 90), 0)
+                            self.plot_widget.minLabel.move(int(self.window_w / 30 + 90), moveHeight)
                         elif activeChannels_num == 1:
-                            self.my_plot_widget.dataLabel.move(int(self.window_w - 300), moveHeight1)
-                            self.my_plot_widget.maxLabel.move(int(self.window_w / 30 + 90), 0)
-                            self.my_plot_widget.minLabel.move(int(self.window_w / 30 + 90), moveHeight1)
+                            self.plot_widget.dataLabel.move(int(self.window_w - 300), moveHeight1)
+                            self.plot_widget.maxLabel.move(int(self.window_w / 30 + 90), 0)
+                            self.plot_widget.minLabel.move(int(self.window_w / 30 + 90), moveHeight1)
                 self._signal.emit(i)
 
     def retranslateText(self):

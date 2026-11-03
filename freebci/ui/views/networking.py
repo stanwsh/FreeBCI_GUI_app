@@ -3,10 +3,10 @@ from pyqtgraph import PlotWidget
 import pylsl
 import logging
 
-class MynetWidget(QtWidgets.QWidget):
+class NetworkView(QtWidgets.QWidget):
     
     def __init__(self, chan: int, sampleRate: int):
-        super(MynetWidget, self).__init__()
+        super(NetworkView, self).__init__()
         self.mainLayout = QtWidgets.QGridLayout(self)
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.mainLayout.setSpacing(0)

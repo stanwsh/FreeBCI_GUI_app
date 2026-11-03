@@ -5,7 +5,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt5 import QtCore, QtWidgets
 
-from freebci.api.session_start_worker import SessionStartWorker
+from freebci.ui.workers.session_start import SessionStartWorker
 
 
 class FakeController:

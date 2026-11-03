@@ -11,10 +11,10 @@ from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
-class MyAccelerometer(QtWidgets.QWidget):
+class AccelerometerView(QtWidgets.QWidget):
     
     def __init__(self, parent=None):
-        super(MyAccelerometer, self).__init__(parent)
+        super(AccelerometerView, self).__init__(parent)
         self.mainLayout = QtWidgets.QGridLayout(self)
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.mainLayout.setHorizontalSpacing(0)

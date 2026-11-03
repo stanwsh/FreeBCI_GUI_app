@@ -3,20 +3,20 @@ import sys
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from freebci.design.virtual_connection import Ui_VirtualDialog
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
-from freebci.api.myConnectionInfo import connectInfo
+from freebci.ui.connection_info import ConnectionInfo
 from freebci.core.gateway import prepare_serial_board, prepare_wifi_board
 from PyQt5.QtCore import Qt
 
-class MyVirtualConnection(QtWidgets.QDialog, Ui_VirtualDialog):
-    _signal = QtCore.pyqtSignal(connectInfo)
+class VirtualConnectionDialog(QtWidgets.QDialog, Ui_VirtualDialog):
+    _signal = QtCore.pyqtSignal(ConnectionInfo)
     
     def __init__(self, connect_info, board_id, Logger, parent=None):
-        super(MyVirtualConnection, self).__init__(parent)
+        super(VirtualConnectionDialog, self).__init__(parent)
         self.setupUi(self)
         self.setStyleSheet('background-color:#F1F3F5')
         self.connectionButton.clicked.connect(self.connect_click)
         self.connect_info = connect_info
-        self.myLogger = Logger
+        self.logger = Logger
         self.connect_info.baudRate = '6040000'
         self.connect_info.board_id = board_id
         self.connect_info.channel_num = self.connect_info.id_list[board_id - 2023][8]
@@ -29,28 +29,28 @@ class MyVirtualConnection(QtWidgets.QDialog, Ui_VirtualDialog):
 
     
     def connect_click(self):
-        self.myLogger.write('channel count set to ' + str(self.connect_info.channel_num))
+        self.logger.write('channel count set to ' + str(self.connect_info.channel_num))
         self.connect_info.serial_port = ''
-        self.myLogger.write('FreeBCI Port Name = ' + str(self.connect_info.serial_port))
+        self.logger.write('FreeBCI Port Name = ' + str(self.connect_info.serial_port))
         try:
             self.messageLabel.setText('Calling initSystem......')
             self.messageLabel.repaint()
-            self.myLogger.write('Calling initSystem......')
+            self.logger.write('Calling initSystem......')
             self.prepare_openbci(2, boardID = self.connect_info.board_id, serial_port = self.connect_info.serial_port, other_info = self.connect_info.baudRate)
             response = self.board.config_board('v')
             if '$' in response:
                 self.messageLabel.setText('connection successfully!')
-                self.myLogger.write('connection successfully')
-            self.myLogger.write('=================================================')
-            self.myLogger.write('||             INITIALIZING SYSTEM             ||')
-            self.myLogger.write('=================================================')
-            self.myLogger.write('Board Information: ')
-            self.myLogger.write(response)
+                self.logger.write('connection successfully')
+            self.logger.write('=================================================')
+            self.logger.write('||             INITIALIZING SYSTEM             ||')
+            self.logger.write('=================================================')
+            self.logger.write('Board Information: ')
+            self.logger.write(response)
             self.connect_info.board = self.board
             self._signal.emit(self.connect_info)
             self.close()
         except Exception as ex:
-            self.myLogger.write('serial connect error: ex', ex)
+            self.logger.write('serial connect error: ex', ex)
             self.messageLabel.setText('connection failed!')
             raise
 

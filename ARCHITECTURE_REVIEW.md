@@ -3,7 +3,7 @@
 USER NOTES: 
 
 
-- No BT hardware was available for testing, so the Bluetooth path is unverified. The GUI code is present and compiles, but the `my_blueTooth.py` dialog has not been exercised.
+- No BT hardware was available for testing, so the Bluetooth path is unverified. The GUI code is present and compiles, but the `bluetooth_connection.py` dialog has not been exercised.
 - A real board broadcasting on wifi "FreeBCI-1018" can be used to verify the following, using "FreeBCI_WiFi_16_I" hardware settings preset [Wi-Fi Mode only if prompted]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->Wi-Fi;Prompted IP selection window (preserve original, may need to wait for a few timeout if first connected)->select. The board server has a web interface at http://192.168.4.1/tcp http://192.168.4.1/wifi if connected to the board's AP. The board is a 16-channel Wi-Fi board with a TCP interface. [current mode of the board for wifi testing] You may prompt me to restart the device because some time it is buggy. [closed, turn on only if prompted]
 
 - A real board "USB-Enhanced-SERIAL CH343" connected on COM3 can be used to verify the following, using "FreeBCI_WiFi_16_I_USB" hardware settings preset [USB Mode turned on]. GUI Connection step: Boards->FreeBCI-WiFi-I-16->USB;Prompted Serial Port selection window->select COM3->confirm; Main page: start data stream. The board is a 16-channel Wi-Fi board with a USB serial interface.:
@@ -25,7 +25,7 @@ USER NOTES:
 | 5 — GUI state/workflow | Complete* | 5.1-5.5 landed: action guards, stop confirmation, view-model history, immutable display snapshot, and trigger/battery snapshot rendering. Operator usability testing is external. |
 | 6 — Validation/hardware matrix | Partial | USB 16-channel re-verified on COM3 and release/reconnect lifecycle covered by tests. Bluetooth, USB high-speed, 8/24/32/64-channel boards, and multi-hour soak remain hardware/time-gated. |
 
-**Document realignment:** Sections A–I mix the original assessment (written before the reconstruction) with the proposed target architecture. Section D is a **target**, not a description of the current code. The authoritative current status is this phase tracker plus Section M; Appendix A is a planning map, not a file inventory. `freebci/core/catalog.py`, `freebci/core/ring.py`, and `freebci/core/settings.py` now exist; `freebci/core/logging.py`, `freebci/ui/`, and `freebci/app.py` do not. The implemented adapter is `freebci/api/session_view_model.py`, and the bounded display history is ring-backed there rather than in the acquisition fan-out. See Section M for the section-by-section gap register.
+**Document realignment:** Sections A–I mix the original assessment (written before the reconstruction) with the proposed target architecture. Section D is a **target**, not a description of the current code. The authoritative current status is this phase tracker plus Section M; Appendix A is a planning map, not a file inventory. `freebci/core/catalog.py`, `freebci/core/ring.py`, `freebci/core/settings.py`, `freebci/core/logging.py`, `freebci/ui/`, and `freebci/app.py` now exist; the presentation package was renamed from `freebci/api/my_*`/`w_*` modules to `freebci/ui/*` and `freebci/ui/views/*`. The implemented adapter is `freebci/api/session_view_model.py`, and the bounded display history is ring-backed there rather than in the acquisition fan-out. See Section M for the section-by-section gap register.
 
 ### Implementation progress
 
@@ -78,18 +78,18 @@ USER NOTES:
 - **Phase 4.1:** the control protocol added a four-timestamp `time` exchange and `ControlClient.clock_offset()` reports offset plus half-RTT uncertainty. `start` now requires a board selector (`"demo"`, board id, or catalog name); a real selector must match the connected board. `manifest.json` carries a `clock` section with the host timebase and start/stop wall times. README documents the selector and clock semantics.
 - **Phase 5.1:** a single `_sync_action_states()` derives menu/action enablement from the current view-model state: Add Marker only while armed/recording, Demo only while idle, Boards only while idle, Disconnect only while a board is connected, and Hardware settings/electrode settings only while stopped.
 - **Phase 5.2:** stopping a session with acquired samples, or disconnecting while it is recording, asks for confirmation before finalizing; control-plane stop and window close remain unconfirmed so scripts and shutdown are not blocked.
-- **Phase 5.3:** the bounded display history now lives in `SessionViewModel`; `MyMainWindow.data` is a property over that history, and acquisition appends through `append_block()`. Time-series, FFT, band-power, trigger, battery, and topography consumers still read the shared property, so the remaining work is rendering every view directly from an explicit snapshot model.
+- **Phase 5.3:** the bounded display history now lives in `SessionViewModel`; `MainWindow.data` is a property over that history, and acquisition appends through `append_block()`. Time-series, FFT, band-power, trigger, battery, and topography consumers still read the shared property, so the remaining work is rendering every view directly from an explicit snapshot model.
 - **Phase 5.4:** `SessionViewModel.display_snapshot()` returns an immutable `DisplaySnapshot` (history, state, channel count, sampling rate, sample count). `processor_fun` and `shower_fun` now render from that snapshot instead of reading `self.data` directly.
 - **Phase 5.5:** trigger and battery indicators read the same snapshot; the duplicate trigger/battery buffers are gone. Trigger processing tracks a logical sample offset so it handles the bounded history trimming without reprocessing or dropping samples.
 - **Phase 3.6 (D.2/E.6):** added `freebci/core/ring.py` with a thread-safe fixed-capacity ring and wrap-safe `latest()`. The session view model now stores its bounded history in the ring.
-- **Phase 2.4 (D.2/E.2):** added `freebci/core/catalog.py` as the board-table source; `connectInfo.id_list` is now a legacy-shaped copy of the catalog.
+- **Phase 2.4 (D.2/E.2):** added `freebci/core/catalog.py` as the board-table source; `ConnectionInfo.id_list` is now a legacy-shaped copy of the catalog.
 - **Phase 2.5 (D.3/E.11):** added `freebci/core/settings.py`; channel XML load/save is validated and atomically replaced. The hardware-settings dialog uses the typed model and no longer hand-builds XML.
 - **Phase 2.6 (D.5/E.7):** added `freebci/core/logging.py`; each recording writes JSON-lines `session.log` with start/close/marker/gap/error events and size rotation.
 - **Phase 2.7 (E.7):** recordings now create a `.writing` marker and remove it on finalize. `recover_sessions()` reports unfinished sessions without modifying them, and the main window shows the count at startup.
 - **Phase 2.8 (H.2):** the manifest gained the `freebci.session/1` schema string, app version, device/config blocks, start/stop blocks, chunk list, sample count, and stop reason. `freebci/version.py` is now the shared app version and the release tool defaults to it.
 - **Phase 2.9 (D.6/F.2):** added `freebci/core/lsl_queue.py` with a bounded per-stream queue and drop counter; LSL sends chunks instead of one sample per call, and diagnostics reports pending/dropped per stream.
 - **Phase 2.10 (F.1):** the time-series view now creates one `PlotDataItem` per active channel and updates it with `setData()`; the per-frame `clear()`/`plot()` recreation is gone. Offscreen demo created 16 stable curves.
-- **Phase 2.11 (D.4):** added `freebci/core/dsp.py`; the main window uses core FFT/notch/band-pass wrappers and no longer imports BrainFlow. `connectInfo` no longer creates a placeholder `BoardShim`; transport dialogs supply the prepared board.
+- **Phase 2.11 (D.4):** added `freebci/core/dsp.py`; the main window uses core FFT/notch/band-pass wrappers and no longer imports BrainFlow. `ConnectionInfo` no longer creates a placeholder `BoardShim`; transport dialogs supply the prepared board.
 - **Phase 5.6:** diagnostics now show device id/name, configured rate, written samples, and disk free. Closing the window while recording asks to stop and finalize.
 - **Phase 2.12 (G.5):** control requests now carry client-generated ids that are echoed on success and error responses; failures expose stable `busy` and `no_session` codes, and a pending start rejects a duplicate request.
 - **Phase 2.13 (I.4):** the writer snapshot reports last-write duration/age and the manifest status, and both appear in Session Diagnostics.
@@ -101,6 +101,8 @@ USER NOTES:
 - **Phase 5.7 (C.4/I.1):** `core/actions.py` is a pure state-to-action table; the window derives marker/demo/board/release/settings enablement from it.
 - **Phase 2.17 (D.4):** `core/gateway.py` is now the only BrainFlow importer; `core/dsp.py` delegates FFT/filter/power calls to it, and the virtual-connection dialog also uses the gateway preparation helpers.
 
+- **Phase 2.18 (D.1–D.3):** the presentation layer moved from `freebci/api/my_*` and `w_*` modules to `freebci/ui/*` and `freebci/ui/views/*`; classes lost the `My` prefix (`MainWindow`, `DiagnosticsDialog`, `TimeSeriesView`, `NetworkView`, and peers), workers moved under `freebci/ui/workers/`, and the generated window/interface imports were updated. The GUI was imported and instantiated offscreen, and the full suite remained 97/97.
+
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
 ---
@@ -109,16 +111,16 @@ Still intentionally open from the roadmap: the full hardware acceptance matrix (
 
 FreeBCI GUI is a working Windows desktop application, not a prototype. It already connects to a broad family of USB, Bluetooth, and Wi-Fi boards, records multichannel data, renders time-series/FFT/band-power/topography views, and publishes LSL streams. The correct strategy is an **incremental reconstruction around the existing UI and BrainFlow integration**, not a rewrite.
 
-The central architectural defect is that **one GUI thread owns the device, the acquisition loop, filtering, plotting, LSL, and disk writing**. `MyMainWindow` is a 1,220-line god object; it calls `BoardShim.get_board_data()` from a 50 ms Qt timer, filters every channel, redraws up to 64 plots, and writes CSV files in the same event loop. As a result, a slow disk, a slow plot, a COM-port scan, or a device configuration command freezes the operator interface and can lose samples.
+The central architectural defect is that **one GUI thread owns the device, the acquisition loop, filtering, plotting, LSL, and disk writing**. `MainWindow` is a 1,220-line god object; it calls `BoardShim.get_board_data()` from a 50 ms Qt timer, filters every channel, redraws up to 64 plots, and writes CSV files in the same event loop. As a result, a slow disk, a slow plot, a COM-port scan, or a device configuration command freezes the operator interface and can lose samples.
 
 The most serious verified problems are:
 
-1. **Acquisition, processing, and recording run on the GUI thread.** `startButton_click`, `poll_data`, `shower_fun`, `processor_fun`, and `recorder_fun` all execute in the Qt main thread (`freebci/api/my_main_window.py:700-752`, `805-1105`, `1144-1201`).
-2. **Unbounded auxiliary buffers and leaked objects.** `extri_data`, `topo_data`, and `battery_percentage` are appended on every poll and are only reset when a particular view/mode happens to be active (`my_main_window.py:1150-1152`). `topo_data` is never read. A new `MyFigure` is added to the topography layout on every update (`freebci/api/w_brain_topography.py:153-166`). A new `PlotThread` is created on every Start and never stopped (`my_main_window.py:1209-1219`).
-3. **Recording is not a first-class, durable subsystem.** Recording is driven by a GUI timer, starts only after a 60,000-sample buffer threshold, rotates files by call count, has no manifest, no sample index, no gap record, no checksum, and swallows failures. `stop_openbci()` discards the final `get_board_data()` result (`my_main_window.py:1121-1135`).
-4. **Device lifecycle is ad hoc and duplicated.** Five connection dialogs each contain a near-identical `prepare_openbci()`; COM scanning opens 256 ports in a dialog constructor; UPnP discovery runs without timeout; there is no explicit connection state machine, cancellation, disconnect detection, or single-owner rule (`my_serial_connection_pure.py:29-46`, `my_wifi_connection.py:36-53`).
-5. **There is no timestamp or external-coordination model.** The application stores no sample index or per-block time. Packet-counter deltas are converted to a percentage. The board timing button sends a local wall-clock string (`my_main_window.py:622-634`). The application does not supply explicit LSL timestamps, and 2 of 3 configured LSL streams are nonfunctional (`my_main_window.py:770-776`, `1175-1182`).
-6. **State is fragmented and initially wrong.** `MainWindowInterface` sets `isSessionOn = True` before any connection (`freebci/design/main_window_interface.py:49`); `MyMainWindow` defaults to 16 UI channels while `connectInfo` defaults to a 32-channel board (`my_main_window.py:63,66`); the startup probe showed `mne_nchan=31`, `ts_widgets=16`, `topo_chan=16`, `connect_chan=32`. Start Session can be pressed with `self.board = None`.
+1. **Acquisition, processing, and recording run on the GUI thread.** `startButton_click`, `poll_data`, `shower_fun`, `processor_fun`, and `recorder_fun` all execute in the Qt main thread (`freebci/ui/main_window.py:700-752`, `805-1105`, `1144-1201`).
+2. **Unbounded auxiliary buffers and leaked objects.** `extri_data`, `topo_data`, and `battery_percentage` are appended on every poll and are only reset when a particular view/mode happens to be active (`main_window.py:1150-1152`). `topo_data` is never read. A new `TopographyCanvas` is added to the topography layout on every update (`freebci/ui/views/topography.py:153-166`). A new `PlotThread` is created on every Start and never stopped (`main_window.py:1209-1219`).
+3. **Recording is not a first-class, durable subsystem.** Recording is driven by a GUI timer, starts only after a 60,000-sample buffer threshold, rotates files by call count, has no manifest, no sample index, no gap record, no checksum, and swallows failures. `stop_openbci()` discards the final `get_board_data()` result (`main_window.py:1121-1135`).
+4. **Device lifecycle is ad hoc and duplicated.** Five connection dialogs each contain a near-identical `prepare_openbci()`; COM scanning opens 256 ports in a dialog constructor; UPnP discovery runs without timeout; there is no explicit connection state machine, cancellation, disconnect detection, or single-owner rule (`serial_connection.py:29-46`, `wifi_connection.py:36-53`).
+5. **There is no timestamp or external-coordination model.** The application stores no sample index or per-block time. Packet-counter deltas are converted to a percentage. The board timing button sends a local wall-clock string (`main_window.py:622-634`). The application does not supply explicit LSL timestamps, and 2 of 3 configured LSL streams are nonfunctional (`main_window.py:770-776`, `1175-1182`).
+6. **State is fragmented and initially wrong.** `MainWindowInterface` sets `isSessionOn = True` before any connection (`freebci/design/main_window_interface.py:49`); `MainWindow` defaults to 16 UI channels while `ConnectionInfo` defaults to a 32-channel board (`main_window.py:63,66`); the startup probe showed `mne_nchan=31`, `ts_widgets=16`, `topo_chan=16`, `connect_chan=32`. Start Session can be pressed with `self.board = None`.
 
 The recommended target is a small **Qt-free acquisition core** with explicit boundaries:
 
@@ -155,7 +157,7 @@ The GUI becomes a subscriber to immutable snapshots and sends commands through a
 | Signals | MNE 1.6.0 for montage/topography; pylsl 1.16.1 |
 | Storage | NumPy/pandas/csv; CSV + TXT per session |
 | Packaging | `requirements.txt`, `setup_env.cmd`, `run.cmd`; no `pyproject.toml`, no CI, no tests |
-| Entry | `FreeBCI_GUI.py` sets `FREEBCI_HOME`, creates `QApplication`, then `MyMainWindow.instance()` |
+| Entry | `FreeBCI_GUI.py` sets `FREEBCI_HOME`, creates `QApplication`, then `MainWindow.instance()` |
 
 `requirements.txt` currently **does not list `brainflow`**, although every transport path imports it; it does list the unused `nptyping`. A clean `setup_env.cmd` install therefore reports `brainflow MISSING` in `setup_env.py`, and the GUI cannot start. This is a publishing blocker independent of architecture.
 
@@ -164,17 +166,17 @@ The GUI becomes a subscriber to immutable snapshots and sends commands through a
 | Area | Modules | Current responsibility |
 |---|---|---|
 | Entry/composition | `FreeBCI_GUI.py` | Set data root, create QApplication, create singleton main window |
-| Main window | `freebci/api/my_main_window.py` | Device dialogs, board ownership, hardware commands, timers, acquisition, filters, FFT, plots, LSL, recording, topography, state |
+| Main window | `freebci/ui/main_window.py` | Device dialogs, board ownership, hardware commands, timers, acquisition, filters, FFT, plots, LSL, recording, topography, state |
 | Window shell | `freebci/design/main_window_interface.py` | Generated UI, layout switching, logging setup, recording directory, view flags |
 | Generated UI | `freebci/design/main_window_ui.py` | Widget construction |
-| Views | `w_time_series.py`, `w_fft_plot.py`, `w_band_power.py`, `w_brain_topography.py`, `w_extrigger.py`, `w_accelerometer.py`, `w_battery.py`, `w_networking.py` | UI construction plus behavior-specific rendering/LSL configuration |
-| Connection dialogs | `my_wifi_connection.py`, `my_blueTooth.py`, `my_serial_connection_pure.py`, `my_serial_connection.py`, `my_virtual_connection.py` | Discover/connect and create a BrainFlow `BoardShim`; emit `connectInfo` |
-| Board metadata | `myConnectionInfo.py` | Hardcoded 28-entry `id_list` (ids 2023–2051); live `BoardShim`; defaults |
-| Hardware settings | `my_hardware_settings.py`, `hardware_settings_protocol.py` | XML-backed per-channel configuration and command strings |
-| Channel mapping | `my_channels_electrodes_settings.py`, `my_electrodes_position.py` | Electrode names/positions and XML settings |
-| Recording | `my_recording.py` | Session directory, TXT header, CSV rows, rotation |
-| Logging | `my_logger.py`, `my_console_window.py` | Per-message file append; console dialog |
-| Layout | `my_layout.py` | Eight preset arrangements |
+| Views | `time_series.py`, `fft_plot.py`, `band_power.py`, `topography.py`, `external_trigger.py`, `accelerometer.py`, `battery.py`, `networking.py` | UI construction plus behavior-specific rendering/LSL configuration |
+| Connection dialogs | `wifi_connection.py`, `bluetooth_connection.py`, `serial_connection.py`, `serial_connection.py`, `virtual_connection.py` | Discover/connect and create a BrainFlow `BoardShim`; emit `ConnectionInfo` |
+| Board metadata | `connection_info.py` | Hardcoded 28-entry `id_list` (ids 2023–2051); live `BoardShim`; defaults |
+| Hardware settings | `hardware_settings.py`, `hardware_settings_protocol.py` | XML-backed per-channel configuration and command strings |
+| Channel mapping | `channel_settings.py`, `electrodes_position.py` | Electrode names/positions and XML settings |
+| Recording | `recording_paths.py` | Session directory, TXT header, CSV rows, rotation |
+| Logging | `console_logger.py`, `console_window.py` | Per-message file append; console dialog |
+| Layout | `layout_dialog.py` | Eight preset arrangements |
 | Settings data | `settings/*.xml` | 17 presets; no schema/version beyond an XML attribute |
 
 ### B.3 End-to-end flows
@@ -183,12 +185,12 @@ The GUI becomes a subscriber to immutable snapshots and sends commands through a
 
 ```
 Board menu action
-  → MyMainWindow.wifi_click/com_click_pure/bluetooth_click/virtual_click
+  → MainWindow.wifi_click/com_click_pure/bluetooth_click/virtual_click
   → dialog constructor (COM scan / UPnP discovery)
   → dialog.prepare_openbci() → BoardShim.prepare_session()
   → board.config_board(...) (sample rate/type/baud)
-  → dialog emits connectInfo
-  → MyMainWindow.initLayout()
+  → dialog emits ConnectionInfo
+  → MainWindow.initLayout()
   → _chan/channel arrays/buffers
   → initWidget(); changeLayout(2); refreshBoardMenu()
 ```
@@ -210,7 +212,7 @@ QTimer(50 ms) processor → filter all channels, FFT, band power
 QTimer(50 ms) shower → filter all channels, redraw plots, trigger/battery/topography
 QTimer(500 ms) recorder → np.savetxt/CSV when isRecorded is False
 QTimer(10 ms × 3) LSL → sendLSLStream() (only stream 1)
-PlotThread → data_queue.get() → Topo_plot() → new MyFigure
+PlotThread → data_queue.get() → Topo_plot() → new TopographyCanvas
 ```
 
 Everything above is on the GUI thread except `PlotThread`, whose only job is to dequeue already-rendered topography arrays; the actual `mne.viz.plot_topomap` call happens back on the GUI thread via the signal.
@@ -224,7 +226,7 @@ poll_data() only after self.data > 60,000:
     self.data = delete(first 10000)
     self.isRecorded = False
 recorder_fun() (500 ms):
-    if not isRecorded: isRecorded = True; MyRecording.record_data(self.record_data)
+    if not isRecorded: isRecorded = True; RecordingPaths.record_data(self.record_data)
 stop_openbci():
     get_board_data() result discarded
     record_data(self.data)
@@ -235,7 +237,7 @@ The effective recording latency is up to 60,000 samples, not 500 ms, because the
 
 **LSL flow**
 
-`w_networking.py` creates up to three `StreamOutlet` objects based on UI selections. `startLSLButton_click` starts three 10 ms timers, all connected to `sendLSLStream`; that method only reads `LSLbufferData1` and pushes it to `LSLoutlet1`. Streams 2 and 3 and the FFT/Band Power data-type choices are dead paths.
+`networking.py` creates up to three `StreamOutlet` objects based on UI selections. `startLSLButton_click` starts three 10 ms timers, all connected to `sendLSLStream`; that method only reads `LSLbufferData1` and pushes it to `LSLoutlet1`. Streams 2 and 3 and the FFT/Band Power data-type choices are dead paths.
 
 ### B.4 Current architecture diagram
 
@@ -244,11 +246,11 @@ The effective recording latency is up to 60,000 samples, not 500 ms, because the
 │ Qt main thread                                               │
 │  MainWindowInterface ── MainWindowUi                         │
 │        │                                                     │
-│        └── MyMainWindow (1,220 lines)                        │
+│        └── MainWindow (1,220 lines)                        │
 │              ├── connection dialogs ── BoardShim             │
 │              ├── QTimers: poll/filter/plot/record/LSL        │
-│              ├── MyRecording ── CSV/TXT                      │
-│              ├── MyLogger ── per-message file append         │
+│              ├── RecordingPaths ── CSV/TXT                      │
+│              ├── ConsoleLogger ── per-message file append         │
 │              ├── views (time/FFT/band/topography/...)        │
 │              └── PlotThread ── queue ── Topo_plot            │
 └──────────────────────────────────────────────────────────────┘
@@ -265,36 +267,36 @@ The following are code-path findings, not speculative performance claims. “Con
 
 | # | Finding | Evidence | Impact | Confidence |
 |---|---|---|---|---|
-| 1 | Acquisition poll runs on the GUI thread | `my_main_window.py:715-729`, `1144-1201`; `updater()` at `791-798` | UI stalls, timer drift, board-buffer overflow under load | High |
+| 1 | Acquisition poll runs on the GUI thread | `main_window.py:715-729`, `1144-1201`; `updater()` at `791-798` | UI stalls, timer drift, board-buffer overflow under load | High |
 | 2 | Filtering and plotting run on the GUI thread every 50 ms | `processor_fun` `805-892`; `shower_fun` `893-1105`; `gc.collect` at `1094`, `1198` | Frame drops, input lag, no isolation from disk/device | High |
-| 3 | Recording writes on the GUI thread | `recorder_fun` `800-803`; `MyRecording.record_data` `24-66` | `np.savetxt` can freeze UI; stop/start latency | High |
+| 3 | Recording writes on the GUI thread | `recorder_fun` `800-803`; `RecordingPaths.record_data` `24-66` | `np.savetxt` can freeze UI; stop/start latency | High |
 | 4 | Auxiliary buffers are unbounded | `extri_data`/`topo_data`/`battery_percentage` appended at `1150-1152`; reset only in specific branches `974`, `983`, `1111-1113`, `1129-1131`; `topo_data` never read | Memory grows for the life of the session; eventual OOM | High |
 | 5 | `np.append` copies the whole `self.data` on every 50 ms poll | `1193-1196`; `self.data` capped at 60k | Memory bandwidth and GC pressure; latency spikes | High |
-| 6 | Recording is gated by 60k samples and call-count rotation | `poll_data` `1185-1191`; `recorder_fun` `800-803`; `my_recording.py:60-66` | Up to 4 minutes of data pending; rotation not time/size based | High |
+| 6 | Recording is gated by 60k samples and call-count rotation | `poll_data` `1185-1191`; `recorder_fun` `800-803`; `recording_paths.py:60-66` | Up to 4 minutes of data pending; rotation not time/size based | High |
 | 7 | Recording failures are silent | `recorder_fun` sets `isRecorded = True` before write; no try/except; `isRecorded` stays true after failure | Data loss reported as success | High |
 | 8 | Final board buffer is discarded on stop | `stop_openbci` calls `get_board_data()` at `1124` and ignores result | Samples between last poll and stop are lost | High |
 | 9 | `PlotThread` has no stop path | `1209-1219`; created at `721-723`; never joined/stopped in `stop_openbci`, `actionRelease_click`, `closeEvent` | Thread leak per Start; queue growth | High |
-| 10 | Topography creates a new figure each update | `w_brain_topography.py:153-166`; called from `Topo_plot` `754-755` | Widget/memory leak; increasing layout cost | High |
-| 11 | 16-channel topography data is not assigned to `self` | `my_main_window.py:99-102` assigns local `Topography_data`; `shower_fun` uses `self.Topography_data` at `988-995` | 16ch topography raises `AttributeError`, caught as “Updater error”, stream stops | High |
-| 12 | MNE info is built once and never rebuilt | `my_main_window.py:104-120`; `initLayout` `356-408`; `getHardwareInfo` `571-577` does not update it | Channel names/montage/sfreq wrong after connecting another board or changing rate | High |
-| 13 | Startup state is inconsistent | `main_window_interface.py:49` `isSessionOn=True`; `MyMainWindow.__init__` `_chan=16`; `connectInfo` defaults 32ch (`myConnectionInfo.py:397-411`); probe: 31/16/16/32 | Start Session before connect; wrong widgets; misleading UI | High |
+| 10 | Topography creates a new figure each update | `topography.py:153-166`; called from `Topo_plot` `754-755` | Widget/memory leak; increasing layout cost | High |
+| 11 | 16-channel topography data is not assigned to `self` | `main_window.py:99-102` assigns local `Topography_data`; `shower_fun` uses `self.Topography_data` at `988-995` | 16ch topography raises `AttributeError`, caught as “Updater error”, stream stops | High |
+| 12 | MNE info is built once and never rebuilt | `main_window.py:104-120`; `initLayout` `356-408`; `getHardwareInfo` `571-577` does not update it | Channel names/montage/sfreq wrong after connecting another board or changing rate | High |
+| 13 | Startup state is inconsistent | `main_window_interface.py:49` `isSessionOn=True`; `MainWindow.__init__` `_chan=16`; `ConnectionInfo` defaults 32ch (`connection_info.py:397-411`); probe: 31/16/16/32 | Start Session before connect; wrong widgets; misleading UI | High |
 | 14 | Start with no board is possible | `startButton_click` checks only `isSessionOn`; `start_openbci` calls `self.board.start_stream()` where `board=None` (`67`) | Generic “session error!”, no actionable message | High |
-| 15 | COM scan blocks the dialog constructor | `my_serial_connection_pure.py:19,29-46`; `my_blueTooth.py:20,39-56`; 256 `serial.Serial` attempts | Dialog takes seconds; UI frozen; no cancel | High |
-| 16 | Wi-Fi discovery has no timeout/cancel and button IP bug | `my_wifi_connection.py:36-53`; each button writes last `self.STA_ip_address` | Unbounded GUI freeze; clicking earlier device uses wrong IP | High |
-| 17 | Device preparation/config is duplicated and blocking | five `prepare_openbci` copies; `my_serial_connection_pure.py:58-74`; `my_hardware_settings.py:192-265`; `time.sleep` `214` | Divergent behavior; GUI freeze; no cancellation | High |
-| 18 | Hardware settings Send has no try/finally | `my_hardware_settings.py:192-265`; disables Send at `196`, re-enables only at `254` | Any `config_board` error leaves dialog stuck | High |
-| 19 | Settings Send/Apply overwrite preset files | `my_hardware_settings.py:262-265`; `my_channels_electrodes_settings.py:151-154` | User presets silently replaced; no schema validation | High |
-| 20 | LSL streams 2/3 and FFT/Band Power are nonfunctional | `my_main_window.py:666-695`, `770-776`, `1175-1182` | UI promises unavailable features | High |
-| 21 | No sample timestamps/sample index in recordings | `my_recording.py:24-66`; `poll_data` `1144-1201` | Cannot align with video/stimulus; gap analysis impossible | High |
-| 22 | Logging is per-message open/append/close, no levels/locks | `my_logger.py:16-24` | Slow, racy, lossy diagnostics; no severity/context | High |
-| 23 | Console singleton is broken and signals duplicate | `my_console_window.py:11-14`; `main_window_interface.py:100-104` | Multiple windows/appends; confusing logs | High |
-| 24 | `MainWindow` state is many booleans | `isSessionOn`, `startButton_isclicked`, `isRecorded`, `is_startAccelerometer`, `is_startExtrigger`, `is_startBattery`, `is_myFFTPlot`, `is_myTimeSeries`, ... | Invalid combinations; unreachable/duplicated logic | High |
-| 25 | God class / wildcard imports | `my_main_window.py` imports `from freebci import *`, `from PyQt5.QtWidgets import *`; 1,220 lines | Hard to test, review, or change safely | High |
+| 15 | COM scan blocks the dialog constructor | `serial_connection.py:19,29-46`; `bluetooth_connection.py:20,39-56`; 256 `serial.Serial` attempts | Dialog takes seconds; UI frozen; no cancel | High |
+| 16 | Wi-Fi discovery has no timeout/cancel and button IP bug | `wifi_connection.py:36-53`; each button writes last `self.STA_ip_address` | Unbounded GUI freeze; clicking earlier device uses wrong IP | High |
+| 17 | Device preparation/config is duplicated and blocking | five `prepare_openbci` copies; `serial_connection.py:58-74`; `hardware_settings.py:192-265`; `time.sleep` `214` | Divergent behavior; GUI freeze; no cancellation | High |
+| 18 | Hardware settings Send has no try/finally | `hardware_settings.py:192-265`; disables Send at `196`, re-enables only at `254` | Any `config_board` error leaves dialog stuck | High |
+| 19 | Settings Send/Apply overwrite preset files | `hardware_settings.py:262-265`; `channel_settings.py:151-154` | User presets silently replaced; no schema validation | High |
+| 20 | LSL streams 2/3 and FFT/Band Power are nonfunctional | `main_window.py:666-695`, `770-776`, `1175-1182` | UI promises unavailable features | High |
+| 21 | No sample timestamps/sample index in recordings | `recording_paths.py:24-66`; `poll_data` `1144-1201` | Cannot align with video/stimulus; gap analysis impossible | High |
+| 22 | Logging is per-message open/append/close, no levels/locks | `console_logger.py:16-24` | Slow, racy, lossy diagnostics; no severity/context | High |
+| 23 | Console singleton is broken and signals duplicate | `console_window.py:11-14`; `main_window_interface.py:100-104` | Multiple windows/appends; confusing logs | High |
+| 24 | `MainWindow` state is many booleans | `isSessionOn`, `startButton_isclicked`, `isRecorded`, `is_startAccelerometer`, `is_startExtrigger`, `is_startBattery`, `is_fft_plot`, `is_time_series`, ... | Invalid combinations; unreachable/duplicated logic | High |
+| 25 | God class / wildcard imports | `main_window.py` imports `from freebci import *`, `from PyQt5.QtWidgets import *`; 1,220 lines | Hard to test, review, or change safely | High |
 | 26 | Packaging omits `brainflow`, includes unused `nptyping` | `requirements.txt:4-17`; `setup_env.py` checks brainflow | Fresh setup fails | High |
 | 27 | No tests, simulator, CI, or package metadata | repository inventory | Regressions are discovered on hardware | High |
-| 28 | Relative/CWD-dependent asset path | `my_channels_electrodes_settings.py:74` uses `.\electrodes_pos_<n>.png` | Fails when launched outside repo root | Medium |
-| 29 | Board catalog is hardcoded in source | `myConnectionInfo.py:3-393` | Adding a board requires code edit; easy to desync UI/capabilities | Medium |
-| 30 | Board timing is wall-clock only | `my_main_window.py:622-634` | No timezone/monotonic/uncertainty; not usable for sync | High |
+| 28 | Relative/CWD-dependent asset path | `channel_settings.py:74` uses `.\electrodes_pos_<n>.png` | Fails when launched outside repo root | Medium |
+| 29 | Board catalog is hardcoded in source | `connection_info.py:3-393` | Adding a board requires code edit; easy to desync UI/capabilities | Medium |
+| 30 | Board timing is wall-clock only | `main_window.py:622-634` | No timezone/monotonic/uncertainty; not usable for sync | High |
 
 ### B.6 Potential risks that require measurement
 
@@ -329,25 +331,25 @@ These are plausible but not yet proven by a benchmark:
 
 | From | To | Coupling | Assessment |
 |---|---|---|---|
-| `MyMainWindow` | `BoardShim` | Direct instantiation, `get_board_data`, `config_board`, `start/stop_stream` | Too strong; GUI is the device owner |
-| `MyMainWindow` | dialogs | Constructs dialogs, receives mutable `connectInfo` | Dialogs own transport and device lifetime |
+| `MainWindow` | `BoardShim` | Direct instantiation, `get_board_data`, `config_board`, `start/stop_stream` | Too strong; GUI is the device owner |
+| `MainWindow` | dialogs | Constructs dialogs, receives mutable `ConnectionInfo` | Dialogs own transport and device lifetime |
 | Dialogs | `BoardShim` | Each creates/prepares/releases | Duplicated lifecycle; no shared policy |
-| `MyMainWindow` | `MyRecording` | Direct calls from timer | Recording cannot be tested or run off-thread |
-| `MyMainWindow` | `MyLogger` | Direct calls everywhere | Logging is UI widget, no levels |
-| `MyMainWindow` | views | Direct widget mutation and data access | Views are not passive; logic is split |
-| `MainWindowInterface` | `MyRecording`, `MyLogger`, `MyLayout` | Creates all at startup | Window shell owns infrastructure |
-| `w_brain_topography` | MNE/matplotlib | Plot creation on every update | Rendering owns figure lifecycle |
-| `my_hardware_settings` | `BoardShim` | `config_board` loop in dialog | UI blocks on hardware |
-| `myConnectionInfo` | `BoardShim` | Stores a live board handle in a data object | State/data boundary is blurred |
+| `MainWindow` | `RecordingPaths` | Direct calls from timer | Recording cannot be tested or run off-thread |
+| `MainWindow` | `ConsoleLogger` | Direct calls everywhere | Logging is UI widget, no levels |
+| `MainWindow` | views | Direct widget mutation and data access | Views are not passive; logic is split |
+| `MainWindowInterface` | `RecordingPaths`, `ConsoleLogger`, `LayoutDialog` | Creates all at startup | Window shell owns infrastructure |
+| `topography` | MNE/matplotlib | Plot creation on every update | Rendering owns figure lifecycle |
+| `hardware_settings` | `BoardShim` | `config_board` loop in dialog | UI blocks on hardware |
+| `ConnectionInfo` | `BoardShim` | Stores a live board handle in a data object | State/data boundary is blurred |
 | Views | generated UI | Each view builds its own widgets | Duplicated boilerplate; hard to theme/test |
 
 ### C.2 Cohesion and responsibility issues
 
-1. **`MyMainWindow` has at least eight responsibilities:** connection orchestration, hardware command encoding, acquisition, filtering, FFT, plotting, LSL, recording, topography, and application state. This is the primary maintainability problem.
+1. **`MainWindow` has at least eight responsibilities:** connection orchestration, hardware command encoding, acquisition, filtering, FFT, plotting, LSL, recording, topography, and application state. This is the primary maintainability problem.
 2. **Connection dialogs mix three concerns:** form validation, transport discovery, and BrainFlow session preparation. The same `prepare_openbci` code appears five times with small differences.
-3. **Views are not views.** `w_networking.py` creates LSL outlets and owns protocol choices; `w_brain_topography.py` owns MNE rendering and figure lifecycle; `w_time_series.py` owns channel-button state. They should receive data and emit user intent.
+3. **Views are not views.** `networking.py` creates LSL outlets and owns protocol choices; `topography.py` owns MNE rendering and figure lifecycle; `time_series.py` owns channel-button state. They should receive data and emit user intent.
 4. **`MainWindowInterface` is both shell and infrastructure factory.** It creates the logger, recording object, layout dictionary, and all views. This makes the window impossible to instantiate without touching the filesystem.
-5. **`connectInfo` is mutable shared state with a live device handle.** It is passed by reference to dialogs, the window, and settings dialogs; any of them can replace `board` or `channel_num`.
+5. **`ConnectionInfo` is mutable shared state with a live device handle.** It is passed by reference to dialogs, the window, and settings dialogs; any of them can replace `board` or `channel_num`.
 
 ### C.3 Concurrency model
 
@@ -355,7 +357,7 @@ These are plausible but not yet proven by a benchmark:
 - **One extra thread:** `PlotThread`, which only blocks on `Queue.get()` and emits a signal; it does not protect acquisition or rendering.
 - **No synchronization:** there are no locks, queues, or ownership rules around `self.data`, `connect_info`, or the board handle. Today this is “safe” only because everything is on one thread; the moment acquisition moves to a worker, data races become real.
 - **No backpressure:** `self.data` grows until the 60k trim; auxiliary buffers grow without bound; the topography queue is unbounded.
-- **No shutdown protocol:** `closeEvent` stops the stream but not `PlotThread`; timers may still fire during teardown; exceptions are swallowed (`my_main_window.py:416-427`).
+- **No shutdown protocol:** `closeEvent` stops the stream but not `PlotThread`; timers may still fire during teardown; exceptions are swallowed (`main_window.py:416-427`).
 
 ### C.4 State model
 
@@ -366,7 +368,7 @@ isSessionOn
 startButton_isclicked
 isRecorded
 is_startAccelerometer / is_startExtrigger / is_startBattery
-is_myFFTPlot / is_myBandPower / is_myBrainTopography / is_myExtrigger / ...
+is_fft_plot / is_band_power / is_topography / is_external_trigger / ...
 ```
 
 These flags are set in different methods and are not validated against each other. Examples:
@@ -384,21 +386,21 @@ This is a textbook case for an explicit state machine with guarded transitions.
 - `self.record_data` is a borrowed slice of `self.data` passed to a timer; it can be overwritten before the writer consumes it if timing changes.
 - `self.topo_data` is appended but never read; it is pure waste.
 - `self.extri_data` and `self.battery_percentage` are full board rows, not just the relevant channels; they duplicate data and grow without bound.
-- `MyRecording` mutates the input array in place to convert AUX values to ints (`my_recording.py:50-52`); a caller’s buffer is silently changed.
+- `RecordingPaths` mutates the input array in place to convert AUX values to ints (`recording_paths.py:50-52`); a caller’s buffer is silently changed.
 
 ### C.6 Error handling and observability
 
-- Broad `except Exception` blocks log a string and sometimes stop the stream; many swallow the exception entirely (`closeEvent`, `MyLogger`, connection dialogs).
+- Broad `except Exception` blocks log a string and sometimes stop the stream; many swallow the exception entirely (`closeEvent`, `ConsoleLogger`, connection dialogs).
 - `start_openbci` raises on failure, but `startButton_click` only resets the button text; it does not release the session or clean up.
 - `recorder_fun` has no error path; a disk error is invisible.
-- `MyLogger.write` swallows all failures, including disk-full, so the application can lose its own diagnostics.
+- `ConsoleLogger.write` swallows all failures, including disk-full, so the application can lose its own diagnostics.
 - There is no correlation ID, session ID, device ID, or severity; log lines are free text.
 - There is no “recording completeness” report; a user cannot tell whether a file is complete.
 
 ### C.7 Testability and packaging
 
 - No unit tests; no fake board; no dependency injection; hardware is required for nearly every path.
-- Importing `my_main_window` constructs MNE objects and reads display settings (`win32api`), so even a headless test needs Windows display APIs.
+- Importing `main_window` constructs MNE objects and reads display settings (`win32api`), so even a headless test needs Windows display APIs.
 - `requirements.txt` is incomplete (no `brainflow`) and contains an unused dependency.
 - No `pyproject.toml`, no console entry point, no lockfile; setup is batch-script-specific.
 - No CI, no lint/type checks; wildcard imports make static analysis noisy.
@@ -539,14 +541,14 @@ Processing worker (optional) → ring.latest(3 s) → FFT/band power → snapsho
 
 ### D.7 Seam for incremental migration
 
-Do not rewrite `MyMainWindow` in one step. Introduce a `AcquisitionService` behind the existing `startButton_click`/`stop_openbci`:
+Do not rewrite `MainWindow` in one step. Introduce a `AcquisitionService` behind the existing `startButton_click`/`stop_openbci`:
 
 1. Construct `BrainFlowBoardGateway` around the already-connected `BoardShim`.
 2. Replace `poll_data` with `AcquisitionService.start()` and a display timer that reads `ring.latest()`.
 3. Keep `shower_fun`/`processor_fun` for one phase, but feed them `ring.latest()` instead of `self.data`.
 4. Replace `recorder_fun` with `RecordingWriter.submit()`.
 5. Once the new path is stable, move connection dialogs to `DeviceManager` and delete the old `prepare_openbci` copies.
-6. Finally, make `MyMainWindow` thin and move views to snapshot inputs.
+6. Finally, make `MainWindow` thin and move views to snapshot inputs.
 
 This allows the old and new acquisition paths to coexist behind a settings flag during validation.
 
@@ -1218,7 +1220,7 @@ This is an extension, not part of Phases 0–5.
 
 ### H.1 Logging
 
-Replace `MyLogger`’s per-message open/append/close with the standard library:
+Replace `ConsoleLogger`’s per-message open/append/close with the standard library:
 
 ```python
 logger = logging.getLogger("freebci")
@@ -1234,7 +1236,7 @@ listener = logging.handlers.QueueListener(log_queue, file_handler, console_handl
 - Levels: DEBUG (protocol details), INFO (state transitions, session start/stop), WARNING (retry, queue high), ERROR (device loss, write failure), CRITICAL (cannot continue).
 - Never log per sample. Log per block only at DEBUG and sampled.
 - Redact tokens and any personal paths if logs are shared.
-- `MyLogger` becomes a thin adapter: `write(message)` for legacy call sites, `emit` signal for the console. No file I/O in the adapter.
+- `ConsoleLogger` becomes a thin adapter: `write(message)` for legacy call sites, `emit` signal for the console. No file I/O in the adapter.
 
 ### H.2 Session manifest
 
@@ -1698,32 +1700,32 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | Area | Current implementation | Status |
 |---|---|---|
 | Core | `freebci/core`: models, clock, board catalog, gateway adapter, acquisition worker, ring buffer, recording writer, session controller, control server, diagnostics formatter, history helper, device adoption manager | Landed |
-| GUI | `freebci/api`: `MyMainWindow`, connection dialogs, views, hardware settings, `session_view_model.py` | Landed, still a large coordinator |
-| Composition | `FreeBCI_GUI.py` prepares the data directory; `freebci/app.py` owns Qt application/window bootstrap; generated `freebci/design` UI remains | No `freebci/ui/` package |
+| GUI | `freebci/ui`: `MainWindow`, connection dialogs, `views/`, `workers/`, hardware settings, console/logging, recording paths; `freebci/api/session_view_model.py` remains | Landed, still a large coordinator |
+| Composition | `FreeBCI_GUI.py` prepares the data directory; `freebci/app.py` owns Qt application/window bootstrap; `freebci/ui/` is the presentation layer; generated `freebci/design` UI remains | Landed |
 | Display data | `SessionViewModel` ring-backed history plus `display_snapshot()` | `core/ring.py` exists; acquisition still feeds it through the view-model adapter, not a core fan-out |
 | Device lifecycle | `DeviceManager` adopts an already-prepared board, creates gateways, releases | No `connect()/prepare()/configure()` state machine |
 | Hardware discovery | Dialogs use `serial_worker`, Wi-Fi discovery workers, Bluetooth worker; serial/Wi-Fi workers call `core.gateway.prepare_*_board` | Preparation is worker-owned, not a DeviceManager `connect()` transition |
 | Settings | `core/settings.py` validates and atomically saves XML; the dialog loads/saves through it; apply runs in `SettingsCommandWorker` | No last-known-good or profile-aware fallback |
-| Logging | `core/logging.py` writes rotating JSONL `session.log`; `MyLogger` still appends console text | GUI log is not yet a structured queue listener |
+| Logging | `core/logging.py` writes rotating JSONL `session.log`; `ConsoleLogger` still appends console text | GUI log is not yet a structured queue listener |
 
 ### M.2 Section-by-section gaps
 
 | Section | Landed | Still open / target-only | Priority |
 |---|---|---|---|
-| C.1 dependency map | Core no Qt; writer/acquisition separated; serial, Wi-Fi, and virtual dialogs prepare boards through `core/gateway.py`; no `freebci/api` module imports BrainFlow | `connectInfo` still carries a live board handle; views own LSL outlets | P1 |
-| C.2 cohesion | Recording, acquisition, settings apply moved out of the window | `MyMainWindow` still owns timers, filters, plotting, LSL, menus, and state; views still own LSL/protocol choices | P1 |
+| C.1 dependency map | Core no Qt; writer/acquisition separated; serial, Wi-Fi, and virtual dialogs prepare boards through `core/gateway.py`; no `freebci/api` module imports BrainFlow | `ConnectionInfo` still carries a live board handle; views own LSL outlets | P1 |
+| C.2 cohesion | Recording, acquisition, settings apply moved out of the window | `MainWindow` still owns timers, filters, plotting, LSL, menus, and state; views still own LSL/protocol choices | P1 |
 | C.3 concurrency | Acquisition, writer, settings, board-command, session-start workers | No core ring; GUI filters/FFTs on its thread; topography queue is unbounded | P1/P2 |
 | C.4 state model | Action guards and start/stop confirmation; `core/actions.py` derives menu/connection enablement from state | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded core state machine | P1 |
-| C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
-| C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write rotating structured `session.log` | GUI `MyLogger` still opens a file per message; no top-level correlation IDs | P2 |
+| C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `RecordingPaths` legacy path remains | P2 |
+| C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write rotating structured `session.log` | GUI `ConsoleLogger` still opens a file per message; no top-level correlation IDs | P2 |
 | C.7 tests/packaging | 97 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
-| D.2 layers | Core/application/device boundaries partly exist; catalog, ring, settings, logging, and an `app.py` bootstrap exist | No `freebci/ui/` package; presentation still owns LSL outlets and view state | Target |
-| D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
-| D.4 dependency rules | Core is Qt-free; `freebci/api` imports no BrainFlow; `core/dsp.py` delegates filtering to `core/gateway.py`, which is the only BrainFlow importer | No `freebci/ui/` package yet | P1 |
+| D.2 layers | Core/application/device boundaries exist; catalog, ring, settings, logging, and an `app.py` bootstrap exist; `freebci/ui/` now owns the main window, dialogs, views, and workers | Presentation still owns LSL outlets and view state; a QObject view model is still target-only | P1 |
+| D.3 module names | `freebci/ui/main_window.py`, `freebci/ui/diagnostics.py`, `freebci/ui/views/`, and `freebci/ui/workers/` are the real inventory; `freebci/api/session_view_model.py` remains | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
+| D.4 dependency rules | Core is Qt-free; `freebci/ui` imports no BrainFlow; dialogs prepare boards through `core/gateway.py`, the only BrainFlow importer | LSL outlets still live in views | P1 |
 | D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
 | D.6 data flow | Block → writer + display queue + view-model history | No acquisition ring fan-out; LSL now uses a bounded chunk queue with a drop counter; no processing-worker snapshot | P2 |
 | E.1 models | `BoardProfile`, `SessionConfig`, `SampleBlock`, `SessionClock`, `StateSnapshot` | No `DeviceConfig`/`StopReason` as specified; model fields differ from the proposal | Documentation |
-| E.2 catalog | `core/catalog.py` is the board-table source; `connectInfo` consumes its legacy row shape | UI still reads raw row indexes for capability checks | P2 |
+| E.2 catalog | `core/catalog.py` is the board-table source; `ConnectionInfo` consumes its legacy row shape | UI still reads raw row indexes for capability checks | P2 |
 | E.3 gateway | `BrainFlowGateway` wraps a prepared `BoardShim`; `prepare_serial_board`/`prepare_wifi_board` own transport preparation | No `configure()/sampling_rate()/is_prepared()` adapter methods; no stable gateway error codes | P2 |
 | E.4 DeviceManager | Adopt/release/replace/gateway creation | No connect/prepare/cancel/start-stop ownership; transport dialogs still prepare | P1 |
 | E.5 AcquisitionService | Worker loop, block assembly, error stop | Takes a callback, not `BlockSink`; no ring; no `stop()` stats contract | P2 |
@@ -1786,7 +1788,7 @@ Document rules after this realignment:
 | `requirements.txt` | 0 | BrainFlow stays vendored; source release zip is the distribution; no `pyproject.toml` in current scope |
 | `tests/`, `tools/benchmark_session.py` | 0 | Fake gateway, unit/integration tests, benchmarks |
 | `freebci/core/models.py` | 1 | DTOs, state enum |
-| `freebci/core/recording.py`, `freebci/api/my_recording.py` | 1 | Writer thread, manifest, sidecars; keep compatibility wrapper |
+| `freebci/core/recording.py`, `freebci/ui/recording_paths.py` | 1 | Writer thread, manifest, sidecars; keep compatibility wrapper |
 | `freebci/core/clock.py` | 1/4 | Block timestamps, sample index |
 | `freebci/core/catalog.py` | 2 | Shared board table; GUI consumes the legacy row shape |
 | `freebci/core/settings.py` | 2 | Validated atomic channel-settings model |
@@ -1796,13 +1798,13 @@ Document rules after this realignment:
 | `freebci/core/gateway.py`, `device.py` | 2 | BrainFlow adapter, transport preparation, state manager |
 | `freebci/app.py` | 2/5 | Qt composition root and window bootstrap |
 | `freebci/core/acquisition.py` | 2/3 | Worker and fan-out; no core ring yet |
-| `freebci/api/my_main_window.py` | 2–5 | Remove acquisition/timers; use controller/view model |
+| `freebci/ui/main_window.py` | 2–5 | Remove acquisition/timers; use controller/view model |
 | `freebci/design/main_window_interface.py` | 2/5 | State-driven UI; logger/recording construction moves to app |
 | Connection dialogs | 2 | Config-only; async manager calls; no scan in constructor |
-| `freebci/api/my_hardware_settings.py` | 2/5 | Async apply; validation; atomic save |
-| `freebci/api/w_brain_topography.py` | 3 | One figure, update-in-place, profile sfreq/channels |
-| `freebci/api/w_networking.py` | 3/4 | Real streams 2/3, timestamps, source IDs |
-| `freebci/api/my_logger.py`, `my_console_window.py` | 2 | Queue logging; singleton fix |
+| `freebci/ui/hardware_settings.py` | 2/5 | Async apply; validation; atomic save |
+| `freebci/ui/views/topography.py` | 3 | One figure, update-in-place, profile sfreq/channels |
+| `freebci/ui/views/networking.py` | 3/4 | Real streams 2/3, timestamps, source IDs |
+| `freebci/ui/console_logger.py`, `console_window.py` | 2 | Queue logging; singleton fix |
 | `freebci/core/control.py`, `freebci/api/session_view_model.py` | 4/5 | Control server/client; current view-model adapter (D's `freebci/ui/viewmodel.py` is target-only) |
 | `README.md` | 6 | Data format, control API, limitations, troubleshooting |
 
@@ -1810,21 +1812,21 @@ Document rules after this realignment:
 
 Key code references used in this assessment:
 
-- `freebci/api/my_main_window.py:62-142` — construction, 16-channel default, 32-channel montage/info, menus.
-- `freebci/api/my_main_window.py:356-408` — `initLayout`, buffer allocation, widget rebuild.
-- `freebci/api/my_main_window.py:700-752` — Start/Stop, timers, `PlotThread`.
-- `freebci/api/my_main_window.py:805-1105` — processing, plotting, topography, `gc.collect`.
-- `freebci/api/my_main_window.py:1107-1135` — start/stop, discarded final data.
-- `freebci/api/my_main_window.py:1144-1201` — poll, unbounded aux buffers, recording gate.
-- `freebci/api/my_main_window.py:1209-1219` — unstoppable `PlotThread`.
-- `freebci/api/my_recording.py:24-84` — recording, rotation, close.
+- `freebci/ui/main_window.py:62-142` — construction, 16-channel default, 32-channel montage/info, menus.
+- `freebci/ui/main_window.py:356-408` — `initLayout`, buffer allocation, widget rebuild.
+- `freebci/ui/main_window.py:700-752` — Start/Stop, timers, `PlotThread`.
+- `freebci/ui/main_window.py:805-1105` — processing, plotting, topography, `gc.collect`.
+- `freebci/ui/main_window.py:1107-1135` — start/stop, discarded final data.
+- `freebci/ui/main_window.py:1144-1201` — poll, unbounded aux buffers, recording gate.
+- `freebci/ui/main_window.py:1209-1219` — unstoppable `PlotThread`.
+- `freebci/ui/recording_paths.py:24-84` — recording, rotation, close.
 - `freebci/design/main_window_interface.py:26-104` — paths, logger, `isSessionOn`, console.
-- `freebci/api/my_serial_connection_pure.py:15-46` — COM scan in constructor.
-- `freebci/api/my_wifi_connection.py:36-56` — UPnP discovery, shared IP.
-- `freebci/api/my_hardware_settings.py:192-265` — blocking Send, auto-save.
-- `freebci/api/my_logger.py:16-24` — per-message file I/O.
-- `freebci/api/my_console_window.py:11-14` — broken singleton.
-- `freebci/api/w_brain_topography.py:122,153-166` — hardcoded sfreq, figure leak.
+- `freebci/ui/serial_connection.py:15-46` — COM scan in constructor.
+- `freebci/ui/wifi_connection.py:36-56` — UPnP discovery, shared IP.
+- `freebci/ui/hardware_settings.py:192-265` — blocking Send, auto-save.
+- `freebci/ui/console_logger.py:16-24` — per-message file I/O.
+- `freebci/ui/console_window.py:11-14` — broken singleton.
+- `freebci/ui/views/topography.py:122,153-166` — hardcoded sfreq, figure leak.
 - `requirements.txt:4-17` — missing `brainflow`, unused `nptyping`.
 
 Runtime probe (offscreen, no hardware): startup menu 20 families, `isSessionOn=True`, `mne_nchan=31`, `ts_widgets=16`, `fft_active_len=16`, `topo_chan=16`, `connect_chan=32`.

@@ -13,12 +13,12 @@ import datetime
 import win32api
 from pyqtgraph.graphicsItems.PlotDataItem import dataType
 from freebci.design.main_window_interface import MainWindowInterface
-from freebci.api.my_hardware_settings import MyHardwareSettings
-from freebci.api.my_channels_electrodes_settings import MyChannels_electrodes_Settings
-from freebci.api.my_wifi_connection import MyWifiConnection
-from freebci.api.my_diagnostics import MyDiagnostics
-from freebci.api.board_worker import BoardOperationWorker
-from freebci.api.session_start_worker import SessionStartWorker
+from freebci.ui.hardware_settings import HardwareSettingsDialog
+from freebci.ui.channel_settings import ChannelSettingsDialog
+from freebci.ui.wifi_connection import WifiConnectionDialog
+from freebci.ui.diagnostics import DiagnosticsDialog
+from freebci.ui.workers.board_operations import BoardOperationWorker
+from freebci.ui.workers.session_start import SessionStartWorker
 from freebci.api.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
 from freebci.core.actions import action_availability
@@ -26,14 +26,14 @@ from freebci.core.device import DeviceManager
 from freebci.core.dsp import bandpass_inplace, bandstop_inplace, fft_magnitude, standard_powers
 from freebci.core.packets import PacketLossCounter
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
-from freebci.api.my_electrodes_position import ElectrodesPosition
-from freebci.api.my_serial_connection_pure import MySerialConnection as MySerialConnectionPure
-from freebci.api.my_blueTooth import MyBluetoothConnection
-from freebci.api.my_virtual_connection import MyVirtualConnection
-from freebci.api.my_hardware_warn import MyHardwareWarning
+from freebci.ui.electrodes_position import ElectrodesPosition
+from freebci.ui.serial_connection import SerialConnectionDialog as SerialConnectionDialog
+from freebci.ui.bluetooth_connection import BluetoothConnectionDialog
+from freebci.ui.virtual_connection import VirtualConnectionDialog
+from freebci.ui.hardware_warning import HardwareWarningDialog
 from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
-from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
+from freebci.ui.connection_info import HardwareInfo, ConnectionInfo
 from freebci.core.control import ControlError, ControlServer
 from freebci.core.models import BoardProfile, SessionConfig
 from freebci.core.lsl_queue import LslSampleQueue
@@ -58,15 +58,15 @@ import pandas as pd
 from queue import Queue
 show_page = 1
 
-class MyMainWindow(MainWindowInterface):
+class MainWindow(MainWindowInterface):
     _instance_lock = threading.Lock()
     @classmethod
     def instance(cls, *args, **kwargs):
-        if not hasattr(MyMainWindow, '_instance'):
-            with MyMainWindow._instance_lock:
-                if not hasattr(MyMainWindow, '_instance'):
-                    MyMainWindow._instance = MyMainWindow(*args, **kwargs)
-        return MyMainWindow._instance
+        if not hasattr(MainWindow, '_instance'):
+            with MainWindow._instance_lock:
+                if not hasattr(MainWindow, '_instance'):
+                    MainWindow._instance = MainWindow(*args, **kwargs)
+        return MainWindow._instance
 
     @property
     def data(self):
@@ -83,9 +83,9 @@ class MyMainWindow(MainWindowInterface):
 
     def __init__(self, parent=None):
         self._chan = 16
-        super(MyMainWindow, self).__init__(self._chan)
+        super(MainWindow, self).__init__(self._chan)
         self.hardwareInfo = HardwareInfo()
-        self.connect_info = connectInfo()
+        self.connect_info = ConnectionInfo()
         self.board = None
         self.device_manager = DeviceManager()
         self.board_worker = BoardOperationWorker(self)
@@ -97,7 +97,7 @@ class MyMainWindow(MainWindowInterface):
         self.control_discovery_path = None
         self.session_view_model = SessionViewModel(
             lambda: self.session_controller,
-            lambda: self.myRecording.doc_path,
+            lambda: self.recording.doc_path,
             self._control_summary,
             self._lsl_summary,
         )
@@ -156,8 +156,8 @@ class MyMainWindow(MainWindowInterface):
         self.menu_2.addAction(self.actionDemo)
         self.diagnostics_window = None
         for i in range(self._chan):
-            self.myTimeSeries.my_plot_widgets[i].channelButton.clicked.connect(partial(self.channelButtons_click, i))
-            self.myTimeSeries.my_plot_widgets[i].resistancePushButton.clicked.connect(partial(self.resistancePushButtons_click, i))
+            self.time_series.plot_widgets[i].channelButton.clicked.connect(partial(self.channelButtons_click, i))
+            self.time_series.plot_widgets[i].resistancePushButton.clicked.connect(partial(self.resistancePushButtons_click, i))
         self.vert_scale = 200
         self.lsl_queues = {
             1: LslSampleQueue(),
@@ -174,12 +174,12 @@ class MyMainWindow(MainWindowInterface):
             self._start_control_server()
         except Exception as ex:
             self.control_server = None
-            self.myLogger.write('WARNNING: could not start control API: %s' % ex)
+            self.logger.write('WARNNING: could not start control API: %s' % ex)
         try:
-            unfinished = recover_sessions(self.myRecording.doc_path)
+            unfinished = recover_sessions(self.recording.doc_path)
         except Exception as ex:
             unfinished = []
-            self.myLogger.write('WARNNING: could not scan unfinished sessions: %s' % ex)
+            self.logger.write('WARNNING: could not scan unfinished sessions: %s' % ex)
         if unfinished:
             self.stateLabel.setText(
                 '%d unfinished recording(s) found; files were left in place.'
@@ -249,7 +249,7 @@ class MyMainWindow(MainWindowInterface):
                 sp[k] = fft_magnitude(bp_nf_data[k][-fft_bound:], 2)
                 sp[k] = np.absolute(sp[k]) / (self.SamplingRate * 1.0)
                 sp[k][0] = 0.01
-                self.myFFTPlot.fft_plot.plot(pen=pg.mkPen(self.colors[k], width=1)).setData(sp[k])
+                self.fft_plot.fft_plot.plot(pen=pg.mkPen(self.colors[k], width=1)).setData(sp[k])
 
     def refreshBoardMenu(self):
         if self.isSessionOn:
@@ -302,60 +302,60 @@ class MyMainWindow(MainWindowInterface):
             self.menu.addAction(self.menuFreeBCI_WiFi_64.menuAction())
 
     def reConFuncToWidget(self):
-        self.myTimeSeries.hardwareButton.clicked.connect(self.hardwareButton_click)
-        self.myTimeSeries.voltComboBox.activated.connect(self.voltComboBox_click)
-        self.myTimeSeries.timeComboBox.activated.connect(self.timeComboBox_click)
-        self.myTimeSeries.voltComboBox.setCurrentIndex(2)
-        self.myTimeSeries._signal.connect(self.reConChannelButton)
-        self.myFFTPlot.freqComboBox.activated.connect(self.freqComboBox_click)
-        self.myFFTPlot.uVcomboBox.activated.connect(self.uVcomboBox_click)
-        self.myFFTPlot.logComboBox.activated.connect(self.logComboBox_click)
-        self.myBrainTopography.chan_electrode_settingspushButton.clicked.connect(self.chan_electrode_settingspushButton_click)
-        self.myNetWidget.startLSLButton.clicked.connect(self.startLSLButton_click)
-        self.myExtrigger.DateModepushButton.clicked.connect(self.startExtrigger_click)
-        self.myAccelerometer.DateModepushButton.clicked.connect(self.startAccelerometer_click)
-        self.myBattery.DateModepushButton.clicked.connect(self.startBattery_click)
+        self.time_series.hardwareButton.clicked.connect(self.hardwareButton_click)
+        self.time_series.voltComboBox.activated.connect(self.voltComboBox_click)
+        self.time_series.timeComboBox.activated.connect(self.timeComboBox_click)
+        self.time_series.voltComboBox.setCurrentIndex(2)
+        self.time_series._signal.connect(self.reConChannelButton)
+        self.fft_plot.freqComboBox.activated.connect(self.freqComboBox_click)
+        self.fft_plot.uVcomboBox.activated.connect(self.uVcomboBox_click)
+        self.fft_plot.logComboBox.activated.connect(self.logComboBox_click)
+        self.topography.chan_electrode_settingspushButton.clicked.connect(self.chan_electrode_settingspushButton_click)
+        self.networking.startLSLButton.clicked.connect(self.startLSLButton_click)
+        self.external_trigger.DateModepushButton.clicked.connect(self.startExtrigger_click)
+        self.accelerometer.DateModepushButton.clicked.connect(self.startAccelerometer_click)
+        self.battery.DateModepushButton.clicked.connect(self.startBattery_click)
         for i in range(self._chan):
-            self.myTimeSeries.my_plot_widgets[i].channelButton.clicked.connect(partial(self.channelButtons_click, i))
-            self.myTimeSeries.my_plot_widgets[i].resistancePushButton.clicked.connect(partial(self.resistancePushButtons_click, i))
+            self.time_series.plot_widgets[i].channelButton.clicked.connect(partial(self.channelButtons_click, i))
+            self.time_series.plot_widgets[i].resistancePushButton.clicked.connect(partial(self.resistancePushButtons_click, i))
 
     def reConChannelButton(self, chan: int):
         if self.activeChannels[chan] == True:
-            self.myTimeSeries.my_plot_widgets[chan].channelButton.clicked.connect(partial(self.channelButtons_click, chan))
-            self.myTimeSeries.my_plot_widgets[chan].resistancePushButton.clicked.connect(partial(self.resistancePushButtons_click, chan))
+            self.time_series.plot_widgets[chan].channelButton.clicked.connect(partial(self.channelButtons_click, chan))
+            self.time_series.plot_widgets[chan].resistancePushButton.clicked.connect(partial(self.resistancePushButtons_click, chan))
 
     def freqComboBox_click(self):
-        self.fftFreqLen = int(self.myFFTPlot.freqComboBox.currentText())
-        self.myLogger.write('self.fftFreqLen: ' + str(self.fftFreqLen))
+        self.fftFreqLen = int(self.fft_plot.freqComboBox.currentText())
+        self.logger.write('self.fftFreqLen: ' + str(self.fftFreqLen))
 
     def uVcomboBox_click(self):
-        if self.myFFTPlot.logComboBox.currentText() == 'Log':
-            self.fftuvLen = np.log10(int(self.myFFTPlot.uVcomboBox.currentText()))
+        if self.fft_plot.logComboBox.currentText() == 'Log':
+            self.fftuvLen = np.log10(int(self.fft_plot.uVcomboBox.currentText()))
         else:
-            self.fftuvLen = int(self.myFFTPlot.uVcomboBox.currentText())
+            self.fftuvLen = int(self.fft_plot.uVcomboBox.currentText())
 
     def logComboBox_click(self):
-        if self.myFFTPlot.logComboBox.currentText() == 'Log':
+        if self.fft_plot.logComboBox.currentText() == 'Log':
             self.fftLogMode = True
-            self.fftuvLen = np.log10(int(self.myFFTPlot.uVcomboBox.currentText()))
+            self.fftuvLen = np.log10(int(self.fft_plot.uVcomboBox.currentText()))
         else:
             self.fftLogMode = False
-            self.fftuvLen = int(self.myFFTPlot.uVcomboBox.currentText())
+            self.fftuvLen = int(self.fft_plot.uVcomboBox.currentText())
 
     def help_click(self):
         help_path = os.path.join(self.parent_path, 'README.md')
         QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(help_path))
-        self.myLogger.write('Help: open README.md.')
+        self.logger.write('Help: open README.md.')
 
     def open_click(self):
-        os.startfile(self.myRecording.record_path)
+        os.startfile(self.recording.record_path)
 
     def bluetooth_click(self, board_id):
         self.stateLabel.setText('Starting bluetooth form...')
         self.stateLabel.repaint()
-        self.my_bluetooth_form = MyBluetoothConnection(self.connect_info, board_id, self.myLogger)
-        self.my_bluetooth_form.show()
-        self.my_bluetooth_form._signal.connect(self.initLayout)
+        self.bluetooth_dialog = BluetoothConnectionDialog(self.connect_info, board_id, self.logger)
+        self.bluetooth_dialog.show()
+        self.bluetooth_dialog._signal.connect(self.initLayout)
         self.stateLabel.setText('Bluetooth form started.')
         self.connect_info.isbluetooth = True
         self.connect_info.iswifi = False
@@ -367,9 +367,9 @@ class MyMainWindow(MainWindowInterface):
     def wifi_click(self, board_id):
         self.stateLabel.setText('Starting WiFi form...')
         self.stateLabel.repaint()
-        self.my_wifi_form = MyWifiConnection(self.connect_info, board_id, self.myLogger)
-        self.my_wifi_form.show()
-        self.my_wifi_form._signal.connect(self.initLayout)
+        self.wifi_dialog = WifiConnectionDialog(self.connect_info, board_id, self.logger)
+        self.wifi_dialog.show()
+        self.wifi_dialog._signal.connect(self.initLayout)
         self.stateLabel.setText('WiFi form started.')
         self.stateLabel.repaint()
         self.connect_info.iswifi = True
@@ -381,9 +381,9 @@ class MyMainWindow(MainWindowInterface):
     def com_click_pure(self, board_id):
         self.stateLabel.setText('Starting Serial form...')
         self.stateLabel.repaint()
-        self.my_com_form = MySerialConnectionPure(self.connect_info, board_id, self.myLogger)
-        self.my_com_form.show()
-        self.my_com_form._signal.connect(self.initLayout)
+        self.serial_dialog = SerialConnectionDialog(self.connect_info, board_id, self.logger)
+        self.serial_dialog.show()
+        self.serial_dialog._signal.connect(self.initLayout)
         self.stateLabel.setText('Serial form started.')
         self.stateLabel.repaint()
         self.connect_info.iswifi = False
@@ -394,9 +394,9 @@ class MyMainWindow(MainWindowInterface):
         self.connect_info.channel_num = self.connect_info.id_list[self.connect_info.board_id - 2023][8]
 
     def virtual_click(self, board_id):
-        self.my_virtual_form = MyVirtualConnection(self.connect_info, board_id, self.myLogger)
-        self.my_virtual_form.show()
-        self.my_virtual_form._signal.connect(self.initLayout)
+        self.virtual_dialog = VirtualConnectionDialog(self.connect_info, board_id, self.logger)
+        self.virtual_dialog.show()
+        self.virtual_dialog._signal.connect(self.initLayout)
         self.connect_info.board_id = board_id
         self.connect_info.board = None
         self.connect_info.channel_num = self.connect_info.id_list[self.connect_info.board_id - 2023][8]
@@ -409,13 +409,13 @@ class MyMainWindow(MainWindowInterface):
             self.startButton_isclicked = False
             self.startButton.setText('Start Session')
             self.stopThread()
-            self.myLogger.write('Data stream stopped.')
+            self.logger.write('Data stream stopped.')
         self.device_manager.release()
         self.board = None
         self.connect_info.board = None
         self.isSessionOn = False
         self.hardwareInfo.isSend = False
-        self.myLogger.write('Board Session stopped')
+        self.logger.write('Board Session stopped')
         self.changeLayout(0)
         self.refreshBoardMenu()
         self._sync_action_states()
@@ -434,8 +434,8 @@ class MyMainWindow(MainWindowInterface):
             has_battery=bool(row[11]),
         )
 
-    def initLayout(self, connection_info: connectInfo):
-        if isinstance(connection_info, connectInfo):
+    def initLayout(self, connection_info: ConnectionInfo):
+        if isinstance(connection_info, ConnectionInfo):
             self.isSessionOn = True
             self.connect_info = connection_info
             self._chan = self.connect_info.channel_num
@@ -469,26 +469,26 @@ class MyMainWindow(MainWindowInterface):
             self.refreshBoardMenu()
             self.stateLabel.setText('Session started!')
             if self.connect_info.id_list[self.connect_info.board_id - 2023][9]:
-                self.myAccelerometer.DateModepushButton.setEnabled(True)
-                self.myAccelerometer.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
-                self.myAccelerometer.DateModepushButton.setText('Start Accelerometer')
+                self.accelerometer.DateModepushButton.setEnabled(True)
+                self.accelerometer.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
+                self.accelerometer.DateModepushButton.setText('Start Accelerometer')
             else:
-                self.myAccelerometer.DateModepushButton.setEnabled(False)
-                self.myAccelerometer.DateModepushButton.setText('Start Accelerometer')
+                self.accelerometer.DateModepushButton.setEnabled(False)
+                self.accelerometer.DateModepushButton.setText('Start Accelerometer')
             if self.connect_info.id_list[self.connect_info.board_id - 2023][11]:
-                self.myBattery.DateModepushButton.setEnabled(True)
-                self.myBattery.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
-                self.myBattery.DateModepushButton.setText('Start Battery')
+                self.battery.DateModepushButton.setEnabled(True)
+                self.battery.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
+                self.battery.DateModepushButton.setText('Start Battery')
             else:
-                self.myBattery.DateModepushButton.setEnabled(False)
-                self.myBattery.DateModepushButton.setText('Start Battery')
+                self.battery.DateModepushButton.setEnabled(False)
+                self.battery.DateModepushButton.setText('Start Battery')
             if self.connect_info.id_list[self.connect_info.board_id - 2023][10]:
-                self.myExtrigger.DateModepushButton.setEnabled(True)
-                self.myExtrigger.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
-                self.myExtrigger.DateModepushButton.setText('Start Extrigger')
+                self.external_trigger.DateModepushButton.setEnabled(True)
+                self.external_trigger.DateModepushButton.setStyleSheet('font: 75 10pt "等线";background-color: rgb(204,255,153)')
+                self.external_trigger.DateModepushButton.setText('Start Extrigger')
             else:
-                self.myExtrigger.DateModepushButton.setEnabled(False)
-                self.myExtrigger.DateModepushButton.setText('Start Extrigger')
+                self.external_trigger.DateModepushButton.setEnabled(False)
+                self.external_trigger.DateModepushButton.setText('Start Extrigger')
             self._sync_action_states()
 
     def stopThread(self):
@@ -541,7 +541,7 @@ class MyMainWindow(MainWindowInterface):
 
     def _apply_channel_style(self, channel):
         colors = [*('red', 'green', 'blue', '#E3CF57', 'rgb(0,255,255)', 'purple', 'black', 'rgb(210,180,140)')]
-        widget = self.myTimeSeries.my_plot_widgets[channel]
+        widget = self.time_series.plot_widgets[channel]
         if self.channals_on[channel] == True:
             widget.channelButton.setStyleSheet('width: 30px;height: 30px; border-radius: 15px;font-size: 15px;color: white; background: gray;')
             widget.ischannelClick = True
@@ -550,7 +550,7 @@ class MyMainWindow(MainWindowInterface):
             widget.ischannelClick = False
 
     def _apply_resistance_style(self, channel, enabled):
-        widget = self.myTimeSeries.my_plot_widgets[channel]
+        widget = self.time_series.plot_widgets[channel]
         if enabled:
             widget.dataLabel.setStyleSheet('font: 8pt "黑体";background:transparent; color: white')
             widget.dataLabelColor = 'white'
@@ -590,7 +590,7 @@ class MyMainWindow(MainWindowInterface):
                 command += HardwareSettingsProtocol.ImpedanceOff[channel + 1]
 
         self.resistanceOn[channel] = enabled
-        self.myLogger.write('sendCommand: ' + command)
+        self.logger.write('sendCommand: ' + command)
         streaming = self.startButton_isclicked
 
         def operation():
@@ -624,11 +624,11 @@ class MyMainWindow(MainWindowInterface):
                 else HardwareSettingsProtocol.ChannelOff[channel + 1]
             )
         self.channals_on[channel] = disabled
-        self.myLogger.write(
+        self.logger.write(
             'FreeBCI_GUI: %s channel %d'
             % ('deactivating' if disabled else 'activating', channel + 1)
         )
-        self.myLogger.write('sendCommand: ' + command)
+        self.logger.write('sendCommand: ' + command)
         streaming = self.startButton_isclicked
 
         def operation():
@@ -643,22 +643,22 @@ class MyMainWindow(MainWindowInterface):
         self._submit_board_operation('channel:%d' % channel, operation)
 
     def timeComboBox_click(self):
-        if self.myTimeSeries.timeComboBox.currentIndex() == 0:
+        if self.time_series.timeComboBox.currentIndex() == 0:
             self.ts_time = 5
             self.ts_plot_range = 5 * self.SamplingRate
         else:
-            self.ts_time = int(str(self.myTimeSeries.timeComboBox.currentText()).split(' ')[0])
+            self.ts_time = int(str(self.time_series.timeComboBox.currentText()).split(' ')[0])
             self.ts_plot_range = self.ts_time * self.SamplingRate
-        self.myLogger.write(self.ts_plot_range)
+        self.logger.write(self.ts_plot_range)
 
     def voltComboBox_click(self):
-        vert_scale_str = str(self.myTimeSeries.voltComboBox.currentText())
+        vert_scale_str = str(self.time_series.voltComboBox.currentText())
         if 'Auto1' not in vert_scale_str and 'Auto2' not in vert_scale_str:
             self.vert_scale = int(vert_scale_str.split(' ')[0])
             for i in range(self._chan):
                 if self.activeChannels[i]:
-                    self.myTimeSeries.my_plot_widgets[i].maxLabel.setText('+' + str(self.vert_scale) + 'uV')
-                    self.myTimeSeries.my_plot_widgets[i].minLabel.setText('-' + str(self.vert_scale) + 'uV')
+                    self.time_series.plot_widgets[i].maxLabel.setText('+' + str(self.vert_scale) + 'uV')
+                    self.time_series.plot_widgets[i].minLabel.setText('-' + str(self.vert_scale) + 'uV')
         elif 'Auto1' in vert_scale_str:
             self.vert_scale = -1
         elif 'Auto2' in vert_scale_str:
@@ -670,10 +670,10 @@ class MyMainWindow(MainWindowInterface):
         self.baudRate = self.hardwareInfo.baudRate
         self.SamplingRate = int(self.hardwareInfo.SamplingRate)
         self.info['sfreq'] = self.SamplingRate
-        self.myNetWidget.refreshSamplingRate(self.SamplingRate)
+        self.networking.refreshSamplingRate(self.SamplingRate)
         self.ts_plot_range = int(self.ts_time * self.SamplingRate)
 
-    def getConnectInfo(self, connect_info: connectInfo):
+    def getConnectInfo(self, connect_info: ConnectionInfo):
         self.connect_info = connect_info
         self.baudRate = self.connect_info.baudRate
         self.board = self.connect_info.board
@@ -687,16 +687,16 @@ class MyMainWindow(MainWindowInterface):
                 self.hardwareInfo.SamplingRate = self.SamplingRate
                 if self._chan == 16 and self.hardwareInfo.sendMode != 'FreeBCI' and self.connect_info.isbluetooth == False:
                     self.hardwareInfo.SamplingRate = self.SamplingRate * 2
-                self.my_hardware_form = MyHardwareSettings(self.connect_info, self.hardwareInfo, self.myLogger)
-                self.my_hardware_form._signal.connect(self.getHardwareInfo)
-                self.my_hardware_form._signal_con.connect(self.getConnectInfo)
-                self.my_hardware_form.exec()
+                self.hardware_settings_dialog = HardwareSettingsDialog(self.connect_info, self.hardwareInfo, self.logger)
+                self.hardware_settings_dialog._signal.connect(self.getHardwareInfo)
+                self.hardware_settings_dialog._signal_con.connect(self.getConnectInfo)
+                self.hardware_settings_dialog.exec()
             else:
-                self.my_hardware_warning = MyHardwareWarning()
-                self.my_hardware_warning.label_2.setText(QtCore.QCoreApplication.translate('hardware_warning', 'Streaming needs to be stopped before accessing Hardware Settings'))
-                self.my_hardware_warning.exec()
+                self.hardware_warning_dialog = HardwareWarningDialog()
+                self.hardware_warning_dialog.label_2.setText(QtCore.QCoreApplication.translate('hardware_warning', 'Streaming needs to be stopped before accessing Hardware Settings'))
+                self.hardware_warning_dialog.exec()
         except Exception as ex:
-            self.myLogger.write('Hardware setting error! ')
+            self.logger.write('Hardware setting error! ')
             logging.exception(ex)
 
     def chan_electrode_settingspushButton_click(self):
@@ -704,16 +704,16 @@ class MyMainWindow(MainWindowInterface):
             if self.startButton_isclicked == False:
                 self.hardwareInfo.channel_num = self._chan
                 self.hardwareInfo.activeChannels = self.activeChannels
-                self.my_chan_electrode_form = MyChannels_electrodes_Settings(self.connect_info, self.hardwareInfo)
-                self.my_chan_electrode_form.show()
-                self.my_chan_electrode_form._signal.connect(self.getHardwareInfo)
-                self.my_chan_electrode_form._signal_con.connect(self.getConnectInfo)
+                self.channel_settings_dialog = ChannelSettingsDialog(self.connect_info, self.hardwareInfo)
+                self.channel_settings_dialog.show()
+                self.channel_settings_dialog._signal.connect(self.getHardwareInfo)
+                self.channel_settings_dialog._signal_con.connect(self.getConnectInfo)
             else:
-                self.my_hardware_warning = MyHardwareWarning()
-                self.my_hardware_warning.label_2.setText(QtCore.QCoreApplication.translate('hardware_warning', 'Streaming needs to be stopped before accessing Channels-electrodes Settings'))
-                self.my_hardware_warning.show()
+                self.hardware_warning_dialog = HardwareWarningDialog()
+                self.hardware_warning_dialog.label_2.setText(QtCore.QCoreApplication.translate('hardware_warning', 'Streaming needs to be stopped before accessing Channels-electrodes Settings'))
+                self.hardware_warning_dialog.show()
         except Exception as ex:
-            self.myLogger.write('Channels-electrodes setting error! ')
+            self.logger.write('Channels-electrodes setting error! ')
             logging.exception(ex)
 
     def _submit_board_operation(self, name, operation):
@@ -724,7 +724,7 @@ class MyMainWindow(MainWindowInterface):
 
     def _on_board_operation_succeeded(self, name, result):
         if name == 'timing':
-            self.myLogger.write(str(result))
+            self.logger.write(str(result))
         elif name.startswith('data:'):
             mode = name.split(':', 1)[1]
             self.is_startExtrigger = mode == 'External trigger'
@@ -737,7 +737,7 @@ class MyMainWindow(MainWindowInterface):
             self._apply_resistance_style(int(channel), enabled == 'on')
 
     def _on_board_operation_failed(self, name, message):
-        self.myLogger.write('WARNNING: board command failed: %s' % message)
+        self.logger.write('WARNNING: board command failed: %s' % message)
         self.stateLabel.setText('Board command failed: %s' % message)
         if name.startswith('channel:'):
             channel = int(name.split(':')[1])
@@ -755,32 +755,32 @@ class MyMainWindow(MainWindowInterface):
 
     def TimingButton_click(self):
         if self.startButton_isclicked:
-            self.myLogger.write('Please stop streaming first!')
+            self.logger.write('Please stop streaming first!')
             return
         time_now = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         command = '<' + time_now[2:] + '>'
-        self.myLogger.write('sendCommand: ' + command)
+        self.logger.write('sendCommand: ' + command)
         self._submit_board_operation(
             'timing', lambda: self.board.config_board(command)
         )
 
     def startExtrigger_click(self):
         command = HardwareSettingsProtocol.data_mode['External trigger']
-        self.myLogger.write(command)
+        self.logger.write(command)
         self._submit_board_operation(
             'data:External trigger', lambda: self.board.config_board(command)
         )
 
     def startAccelerometer_click(self):
         command = HardwareSettingsProtocol.data_mode['Accelerometer']
-        self.myLogger.write(command)
+        self.logger.write(command)
         self._submit_board_operation(
             'data:Accelerometer', lambda: self.board.config_board(command)
         )
 
     def startBattery_click(self):
         command = HardwareSettingsProtocol.data_mode['Battery']
-        self.myLogger.write(command)
+        self.logger.write(command)
         self._submit_board_operation(
             'data:Battery', lambda: self.board.config_board(command)
         )
@@ -806,24 +806,24 @@ class MyMainWindow(MainWindowInterface):
         try:
             if self.startLSLButton_isclicked == False:
                 self.startLSLButton_isclicked = True
-                self.myLogger.write('start lsl stream...')
-                self.myNetWidget.startLSLButton.setText(' Stop ')
-                self.myNetWidget.startLSLButton.setStyleSheet('font: 12pt "黑体";background-color:red')
+                self.logger.write('start lsl stream...')
+                self.networking.startLSLButton.setText(' Stop ')
+                self.networking.startLSLButton.setStyleSheet('font: 12pt "黑体";background-color:red')
                 self._ensure_marker_outlet()
                 for index in (1, 2, 3):
                     queue = getattr(self, 'lsl_queues', {}).get(index)
                     if queue is not None:
                         queue.clear()
-                    if getattr(self.myNetWidget, 'LSLdataType%d' % index) != 'None':
+                    if getattr(self.networking, 'LSLdataType%d' % index) != 'None':
                         streamer = QtCore.QTimer()
                         streamer.timeout.connect(partial(self.sendLSLStream, index))
                         streamer.start(10)
                         setattr(self, 'LSLstreamer%d' % index, streamer)
             else:
                 self.startLSLButton_isclicked = False
-                self.myLogger.write('close lsl stream.')
-                self.myNetWidget.startLSLButton.setText('Start LSL Stream')
-                self.myNetWidget.startLSLButton.setStyleSheet('font: 12pt "等线"; background-color: rgb(204,255,153)')
+                self.logger.write('close lsl stream.')
+                self.networking.startLSLButton.setText('Start LSL Stream')
+                self.networking.startLSLButton.setStyleSheet('font: 12pt "等线"; background-color: rgb(204,255,153)')
                 self.marker_outlet = None
                 for index in (1, 2, 3):
                     streamer = getattr(self, 'LSLstreamer%d' % index, None)
@@ -834,7 +834,7 @@ class MyMainWindow(MainWindowInterface):
                     if queue is not None:
                         queue.clear()
         except Exception as ex:
-            self.myLogger.write('LSL run error! ')
+            self.logger.write('LSL run error! ')
             logging.exception(ex)
 
     def _begin_session_ui(self):
@@ -862,7 +862,7 @@ class MyMainWindow(MainWindowInterface):
         self.processor = QtCore.QTimer()
         self.processor.timeout.connect(self.processor_fun)
         self.processor.start(50)
-        self.myLogger.write('Data stream started')
+        self.logger.write('Data stream started')
         self._sync_action_states()
 
     def _on_session_started(self, controller):
@@ -870,7 +870,7 @@ class MyMainWindow(MainWindowInterface):
         try:
             self._activate_session(controller)
         except Exception as ex:
-            self.myLogger.write('WARNNING: could not publish session: %s' % ex)
+            self.logger.write('WARNNING: could not publish session: %s' % ex)
             self._on_session_start_failed(str(ex))
             return
         self._begin_session_ui()
@@ -888,7 +888,7 @@ class MyMainWindow(MainWindowInterface):
         self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
         self.startButton_isclicked = False
         self.stateLabel.setText('session error: %s' % message)
-        self.myLogger.write('WARNNING: session start failed: %s' % message)
+        self.logger.write('WARNNING: session start failed: %s' % message)
         self._sync_action_states()
 
     def _confirm_stop(self):
@@ -940,26 +940,26 @@ class MyMainWindow(MainWindowInterface):
             self.stateLabel.setText('Data stream stopped.')
             self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
             self.stopThread()
-            self.myLogger.write('Data stream stopped.')
+            self.logger.write('Data stream stopped.')
             self._sync_action_states()
 
     def Topo_plot(self, Topography_data):
-        self.myBrainTopography.plotfig(Topography_data, self.info, self.montage)
+        self.topography.plotfig(Topography_data, self.info, self.montage)
 
     def checkConnection(self):
-        self.myLogger.write('NoData Error: Please check connection!')
+        self.logger.write('NoData Error: Please check connection!')
         self.stop_openbci()
         self.startButton_isclicked = False
         self.startButton.setText('Start Session')
         self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
         self.stopThread()
         self.stateLabel.setText('Error: Please check connection!')
-        self.myLogger.write('Data stream stopped.')
+        self.logger.write('Data stream stopped.')
 
     def sendLSLStream(self, index):
         try:
             queue = getattr(self, 'lsl_queues', {}).get(index)
-            outlet = getattr(self.myNetWidget, 'LSLoutlet%d' % index, None)
+            outlet = getattr(self.networking, 'LSLoutlet%d' % index, None)
             if queue is None or outlet is None:
                 return
             samples = queue.drain()
@@ -972,12 +972,12 @@ class MyMainWindow(MainWindowInterface):
                 for sample in chunk:
                     outlet.push_sample(sample)
             if queue.dropped:
-                self.myLogger.write(
+                self.logger.write(
                     'LSL stream %d dropped %d sample(s) to keep the queue bounded'
                     % (index, queue.dropped)
                 )
         except Exception as ex:
-            self.myLogger.write('send LSL stream error!  ' + repr(ex))
+            self.logger.write('send LSL stream error!  ' + repr(ex))
             logging.exception(ex)
 
     def notch_filter(self, val, data, fs):
@@ -990,7 +990,7 @@ class MyMainWindow(MainWindowInterface):
         try:
             self.poll_data()
         except Exception as ex:
-            self.myLogger.write('poll data error! ')
+            self.logger.write('poll data error! ')
             self.stateLabel.setText('Poll data error!')
             logging.exception(ex)
             self.stop_openbci()
@@ -1032,34 +1032,34 @@ class MyMainWindow(MainWindowInterface):
             else:
                 for i in range(self._chan):
                     bp_nf_data[i] = nf_data[i]
-            if self.is_myFFTPlot:
+            if self.is_fft_plot:
                 sp = [ [] for row in range(self._chan) ]
                 freq = [ [] for row in range(self._chan) ]
                 fft_len = 8
                 min_y = 0
-                self.myFFTPlot.fft_plot.clear()
+                self.fft_plot.fft_plot.clear()
                 if self.fftLogMode:
-                    self.myFFTPlot.fft_plot.setLogMode(False, True)
+                    self.fft_plot.fft_plot.setLogMode(False, True)
                 else:
-                    self.myFFTPlot.fft_plot.setLogMode(False, False)
-                self.myFFTPlot.fft_plot.setXRange(0.01, self.fftFreqLen + 3, padding=0)
-                self.myFFTPlot.fft_plot.setYRange(-1, self.fftuvLen, padding=0.05)
-                self.myFFTPlot.fft_plot.setLabel('bottom', 'Frequency(Hz)')
-                self.myFFTPlot.fft_plot.setLabel('left', 'Amplitude(uV)')
-                self.myFFTPlot.fft_plot.showGrid(x=True, y=True)
+                    self.fft_plot.fft_plot.setLogMode(False, False)
+                self.fft_plot.fft_plot.setXRange(0.01, self.fftFreqLen + 3, padding=0)
+                self.fft_plot.fft_plot.setYRange(-1, self.fftuvLen, padding=0.05)
+                self.fft_plot.fft_plot.setLabel('bottom', 'Frequency(Hz)')
+                self.fft_plot.fft_plot.setLabel('left', 'Amplitude(uV)')
+                self.fft_plot.fft_plot.showGrid(x=True, y=True)
                 for k in range(self._chan):
                     if self.FFTactiveChannels[k] == True:
                         sp[k] = fft_magnitude(bp_nf_data[k][-fft_bound:], 2)
                         sp[k] = np.absolute(sp[k]) / (self.SamplingRate * 1.0)
                         sp[k][0] = 0.01
-                        self.myFFTPlot.fft_plot.plot(pen=pg.mkPen(self.colors[k], width=1)).setData(sp[k])
+                        self.fft_plot.fft_plot.plot(pen=pg.mkPen(self.colors[k], width=1)).setData(sp[k])
                 if self.FFTactiveChannels[self._chan] == True:
                     for k in range(self._chan):
                         self.FFTactiveChannels[k] = True
                     self.FFTactiveChannels[self._chan] = False
             bandsList = [[0.5, 4], [4, 8], [8, 13], [13, 32], [32, 100]]
             bands = [ 0 for i in range(len(bandsList)) ]
-            if self.is_myBandPower:
+            if self.is_band_power:
                 tmp = []
                 for i in range(self._chan):
                     if self.channals_on[i] == False:
@@ -1068,19 +1068,19 @@ class MyMainWindow(MainWindowInterface):
                 bands = standard_powers(np.array(band_data), tmp, self.SamplingRate)
                 target = [ round(np.sqrt(bands[i]), 3) for i in range(5) ]
                 bg1 = pg.BarGraphItem(x=[*(1, 2, 3, 4, 5)], y1=target, width=0.6, brushes=[*('b', 'c', 'g', 'y', 'r')])
-                self.myBandPower.band_plot.clear()
-                waves_xax = self.myBandPower.band_plot.getAxis('bottom')
+                self.band_power.band_plot.clear()
+                waves_xax = self.band_power.band_plot.getAxis('bottom')
                 waves_xax.setTicks([list(zip(range(6), ('', 'Delta\n1-4Hz', 'Theta\n4-8Hz', 'Alpha\n8-13Hz', 'Beta\n13-30Hz', 'Gama\n30-55Hz')))])
-                self.myBandPower.band_plot.setLabel('bottom', 'EEG Power Bands')
-                self.myBandPower.band_plot.setLabel('left', 'Power——(uV)^2/Hz')
-                self.myBandPower.band_plot.setXRange(1, 5, padding=0.1)
-                self.myBandPower.band_plot.addItem(bg1)
-                self.myBandPower.band_plot.showGrid(x=True, y=True)
+                self.band_power.band_plot.setLabel('bottom', 'EEG Power Bands')
+                self.band_power.band_plot.setLabel('left', 'Power——(uV)^2/Hz')
+                self.band_power.band_plot.setXRange(1, 5, padding=0.1)
+                self.band_power.band_plot.addItem(bg1)
+                self.band_power.band_plot.showGrid(x=True, y=True)
             end_time = datetime.datetime.now()
             if (end_time - start_time).microseconds > 150000:
-                self.myLogger.write(str((end_time - start_time).microseconds) + 'processer!!')
+                self.logger.write(str((end_time - start_time).microseconds) + 'processer!!')
         except Exception as ex:
-            self.myLogger.write('Updater error!')
+            self.logger.write('Updater error!')
             logging.exception(ex)
             self.stopThread()
             self.stop_openbci()
@@ -1092,7 +1092,7 @@ class MyMainWindow(MainWindowInterface):
     def _ts_curve(self, index):
         curve = self.ts_curves.get(index)
         if curve is None:
-            plot = self.myTimeSeries.my_plot_widgets[index].ts_plot
+            plot = self.time_series.plot_widgets[index].ts_plot
             curve = plot.plot(pen=pg.mkPen(self.colors[index], width=1))
             self.ts_curves[index] = curve
         return curve
@@ -1130,7 +1130,7 @@ class MyMainWindow(MainWindowInterface):
                 for i in range(self._chan):
                     bp_nf_data[i] = nf_data[i]
             bp_nf_data = np.array(bp_nf_data, dtype=float64)
-            if self.is_myExtrigger and self.is_startExtrigger:
+            if self.is_external_trigger and self.is_startExtrigger:
                 if self.extri_count == 0:
                     self.start_extri = time.time()
                 previous_flag = self.extri_flag
@@ -1140,45 +1140,45 @@ class MyMainWindow(MainWindowInterface):
                 self.extri_flag = visible_start
                 while self.extri_flag < data.shape[1]:
                     if data[self._chan + 1][self.extri_flag]:
-                        self.myExtrigger.label33.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightblue")
-                        self.myExtrigger.label33.setText('1')
-                        self.myExtrigger.label33.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label33.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightblue")
+                        self.external_trigger.label33.setText('1')
+                        self.external_trigger.label33.setAlignment(Qt.AlignCenter)
                     else:
-                        self.myExtrigger.label33.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
-                        self.myExtrigger.label33.setText('0')
-                        self.myExtrigger.label33.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label33.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label33.setText('0')
+                        self.external_trigger.label33.setAlignment(Qt.AlignCenter)
                     if data[self._chan + 2][self.extri_flag]:
-                        self.myExtrigger.label34.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightgreen")
-                        self.myExtrigger.label34.setText('1')
-                        self.myExtrigger.label34.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label34.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightgreen")
+                        self.external_trigger.label34.setText('1')
+                        self.external_trigger.label34.setAlignment(Qt.AlignCenter)
                     else:
-                        self.myExtrigger.label34.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
-                        self.myExtrigger.label34.setText('0')
-                        self.myExtrigger.label34.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label34.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label34.setText('0')
+                        self.external_trigger.label34.setAlignment(Qt.AlignCenter)
                     if data[self._chan + 3][self.extri_flag]:
-                        self.myExtrigger.label35.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightpurple")
-                        self.myExtrigger.label35.setText('1')
-                        self.myExtrigger.label35.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label35.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightpurple")
+                        self.external_trigger.label35.setText('1')
+                        self.external_trigger.label35.setAlignment(Qt.AlignCenter)
                     else:
-                        self.myExtrigger.label35.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
-                        self.myExtrigger.label35.setText('0')
-                        self.myExtrigger.label35.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label35.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label35.setText('0')
+                        self.external_trigger.label35.setAlignment(Qt.AlignCenter)
                     if data[self._chan + 4][self.extri_flag]:
-                        self.myExtrigger.label36.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(0,255,255)")
-                        self.myExtrigger.label36.setText('1')
-                        self.myExtrigger.label36.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label36.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(0,255,255)")
+                        self.external_trigger.label36.setText('1')
+                        self.external_trigger.label36.setAlignment(Qt.AlignCenter)
                     else:
-                        self.myExtrigger.label36.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
-                        self.myExtrigger.label36.setText('0')
-                        self.myExtrigger.label36.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label36.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label36.setText('0')
+                        self.external_trigger.label36.setAlignment(Qt.AlignCenter)
                     if data[self._chan + 5][self.extri_flag]:
-                        self.myExtrigger.label37.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(210,180,140)")
-                        self.myExtrigger.label37.setText('1')
-                        self.myExtrigger.label37.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label37.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(210,180,140)")
+                        self.external_trigger.label37.setText('1')
+                        self.external_trigger.label37.setAlignment(Qt.AlignCenter)
                     else:
-                        self.myExtrigger.label37.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
-                        self.myExtrigger.label37.setText('0')
-                        self.myExtrigger.label37.setAlignment(Qt.AlignCenter)
+                        self.external_trigger.label37.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
+                        self.external_trigger.label37.setText('0')
+                        self.external_trigger.label37.setAlignment(Qt.AlignCenter)
                     self.extri_flag += 1
                 self.extri_count += max(0, self.extri_flag - previous_flag)
                 self.extri_seen_total = view.total_samples
@@ -1186,41 +1186,41 @@ class MyMainWindow(MainWindowInterface):
                     end_extri = time.time()
                     self.fps_extri = int(self.extri_count / float(end_extri - self.start_extri))
                     self.extri_count = 0
-            if self.is_myBattery and self.is_startBattery:
+            if self.is_battery and self.is_startBattery:
                 self.hardwareInfo.dataMode = 'Battery'
                 battery_get = data[self._chan + 6][-1] * pow(16, 2) + data[self._chan + 7][-1]
                 battery_percent_volt = battery_get / 500
                 battery_percent = battery_percent_volt / 4.2 * 100
-                self.myBattery.bat_widget.setValue(int(battery_percent))
-                self.myBattery.label.setText(str(int(battery_percent)) + '%')
-            if self.is_myBrainTopography and self.startButton_isclicked == True:
+                self.battery.bat_widget.setValue(int(battery_percent))
+                self.battery.label.setText(str(int(battery_percent)) + '%')
+            if self.is_topography and self.startButton_isclicked == True:
                 topodata1 = bp_nf_data[:, -self.ts_plot_range:]
                 rows = min(len(self.Topography_data), len(self.chanMatched_index), topodata1.shape[0])
                 for j in range(rows):
                     self.Topography_data[j] = topodata1[self.chanMatched_index[j], :]
                 self.data_queue.put(self.Topography_data)
-            if self.is_myAccelerometer and self.is_startAccelerometer:
-                self.myAccelerometer.acc_plot.clear()
+            if self.is_accelerometer and self.is_startAccelerometer:
+                self.accelerometer.acc_plot.clear()
                 acc_x = round(t_data[self._chan][-1], 3)
                 acc_y = round(t_data[self._chan + 1][-1], 3)
                 acc_z = round(t_data[self._chan + 2][-1], 3)
-                self.myAccelerometer.acc_len_z = acc_z * 60
-                self.myAccelerometer.acc_len_x = acc_x * 60
-                self.myAccelerometer.acc_len_y = acc_y * 60
-                self.myAccelerometer.update()
-                self.myAccelerometer.xlabel.setText('    X: ' + str(acc_x))
-                self.myAccelerometer.ylabel.setText('    Y: ' + str(acc_y))
-                self.myAccelerometer.zlabel.setText('    Z: ' + str(acc_z))
-                self.myAccelerometer.acc_plot.showGrid(x=True, y=True, alpha=2.5)
-                ax = self.myAccelerometer.acc_plot.getAxis('bottom')
+                self.accelerometer.acc_len_z = acc_z * 60
+                self.accelerometer.acc_len_x = acc_x * 60
+                self.accelerometer.acc_len_y = acc_y * 60
+                self.accelerometer.update()
+                self.accelerometer.xlabel.setText('    X: ' + str(acc_x))
+                self.accelerometer.ylabel.setText('    Y: ' + str(acc_y))
+                self.accelerometer.zlabel.setText('    Z: ' + str(acc_z))
+                self.accelerometer.acc_plot.showGrid(x=True, y=True, alpha=2.5)
+                ax = self.accelerometer.acc_plot.getAxis('bottom')
                 x_range = range(0, self.ts_plot_range + 1, self.SamplingRate)
                 dx = [ (value, str(value)) for value in list(x_range) ]
                 ax.setTicks([dx, []])
                 ax.setStyle(showValues=False)
                 for i in range(3):
-                    self.myAccelerometer.acc_plot.plot(pen=pg.mkPen(self.colors[i], width=1)).setData(t_data[self._chan + i][-self.ts_plot_range:])
+                    self.accelerometer.acc_plot.plot(pen=pg.mkPen(self.colors[i], width=1)).setData(t_data[self._chan + i][-self.ts_plot_range:])
             RAILED_MAX = self.eeg_scale * float(pow(2, 23))
-            if self.is_myTimeSeries:
+            if self.is_time_series:
                 t_data = np.array(t_data)[:, -self.ts_plot_range:]
                 bp_nf_data = bp_nf_data[:, -self.ts_plot_range:]
                 # Draw at most ~2000 points per trace.  Filtering and RMS
@@ -1243,43 +1243,43 @@ class MyMainWindow(MainWindowInterface):
                         else:
                             standardDev = abs(standardDev) * np.sqrt(2.0) / 6e-09 - 3800
                         self.resistanceArray[j] = standardDev
-                    self.myTimeSeries.my_plot_widgets[j].ts_plot.showGrid(x=True, y=False, alpha=2.5)
-                    self.myTimeSeries.my_plot_widgets[j].ts_plot.setXRange(0, self.ts_plot_range + 1, padding=0)
-                    ax = self.myTimeSeries.my_plot_widgets[j].ts_plot.getAxis('bottom')
+                    self.time_series.plot_widgets[j].ts_plot.showGrid(x=True, y=False, alpha=2.5)
+                    self.time_series.plot_widgets[j].ts_plot.setXRange(0, self.ts_plot_range + 1, padding=0)
+                    ax = self.time_series.plot_widgets[j].ts_plot.getAxis('bottom')
                     x_range = range(0, self.ts_plot_range + 1, self.SamplingRate)
                     dx = [ (value, str(value)) for value in list(x_range) ]
                     ax.setTicks([dx, []])
                     ax.setStyle(showValues=False)
-                    self.myTimeSeries.my_plot_widgets[j].ts_plot.getAxis('left').setStyle(showValues=False)
+                    self.time_series.plot_widgets[j].ts_plot.getAxis('left').setStyle(showValues=False)
                     min_data = bp_nf_data[j].min()
                     max_data = bp_nf_data[j].max()
                     bound_data = max(abs(min_data), abs(max_data))
                     y_median = np.median(bp_nf_data[j])
                     if self.vert_scale > 0:
-                        self.myTimeSeries.my_plot_widgets[j].ts_plot.setYRange(y_median - self.vert_scale, y_median + self.vert_scale, padding=0.1)
+                        self.time_series.plot_widgets[j].ts_plot.setYRange(y_median - self.vert_scale, y_median + self.vert_scale, padding=0.1)
                     elif self.vert_scale == -1:
                         if abs(max_data - min_data) > 10.0:
-                            self.myTimeSeries.my_plot_widgets[j].ts_plot.setYRange(-bound_data, bound_data, padding=0)
-                            self.myTimeSeries.my_plot_widgets[j].maxLabel.setText('+' + str(format(bound_data, '.2f')) + 'uV')
-                            self.myTimeSeries.my_plot_widgets[j].minLabel.setText(str(format(-bound_data, '.2f')) + 'uV')
+                            self.time_series.plot_widgets[j].ts_plot.setYRange(-bound_data, bound_data, padding=0)
+                            self.time_series.plot_widgets[j].maxLabel.setText('+' + str(format(bound_data, '.2f')) + 'uV')
+                            self.time_series.plot_widgets[j].minLabel.setText(str(format(-bound_data, '.2f')) + 'uV')
                         else:
-                            self.myTimeSeries.my_plot_widgets[j].maxLabel.setText('+5uV')
-                            self.myTimeSeries.my_plot_widgets[j].minLabel.setText('-5uV')
-                            self.myTimeSeries.my_plot_widgets[j].ts_plot.setYRange(y_median - 5.0, y_median + 5.0, padding=0)
+                            self.time_series.plot_widgets[j].maxLabel.setText('+5uV')
+                            self.time_series.plot_widgets[j].minLabel.setText('-5uV')
+                            self.time_series.plot_widgets[j].ts_plot.setYRange(y_median - 5.0, y_median + 5.0, padding=0)
                     elif self.vert_scale == -2:
                         y_mid = (max_data + min_data) / 2
-                        self.myTimeSeries.my_plot_widgets[j].ts_plot.setYRange(y_mid - abs(max_data - min_data) / 2, y_mid + abs(max_data - min_data) / 2, padding=0)
+                        self.time_series.plot_widgets[j].ts_plot.setYRange(y_mid - abs(max_data - min_data) / 2, y_mid + abs(max_data - min_data) / 2, padding=0)
                         if y_mid + abs(max_data - min_data) / 2 > 0:
-                            self.myTimeSeries.my_plot_widgets[j].maxLabel.setText('+' + str(format(y_mid + abs(max_data - min_data) / 2, '.2f')) + 'uV')
+                            self.time_series.plot_widgets[j].maxLabel.setText('+' + str(format(y_mid + abs(max_data - min_data) / 2, '.2f')) + 'uV')
                         else:
-                            self.myTimeSeries.my_plot_widgets[j].maxLabel.setText(str(format(y_mid + abs(max_data - min_data) / 2, '.2f')) + 'uV')
+                            self.time_series.plot_widgets[j].maxLabel.setText(str(format(y_mid + abs(max_data - min_data) / 2, '.2f')) + 'uV')
                         if y_mid - abs(max_data - min_data) / 2 > 0:
-                            self.myTimeSeries.my_plot_widgets[j].minLabel.setText('+' + str(format(y_mid - abs(max_data - min_data) / 2, '.2f')) + 'uV')
+                            self.time_series.plot_widgets[j].minLabel.setText('+' + str(format(y_mid - abs(max_data - min_data) / 2, '.2f')) + 'uV')
                         else:
-                            self.myTimeSeries.my_plot_widgets[j].minLabel.setText(str(format(y_mid - abs(max_data - min_data) / 2, '.2f')) + 'uV')
+                            self.time_series.plot_widgets[j].minLabel.setText(str(format(y_mid - abs(max_data - min_data) / 2, '.2f')) + 'uV')
                     if self.resistanceOn[j]:
                         self._ts_curve(j).setData(plot_x, plot_data[j])
-                        self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(f'{round(self.resistanceArray[j] / 1000.0, 3)}kΩ')
+                        self.time_series.plot_widgets[j].dataLabel.setText(f'{round(self.resistanceArray[j] / 1000.0, 3)}kΩ')
                         continue
                     percent = bound_data / RAILED_MAX * 100.0
                     notification = 'Not Railed ' + format(percent, '.2f') + '% '
@@ -1290,20 +1290,20 @@ class MyMainWindow(MainWindowInterface):
                     if percent > 90.0:
                         notification = 'Railed ' + format(percent, '.2f') + '% '
                         notificationColor = 'red'
-                    if notificationColor != self.myTimeSeries.my_plot_widgets[j].dataLabelColor:
-                        self.myTimeSeries.my_plot_widgets[j].dataLabel.setStyleSheet('font: 8pt "黑体";background:transparent; color:' + notificationColor)
-                        self.myTimeSeries.my_plot_widgets[j].dataLabelColor = notificationColor
+                    if notificationColor != self.time_series.plot_widgets[j].dataLabelColor:
+                        self.time_series.plot_widgets[j].dataLabel.setStyleSheet('font: 8pt "黑体";background:transparent; color:' + notificationColor)
+                        self.time_series.plot_widgets[j].dataLabelColor = notificationColor
                     std_data = np.std(bp_nf_data[j][-int(fft_bound):])
                     rms_value = np.sqrt(np.mean(np.square(bp_nf_data[j][-int(fft_bound):])))
                     self._ts_curve(j).setData(plot_x, plot_data[j])
-                    self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(f'{round(np.average(bp_nf_data[j]), 3)}uV')
-                    self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(notification + format(round(std_data, 2), '.2f') + 'uVrms')
+                    self.time_series.plot_widgets[j].dataLabel.setText(f'{round(np.average(bp_nf_data[j]), 3)}uV')
+                    self.time_series.plot_widgets[j].dataLabel.setText(notification + format(round(std_data, 2), '.2f') + 'uVrms')
             del t_data
             del bp_nf_data
             del nf_data
             end_time = datetime.datetime.now()
         except Exception as ex:
-            self.myLogger.write('Updater error!')
+            self.logger.write('Updater error!')
             logging.exception(ex)
             self.stopThread()
             self.stop_openbci()
@@ -1323,10 +1323,10 @@ class MyMainWindow(MainWindowInterface):
         )
         self.control_server.start()
         self.control_discovery_path = os.path.join(
-            self.myRecording.doc_path, 'control.json'
+            self.recording.doc_path, 'control.json'
         )
         self.control_server.write_discovery(self.control_discovery_path)
-        self.myLogger.write(
+        self.logger.write(
             'FreeBCI: control API %s token %s (discovery %s)'
             % (
                 self.control_server.address,
@@ -1402,7 +1402,7 @@ class MyMainWindow(MainWindowInterface):
 
     @QtCore.pyqtSlot()
     def _shutdown_from_control(self):
-        self.myLogger.write('FreeBCI: shutdown requested by control client')
+        self.logger.write('FreeBCI: shutdown requested by control client')
         self._force_close = True
         self.close()
 
@@ -1421,7 +1421,7 @@ class MyMainWindow(MainWindowInterface):
         release = getattr(self, 'actionRelease', None)
         if release is not None:
             release.setEnabled(actions.release)
-        hardware_button = getattr(self.myTimeSeries, 'hardwareButton', None)
+        hardware_button = getattr(self.time_series, 'hardwareButton', None)
         if hardware_button is not None:
             hardware_button.setEnabled(actions.hardware)
         channels_button = getattr(self, 'chan_electrode_settingspushButton', None)
@@ -1435,7 +1435,7 @@ class MyMainWindow(MainWindowInterface):
         try:
             marker = self.session_view_model.add_marker('manual')
         except Exception as ex:
-            self.myLogger.write('WARNNING: could not add marker: %s' % ex)
+            self.logger.write('WARNNING: could not add marker: %s' % ex)
             self.stateLabel.setText('Could not add marker.')
             return
         self.stateLabel.setText(
@@ -1447,7 +1447,7 @@ class MyMainWindow(MainWindowInterface):
             self.diagnostics_window.raise_()
             self.diagnostics_window.activateWindow()
             return
-        self.diagnostics_window = MyDiagnostics(self.diagnostics_snapshot, self)
+        self.diagnostics_window = DiagnosticsDialog(self.diagnostics_snapshot, self)
         self.diagnostics_window.show()
 
     def diagnostics_snapshot(self):
@@ -1463,7 +1463,7 @@ class MyMainWindow(MainWindowInterface):
         return control
 
     def _lsl_summary(self):
-        networking = getattr(self, 'myNetWidget', None)
+        networking = getattr(self, 'networking', None)
         if networking is None:
             return 'not available'
         running = []
@@ -1506,7 +1506,7 @@ class MyMainWindow(MainWindowInterface):
             session_id=datetime.datetime.now().strftime('FreeBCI_%Y%m%d_%H%M%S'),
             board=profile,
             sampling_rate=int(self.SamplingRate),
-            output_root=self.myRecording.doc_path,
+            output_root=self.recording.doc_path,
             channel_count=self._chan,
         )
         # A 16-channel Wi-Fi board resets to 8-channel interleaved frames
@@ -1525,11 +1525,11 @@ class MyMainWindow(MainWindowInterface):
         self.device_manager.mark_streaming()
         if self.control_server is not None and self.control_discovery_path:
             self.control_server.write_discovery(self.control_discovery_path)
-        self.myLogger.write(
+        self.logger.write(
             'FreeBCI: session recording started at ' + controller.output_path
         )
         if self.control_server is not None:
-            self.myLogger.write(
+            self.logger.write(
                 'FreeBCI: control API %s (discovery %s)'
                 % (self.control_server.address, self.control_discovery_path)
             )
@@ -1541,7 +1541,7 @@ class MyMainWindow(MainWindowInterface):
             controller.start()
             self._activate_session(controller)
         except Exception as ex:
-            self.myLogger.write('WARNNING: could not start board.')
+            self.logger.write('WARNNING: could not start board.')
             if controller is not None:
                 try:
                     controller.stop()
@@ -1562,21 +1562,21 @@ class MyMainWindow(MainWindowInterface):
             self.LSLnewDataLen = 0
             if self.session_controller is not None:
                 status = self.session_controller.stop()
-                self.myLogger.write('FreeBCI: session stopped with status %s' % status.value)
+                self.logger.write('FreeBCI: session stopped with status %s' % status.value)
                 self.session_controller = None
             self.device_manager.mark_ready()
             if self.control_server is not None and self.control_discovery_path:
                 self.control_server.write_discovery(self.control_discovery_path)
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
 
-            self.myLogger.write('FreeBCI: stopButton was pressed. Stopping data transfer. wait a few seconds.')
+            self.logger.write('FreeBCI: stopButton was pressed. Stopping data transfer. wait a few seconds.')
         except Exception as ex:
-            self.myLogger.write('WARNNING: could not stop board.')
+            self.logger.write('WARNNING: could not stop board.')
             logging.exception(ex)
 
     def fps_real(self):
-        if self.is_myTimeSeries:
-            if self.is_myExtrigger:
+        if self.is_time_series:
+            if self.is_external_trigger:
                 return min(self.fps_extri, self.fps_win)
             else:
                 return self.fps_win
@@ -1612,7 +1612,7 @@ class MyMainWindow(MainWindowInterface):
             if self.startLSLButton_isclicked == True:
                 lsl_values = buffer_data[1:self._chan + 1].T
                 for index in (1, 2, 3):
-                    if getattr(self.myNetWidget, 'LSLdataType%d' % index) == 'Time Series':
+                    if getattr(self.networking, 'LSLdataType%d' % index) == 'Time Series':
                         queue = getattr(self, 'lsl_queues', {}).get(index)
                         if queue is not None:
                             queue.push(lsl_values)
@@ -1624,7 +1624,7 @@ class MyMainWindow(MainWindowInterface):
 
             del buffer_data
         except Exception as ex:
-            self.myLogger.write('poll data')
+            self.logger.write('poll data')
             raise ex
 
 class LogStringAxis(pg.AxisItem):

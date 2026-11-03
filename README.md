@@ -587,7 +587,8 @@ FreeBCI_GUI.py            application entry point
 brainflow/                bundled BrainFlow build for FreeBCI hardware
 freebci/                  application package
   app.py                  Qt composition root and window bootstrap
-  api/                    acquisition, recording, and view logic
+  api/                    session view model and hardware-settings protocol
+  ui/                     main window, dialogs, views, workers, logging
   core/                   session, acquisition, and recording services
   design/                 window and dialog layouts
 settings/                 example hardware and electrode XML files

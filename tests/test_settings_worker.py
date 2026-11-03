@@ -5,7 +5,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt5 import QtWidgets
 
-from freebci.api.settings_worker import SettingsCommandWorker
+from freebci.ui.workers.settings_commands import SettingsCommandWorker
 
 
 class FakeBoard:

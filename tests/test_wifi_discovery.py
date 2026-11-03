@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from freebci.api.wifi_discovery import (
+from freebci.ui.workers.wifi_discovery import (
     candidate_addresses,
     parse_board_payload,
     parse_wifi_interfaces,
@@ -30,19 +30,19 @@ class BoardPayloadTest(unittest.TestCase):
 
     def test_probe_returns_a_device_only_for_a_board_response(self):
         payload = '{"board_connected": true, "num_channels": 16, "board_type": "daisy"}'
-        with patch("freebci.api.wifi_discovery._read_text", return_value=payload):
+        with patch("freebci.ui.workers.wifi_discovery._read_text", return_value=payload):
             device = probe_board("192.168.4.1")
         self.assertIsNotNone(device)
         self.assertEqual(device.channels, 16)
         self.assertTrue(device.ready)
 
     def test_probe_returns_none_when_nothing_answers(self):
-        with patch("freebci.api.wifi_discovery._read_text", side_effect=OSError("offline")):
+        with patch("freebci.ui.workers.wifi_discovery._read_text", side_effect=OSError("offline")):
             self.assertIsNone(probe_board("192.168.4.1"))
 
     def test_probe_falls_back_to_the_wifi_manager_page(self):
         with patch(
-            "freebci.api.wifi_discovery._read_text",
+            "freebci.ui.workers.wifi_discovery._read_text",
             side_effect=[OSError("no board endpoint"), "<title>FreeBCI WiFi Manager</title>"],
         ):
             device = probe_board("192.168.4.1")

@@ -4,21 +4,21 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyperclip
 from freebci.design.console_window import Ui_TerminalDialog
-from freebci.api.my_logger import MyLogger
+from freebci.ui.console_logger import ConsoleLogger
 
-class MyConsoleWindow(QtWidgets.QDialog, Ui_TerminalDialog):
+class ConsoleWindow(QtWidgets.QDialog, Ui_TerminalDialog):
     
     def __new__(cls, log_file, Logger):
         if not hasattr(cls, 'instance'):
-            cls._MyConsoleWindow__instance = super().__new__(cls)
-        return cls._MyConsoleWindow__instance
+            cls._ConsoleWindow__instance = super().__new__(cls)
+        return cls._ConsoleWindow__instance
 
     
     def __init__(self, log_file, Logger, parent=None):
-        super(MyConsoleWindow, self).__init__(parent)
+        super(ConsoleWindow, self).__init__(parent)
         self.setupUi(self)
         self.log_file = log_file
-        self.myLogger = Logger
+        self.logger = Logger
         self.refreshText()
         self.textEdit.setReadOnly(True)
         self.openPushButton.clicked.connect(self.openPushButton_click)
@@ -36,17 +36,17 @@ class MyConsoleWindow(QtWidgets.QDialog, Ui_TerminalDialog):
         texts = self.textEdit.toPlainText()
         text = texts.split('\n')
         pyperclip.copy(text[-2])
-        self.myLogger.write('ConsoleLog: Previous line copied to clipboard.')
+        self.logger.write('ConsoleLog: Previous line copied to clipboard.')
 
     
     def copyFullPushButton_click(self):
         pyperclip.copy(self.textEdit.toPlainText())
-        self.myLogger.write('ConsoleLog: Copying console log to clipboard.')
+        self.logger.write('ConsoleLog: Copying console log to clipboard.')
 
     
     def openPushButton_click(self):
         os.startfile(self.log_file)
-        self.myLogger.write('ConsoleLog: Opening console log as text file.')
+        self.logger.write('ConsoleLog: Opening console log as text file.')
 
     
     def refreshText(self):
@@ -64,7 +64,7 @@ class MyConsoleWindow(QtWidgets.QDialog, Ui_TerminalDialog):
 
     
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-        self.myLogger.write('ConsoleWindow: Console closed.')
+        self.logger.write('ConsoleWindow: Console closed.')
         return super().closeEvent(a0)
 
     

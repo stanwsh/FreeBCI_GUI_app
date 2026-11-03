@@ -2,11 +2,11 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import PlotWidget
 from freebci.design.layout_window import Ui_Layout
 
-class MyLayout(QtWidgets.QDialog, Ui_Layout):
+class LayoutDialog(QtWidgets.QDialog, Ui_Layout):
     _signal = QtCore.pyqtSignal(int)
     
     def __init__(self, parent_path):
-        super(MyLayout, self).__init__()
+        super(LayoutDialog, self).__init__()
         self.setupUi(self)
         icon = QtGui.QIcon()
         self.parent_path = parent_path

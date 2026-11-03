@@ -3,7 +3,7 @@ import threading
 
 from PyQt5 import QtCore
 
-from freebci.api.wifi_discovery import discover
+from freebci.ui.workers.wifi_discovery import discover
 from freebci.core.gateway import prepare_wifi_board
 
 

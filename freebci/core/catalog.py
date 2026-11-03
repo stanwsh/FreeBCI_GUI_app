@@ -1,7 +1,7 @@
 """Board catalog data shared by the GUI and the core.
 
 The table is intentionally data, not device logic: no BrainFlow import, no
-BoardShim creation.  ``myConnectionInfo`` still exposes the legacy list shape
+BoardShim creation.  ``ConnectionInfo`` still exposes the legacy list shape
 for the existing dialogs, but the catalog is the single source of truth.
 """
 

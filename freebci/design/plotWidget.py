@@ -15,10 +15,10 @@ class CustomViewBox(pg.ViewBox):
 
 
 
-class myplotWidget(QtWidgets.QWidget):
+class plot_widget(QtWidgets.QWidget):
     
     def __init__(self, channel, parent=None):
-        super(myplotWidget, self).__init__(parent)
+        super(plot_widget, self).__init__(parent)
         self.colors = [
             'red',
             'green',

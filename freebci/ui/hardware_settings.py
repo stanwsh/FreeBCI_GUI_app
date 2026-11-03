@@ -1,24 +1,24 @@
 import os
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
-from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
+from freebci.ui.connection_info import HardwareInfo, ConnectionInfo
 from freebci.core.settings import ChannelSettings, HardwareSettings, load_settings, save_settings
 from freebci.design.hardware_settings_interface import hardwareSettings_interface
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
-from freebci.api.settings_worker import SettingsCommandWorker
+from freebci.ui.workers.settings_commands import SettingsCommandWorker
 from functools import partial
 import xml.etree.ElementTree as ET
 
 
-class MyHardwareSettings(hardwareSettings_interface):
+class HardwareSettingsDialog(hardwareSettings_interface):
     _signal = QtCore.pyqtSignal(HardwareInfo)
-    _signal_con = QtCore.pyqtSignal(connectInfo)
+    _signal_con = QtCore.pyqtSignal(ConnectionInfo)
 
     def __init__(self, connect_info, hardwareInfo, Logger):
-        super(MyHardwareSettings, self).__init__(hardwareInfo)
+        super(HardwareSettingsDialog, self).__init__(hardwareInfo)
         self.connect_info = connect_info
         self.board = self.connect_info.board
         self.hardwareInfo = hardwareInfo
-        self.myLogger = Logger
+        self.logger = Logger
         max_samplingRate = self.connect_info.id_list[self.connect_info.board_id - 2023][5]
         n_rateCombobox = self.rateComboBox.count() - 1
         while n_rateCombobox >= 0:
@@ -30,7 +30,7 @@ class MyHardwareSettings(hardwareSettings_interface):
         self.loadButton.clicked.connect(self.loadButton_click)
         self.sendButton.clicked.connect(self.sendButton_click)
         self.isActiveSetting = [ False for i in range(self.hardwareInfo.channel_num) ]
-        self.myLogger.write(self.ischanClick)
+        self.logger.write(self.ischanClick)
         for i in range(len(self.PCAGainComboBoxs)):
             if self.ischanClick[i]:
                 self.PCAGainComboBoxs[i].activated.connect(partial(self.PCAGainComboBoxs_click, i))
@@ -46,15 +46,15 @@ class MyHardwareSettings(hardwareSettings_interface):
                 self.SRB2comboBoxs[i].setEnabled(False)
         self.parent_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.system_xml = ET.parse(self.parent_path + '\\settings\\hardware_settings' + str(self._chan) + '.xml').getroot()
-        my_file = [
+        selected_file = [
             self.parent_path + '/settings/send_settings.xml',
             'xml files(*.xml)']
         self.loadSendXML([
             self.parent_path + '/settings/hardware_settings' + str(self._chan) + '.xml',
             'xml files(*.xml)'])
         if self.hardwareInfo.isSend == True:
-            self.loadSendXML(my_file)
-            self.saveSettings(my_file, True)
+            self.loadSendXML(selected_file)
+            self.saveSettings(selected_file, True)
         else:
             self.hardwareInfo.SamplingRate = 250
         if self.connect_info.iswifi:
@@ -256,7 +256,7 @@ class MyHardwareSettings(hardwareSettings_interface):
         except Exception as ex:
             self._on_send_failed(str(ex))
             return
-        self.myLogger.write(
+        self.logger.write(
             'Send hardware settings: %d command(s)' % len(commands)
         )
         self._send_worker = SettingsCommandWorker(self.board, commands, self)
@@ -270,7 +270,7 @@ class MyHardwareSettings(hardwareSettings_interface):
         self.progressBar.setValue(10 + int(80.0 * completed / max(1, total)))
 
     def _on_send_failed(self, message):
-        self.myLogger.write('WARNNING: hardware settings failed: %s' % message)
+        self.logger.write('WARNNING: hardware settings failed: %s' % message)
         self.progressBar.setFormat('Failed: %s' % message)
         self.progressBar.setToolTip(message)
         self.sendButton.setEnabled(True)
@@ -278,13 +278,13 @@ class MyHardwareSettings(hardwareSettings_interface):
 
     def _on_send_succeeded(self):
         self.hardwareInfo.baudRate = self.connect_info.baudRate
-        self.myLogger.write(self.sendMode)
+        self.logger.write(self.sendMode)
         self.hardwareInfo.SamplingRate = int(
             HardwareSettingsProtocol.SamplingRate[self.rateComboBox.currentText()]
         )
         if self._chan == 16 and self.sendMode != 'FreeBCI':
             self.hardwareInfo.SamplingRate = int(self.hardwareInfo.SamplingRate / 2)
-        self.myLogger.write(self.hardwareInfo.SamplingRate)
+        self.logger.write(self.hardwareInfo.SamplingRate)
         self.hardwareInfo.isSend = True
         if self.connect_info.board_id == 30:
             self.hardwareInfo.sendMode = self.sendcomboBox.currentText()
@@ -294,15 +294,15 @@ class MyHardwareSettings(hardwareSettings_interface):
         self.connect_info.board = self.board
         self._signal.emit(self.hardwareInfo)
         self._signal_con.emit(self.connect_info)
-        my_file = [
+        selected_file = [
             self.parent_path + '/settings/send_settings.xml',
             'xml files(*.xml)']
         try:
-            self.saveSettings(my_file, True)
+            self.saveSettings(selected_file, True)
         except Exception as ex:
             # A read-only settings directory must not turn a successful board
             # configuration into a GUI exception.
-            self.myLogger.write('WARNNING: could not save settings: %s' % ex)
+            self.logger.write('WARNNING: could not save settings: %s' % ex)
 
     def _on_send_thread_finished(self):
         worker = getattr(self, '_send_worker', None)
@@ -314,7 +314,7 @@ class MyHardwareSettings(hardwareSettings_interface):
         if worker is not None and worker.isRunning():
             worker.cancel()
             worker.wait(3000)
-        super(MyHardwareSettings, self).closeEvent(event)
+        super(HardwareSettingsDialog, self).closeEvent(event)
 
     def string_pre(self, s):
         elem = str(s.text).replace(' ', '')
@@ -323,7 +323,7 @@ class MyHardwareSettings(hardwareSettings_interface):
 
     def loadSendXML(self, load_xml_path):
         if load_xml_path[0] != '':
-            self.myLogger.write(load_xml_path[0])
+            self.logger.write(load_xml_path[0])
             settings = load_settings(load_xml_path[0], expected_channels=len(self.ischanClick))
             for row, channel in enumerate(settings.channels):
                 if not self.ischanClick[row]:
@@ -366,11 +366,11 @@ class MyHardwareSettings(hardwareSettings_interface):
         default_dir = os.path.join(self.parent_path, 'settings')
         load_xml_path = qFileDialog.getOpenFileName(self, 'Open file', default_dir, 'xml files(*.xml)')
         if load_xml_path[0] != '':
-            self.myLogger.write('Load xml: ' + load_xml_path[0])
+            self.logger.write('Load xml: ' + load_xml_path[0])
             self.loadSendXML(load_xml_path)
 
-    def saveSettings(self, my_file, isRefresh):
-        if my_file[0] != '':
+    def saveSettings(self, selected_file, isRefresh):
+        if selected_file[0] != '':
             channels = tuple(
                 ChannelSettings(
                     pca_gain=self.PCAGainComboBoxs[row].currentText(),
@@ -390,22 +390,22 @@ class MyHardwareSettings(hardwareSettings_interface):
             except (TypeError, ValueError):
                 baud_rate = None
             save_settings(
-                my_file[0],
+                selected_file[0],
                 HardwareSettings(
                     channels=channels,
                     sampling_rate=sampling_rate,
                     baud_rate=baud_rate,
                 ),
             )
-            self.system_xml = ET.parse(my_file[0]).getroot()
+            self.system_xml = ET.parse(selected_file[0]).getroot()
             if isRefresh == True:
                 self.refreshHardwareSetting()
 
     def saveButton_click(self):
         dialog_save = QtWidgets.QFileDialog()
         default_dir = os.path.join(self.parent_path, 'settings')
-        my_file = dialog_save.getSaveFileName(self, 'Open file', default_dir, 'xml files(*.xml)')
-        if my_file[0] != '':
-            self.myLogger.write('Save xml: ' + my_file[0])
-        self.saveSettings(my_file, False)
+        selected_file = dialog_save.getSaveFileName(self, 'Open file', default_dir, 'xml files(*.xml)')
+        if selected_file[0] != '':
+            self.logger.write('Save xml: ' + selected_file[0])
+        self.saveSettings(selected_file, False)
 

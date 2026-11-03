@@ -3,25 +3,25 @@ import os
 
 from pyqtgraph.Qt import QtCore, QtWidgets
 
-from freebci.api.myConnectionInfo import connectInfo
-from freebci.api.wifi_discovery import (
+from freebci.ui.connection_info import ConnectionInfo
+from freebci.ui.workers.wifi_discovery import (
     DEFAULT_ADDRESS,
     DEFAULT_PORT,
     DiscoveryResult,
     WifiDevice,
 )
-from freebci.api.wifi_worker import WifiConnectWorker, WifiDiscoveryWorker
+from freebci.ui.workers.wifi_connect import WifiConnectWorker, WifiDiscoveryWorker
 from freebci.design.wifi_connection import Ui_wifiDialog
 
 
-class MyWifiConnection(QtWidgets.QDialog, Ui_wifiDialog):
-    _signal = QtCore.pyqtSignal(connectInfo)
+class WifiConnectionDialog(QtWidgets.QDialog, Ui_wifiDialog):
+    _signal = QtCore.pyqtSignal(ConnectionInfo)
 
     def __init__(self, connect_info, board_id, Logger, parent=None):
-        super(MyWifiConnection, self).__init__(parent)
+        super(WifiConnectionDialog, self).__init__(parent)
         self.setupUi(self)
         self.connect_info = connect_info
-        self.myLogger = Logger
+        self.logger = Logger
         self.connect_info.board_id = board_id
         self.board_entry = self.connect_info.id_list[board_id - 2023]
         self.connect_info.wifi_address = DEFAULT_ADDRESS
@@ -176,7 +176,7 @@ class MyWifiConnection(QtWidgets.QDialog, Ui_wifiDialog):
         self._update_connect_button()
 
     def _on_discovery_failed(self, message):
-        self.myLogger.write('wifi discovery error: ' + message)
+        self.logger.write('wifi discovery error: ' + message)
         self.wifiLabel.setText('Wi-Fi network')
         self.wifiDetailLabel.setText('Could not read the current network.')
         self.messageLabel.setText(
@@ -249,7 +249,7 @@ class MyWifiConnection(QtWidgets.QDialog, Ui_wifiDialog):
 
         self.connect_info.wifi_address = address
         self.connect_info.wifi_port = port
-        self.myLogger.write(
+        self.logger.write(
             'Networking: [IP]: %s [Port]: %d' % (self.connect_info.wifi_address, port)
         )
         self._set_busy(True)
@@ -279,16 +279,16 @@ class MyWifiConnection(QtWidgets.QDialog, Ui_wifiDialog):
         self.connect_info.board = board
         self._ready_to_close = True
         self.messageLabel.setText('Connected. Preparing the dashboard...')
-        self.myLogger.write('connection successfully')
-        self.myLogger.write('=================================================')
-        self.myLogger.write('||             INITIALIZING SYSTEM             ||')
-        self.myLogger.write('=================================================')
-        self.myLogger.write('Board Information: ')
-        self.myLogger.write(response)
+        self.logger.write('connection successfully')
+        self.logger.write('=================================================')
+        self.logger.write('||             INITIALIZING SYSTEM             ||')
+        self.logger.write('=================================================')
+        self.logger.write('Board Information: ')
+        self.logger.write(response)
         self._signal.emit(self.connect_info)
 
     def _on_failed(self, message):
-        self.myLogger.write('wifi connect error: ' + message)
+        self.logger.write('wifi connect error: ' + message)
         self.messageLabel.setText('Connection failed: %s' % message)
         self._set_busy(False)
 
@@ -317,4 +317,4 @@ class MyWifiConnection(QtWidgets.QDialog, Ui_wifiDialog):
                 event.ignore()
                 return
             self._discovery = None
-        super(MyWifiConnection, self).closeEvent(event)
+        super(WifiConnectionDialog, self).closeEvent(event)

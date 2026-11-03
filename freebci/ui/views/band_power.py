@@ -1,10 +1,10 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import PlotWidget
 
-class MyBandPower(QtWidgets.QWidget):
+class BandPowerView(QtWidgets.QWidget):
     
     def __init__(self, parent=None):
-        super(MyBandPower, self).__init__(parent)
+        super(BandPowerView, self).__init__(parent)
         self.mainLayout = QtWidgets.QGridLayout(self)
         self.mainLayout.setSpacing(0)
         self.mainLayout.setContentsMargins(0, 0, 0, 0)

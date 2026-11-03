@@ -5,7 +5,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from freebci.api.my_main_window import MyMainWindow
+from freebci.ui.main_window import MainWindow
 from freebci.core.lsl_queue import LslSampleQueue
 
 
@@ -41,30 +41,30 @@ class TestLslFanOut(TestCase):
         second.push(np.arange(6, 12, dtype=float).reshape(2, 3))
         window = SimpleNamespace(
             lsl_queues={1: first, 2: second, 3: LslSampleQueue()},
-            myNetWidget=SimpleNamespace(LSLoutlet1=_Outlet(), LSLoutlet2=_Outlet(), LSLoutlet3=None),
-            myLogger=_Logger(),
+            networking=SimpleNamespace(LSLoutlet1=_Outlet(), LSLoutlet2=_Outlet(), LSLoutlet3=None),
+            logger=_Logger(),
         )
 
-        MyMainWindow.sendLSLStream(window, 1)
-        MyMainWindow.sendLSLStream(window, 2)
+        MainWindow.sendLSLStream(window, 1)
+        MainWindow.sendLSLStream(window, 2)
 
-        self.assertEqual(len(window.myNetWidget.LSLoutlet1.chunks), 1)
-        self.assertEqual(len(window.myNetWidget.LSLoutlet1.chunks[0]), 2)
-        np.testing.assert_array_equal(window.myNetWidget.LSLoutlet1.chunks[0][1], [3, 4, 5])
+        self.assertEqual(len(window.networking.LSLoutlet1.chunks), 1)
+        self.assertEqual(len(window.networking.LSLoutlet1.chunks[0]), 2)
+        np.testing.assert_array_equal(window.networking.LSLoutlet1.chunks[0][1], [3, 4, 5])
         self.assertEqual(first.pending, 0)
 
     def test_empty_buffer_is_ignored(self):
         window = SimpleNamespace(
             lsl_queues={1: LslSampleQueue()},
-            myNetWidget=SimpleNamespace(LSLoutlet1=_Outlet()),
-            myLogger=_Logger(),
+            networking=SimpleNamespace(LSLoutlet1=_Outlet()),
+            logger=_Logger(),
         )
 
-        MyMainWindow.sendLSLStream(window, 1)
+        MainWindow.sendLSLStream(window, 1)
 
-        self.assertEqual(window.myNetWidget.LSLoutlet1.chunks, [])
+        self.assertEqual(window.networking.LSLoutlet1.chunks, [])
 
     def test_marker_is_pushed_as_a_string_sample(self):
         window = SimpleNamespace(marker_outlet=_MarkerOutlet())
-        MyMainWindow._on_session_marker(window, {"label": "stimulus on"})
+        MainWindow._on_session_marker(window, {"label": "stimulus on"})
         self.assertEqual(window.marker_outlet.samples, [["stimulus on"]])

@@ -1,7 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from freebci.api.my_electrodes_position import ElectrodesPosition
+from freebci.ui.electrodes_position import ElectrodesPosition
 import sys
 import numpy as np
 import random
@@ -15,10 +15,10 @@ from matplotlib.animation import FuncAnimation
 import pandas as pd
 import mne
 
-class MyBrainTopography(QtWidgets.QWidget):
+class TopographyView(QtWidgets.QWidget):
     
     def __init__(self, chan: int, parent=None):
-        super(MyBrainTopography, self).__init__(parent)
+        super(TopographyView, self).__init__(parent)
         self.mainLayout = QtWidgets.QGridLayout(self)
         self.mainLayout.setContentsMargins(1, 0, 0, 0)
         self.mainLayout.setSpacing(1)
@@ -152,7 +152,7 @@ class MyBrainTopography(QtWidgets.QWidget):
     
     def plotfig(self, Topography_data, info, montage):
         if getattr(self, '_topo_canvas', None) is None:
-            self._topo_canvas = MyFigure(width=10, height=10, dpi=50)
+            self._topo_canvas = TopographyCanvas(width=10, height=10, dpi=50)
             self.mainLayout.addWidget(self._topo_canvas, 2, 0, 15, 2)
         F = self._topo_canvas
         evoked = mne.EvokedArray(Topography_data, info)
@@ -167,10 +167,10 @@ class MyBrainTopography(QtWidgets.QWidget):
             i += 1
 
 
-class MyFigure(FigureCanvas):
+class TopographyCanvas(FigureCanvas):
 
     def __init__(self, width=4, height=5, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
-        super(MyFigure, self).__init__(self.fig)
+        super(TopographyCanvas, self).__init__(self.fig)
         self.axes = self.fig.add_subplot(111)
 
