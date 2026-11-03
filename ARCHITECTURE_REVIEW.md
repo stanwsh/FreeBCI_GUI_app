@@ -18,10 +18,10 @@ USER NOTES:
 |---|---|---|
 | 0 — Baseline/packaging | Accepted | Source release zip is the supported distribution; no wheel package planned. |
 | 1 — Recording integrity | Code complete | Endurance gate merged into Phase 6. |
-| 2 — Device/acquisition decoupling | In progress | 2.1 DeviceManager adopted by the GUI; 2.2 asynchronous hardware settings remains. |
+| 2 — Device/acquisition decoupling | In progress | 2.1 DeviceManager and 2.2 asynchronous hardware settings landed; remaining GUI-thread board-call audit. |
 | 3 — Bounded buffers/performance | Pending | Auxiliary buffers, decimation, and 64-channel gate. |
 | 4 — Timestamps/control/sync | Partial | Clock offset and selector-based real-board `start` remain. |
-| 5 — GUI state/workflow | Partial | Full state-driven view model and async settings workflow remain. |
+| 5 — GUI state/workflow | Partial | Full state-driven view model and workflow prompts remain. |
 | 6 — Validation/hardware matrix | Pending | Hardware matrix and multi-hour soak; depends on available devices. |
 
 ### Implementation progress
@@ -65,8 +65,9 @@ USER NOTES:
 - A first presentation view model (`freebci/api/session_view_model.py`) now owns the diagnostics and marker lookups, so the window no longer reaches into the controller/writer for those surfaces. State-driven enable/disable and the command queue are still open.
 - A five-minute synthetic soak (16 channels, 250 Hz) completed 73,624 samples at 244.3 Hz effective, with `lost=0`, `dropped=0`, queue 0, and ~34.4 MB working set; this is a stability check, not the multi-hour soak gate.
 - **Phase 2.1:** `freebci/core/device.py` adds `DeviceManager` with explicit `READY`/`STREAMING`/`DISCONNECTED` states, single-owner adoption, replacement-release, and gateway creation. The GUI adopts prepared boards, obtains its gateway from the manager, and releases through it; start/stop no longer sleep on the GUI thread.
+- **Phase 2.2:** hardware-settings sends run in `SettingsCommandWorker`; progress is per command, a rejected command stops the sequence with a visible error, the dialog stays responsive, and a read-only settings directory no longer turns a successful board update into an exception.
 
-Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, the remaining state-driven view-model refactor, and async settings.
+Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the remaining state-driven view-model refactor.
 
 ---
 

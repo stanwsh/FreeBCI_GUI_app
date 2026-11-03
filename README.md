@@ -322,9 +322,10 @@ Stop the session before opening **Hardware settings**. The dialog can change:
 - **Input Type** - normal, shorted, bias measurement, and other test modes.
 - **Bias Include**, **SRB1**, **SRB2** - reference and bias configuration.
 
-**Send** applies the settings to the board. **Save** and **Load** store them as
-an XML file. Leave advanced settings at their defaults unless you know the
-required configuration for your electrodes.
+**Send** applies the settings to the board in the background; the dialog remains
+responsive and reports progress or the failing command. **Save** and **Load**
+store them as an XML file. Leave advanced settings at their defaults unless you
+know the required configuration for your electrodes.
 
 Changes take effect when you start the session again. Stop the session first,
 apply the change, then click **Start Session**.

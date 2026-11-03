@@ -5,6 +5,7 @@ from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
 from freebci.design.hardware_settings_interface import hardwareSettings_interface
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
+from freebci.api.settings_worker import SettingsCommandWorker
 from functools import partial
 import xml.etree.ElementTree as ET
 from brainflow import board_shim, data_filter, exit_codes, ml_model
@@ -189,80 +190,135 @@ class MyHardwareSettings(hardwareSettings_interface):
             self.nameButtons[channel].setStyleSheet('QPushButton {\n    width: 40px;\n    height: 40px;\n    border-radius: 20px;\n    font-size: 20px;\n    color: white;\n    background: gray ; /* 默认颜色 */\n}\n')
             self.isActiveSetting[channel] = False
 
-    def sendButton_click(self):
-        self.step = 0
-        self.progressBar.setValue(self.step)
-        self.progressBar.repaint()
-        self.sendButton.setEnabled(False)
-        self.sendButton.repaint()
-        my_file = [
-            self.parent_path + '/settings/send_settings.xml',
-            'xml files(*.xml)']
-        self.board = self.connect_info.board
-        hardwareSettingsProtocol = HardwareSettingsProtocol()
-        self.step = 10
-        self.progressBar.setValue(self.step)
-        self.progressBar.repaint()
-        self.command = ''
+    def _build_send_commands(self):
+        commands = []
         currentRateStr = str(self.hardwareInfo.SamplingRate) + ' Hz'
         if self.rateComboBox.currentText() != currentRateStr:
-            self.command += '~'
-            self.command += str(hardwareSettingsProtocol.SamplingRateCommand[self.rateComboBox.currentText()])
-            self.myLogger.write('Send Command:' + self.command)
-            self.SamplingRate = int(hardwareSettingsProtocol.SamplingRate[self.rateComboBox.currentText()])
-            response = self.board.config_board(self.command)
-        time.sleep(1)
-        self.step = 20
-        self.progressBar.setValue(self.step)
-        self.progressBar.repaint()
+            commands.append(
+                '~'
+                + str(
+                    HardwareSettingsProtocol.SamplingRateCommand[
+                        self.rateComboBox.currentText()
+                    ]
+                )
+            )
         for i in range(len(self.PCAGainComboBoxs)):
-            self.command = ''
-            self.command += 'x'
+            command = 'x'
             if self._chan > 16:
                 if i < 9:
-                    self.command += '0' + str(i + 1)
+                    command += '0' + str(i + 1)
                 else:
-                    self.command += str(i + 1)
+                    command += str(i + 1)
             else:
-                self.command += str(hardwareSettingsProtocol.Channel[i + 1])
-            self.command += '0'
-            self.command += str(hardwareSettingsProtocol.PCAGainProtocol[self.PCAGainComboBoxs[i].currentText()])
-            self.command += str(hardwareSettingsProtocol.InputTypeProtocol[self.InputComboBoxs[i].currentText()])
-            self.command += str(hardwareSettingsProtocol.BiasIncludeProtocol[self.BiasComboBoxs[i].currentText()])
-            self.command += str(hardwareSettingsProtocol.SRB2Protocol[self.SRB2comboBoxs[i].currentText()])
-            self.command += str(hardwareSettingsProtocol.SRB1Protocol[self.SRB1ComboBoxs[i].currentText()])
-            self.command += 'X'
-            self.myLogger.write('sendCommand: ' + self.command)
+                command += str(HardwareSettingsProtocol.Channel[i + 1])
+            command += '0'
+            command += str(
+                HardwareSettingsProtocol.PCAGainProtocol[
+                    self.PCAGainComboBoxs[i].currentText()
+                ]
+            )
+            command += str(
+                HardwareSettingsProtocol.InputTypeProtocol[
+                    self.InputComboBoxs[i].currentText()
+                ]
+            )
+            command += str(
+                HardwareSettingsProtocol.BiasIncludeProtocol[
+                    self.BiasComboBoxs[i].currentText()
+                ]
+            )
+            command += str(
+                HardwareSettingsProtocol.SRB2Protocol[
+                    self.SRB2comboBoxs[i].currentText()
+                ]
+            )
+            command += str(
+                HardwareSettingsProtocol.SRB1Protocol[
+                    self.SRB1ComboBoxs[i].currentText()
+                ]
+            )
+            command += 'X'
             channelP = [
-                40, 41, 42, 43, 44, 45, 46, 47, 32, 33, 34, 35, 36, 37, 38, 39, 56, 57, 58, 59, 60, 61, 62, 63]
+                40, 41, 42, 43, 44, 45, 46, 47, 32, 33, 34, 35, 36, 37, 38, 39,
+                56, 57, 58, 59, 60, 61, 62, 63,
+            ]
             if self._chan == 64 and i in channelP:
-                if self.command[6:9] == '100':
-                    self.command = self.command[0:7] + '1' + self.command[8:]
-            response = self.board.config_board(self.command)
-            self.step = self.step + int(80 / self._chan)
-            self.progressBar.setValue(self.step)
-            self.progressBar.repaint()
+                if command[6:9] == '100':
+                    command = command[0:7] + '1' + command[8:]
+            commands.append(command)
+        return commands
+
+    def sendButton_click(self):
+        if getattr(self, '_send_worker', None) is not None and self._send_worker.isRunning():
+            return
+        self.progressBar.setFormat('%p%')
+        self.progressBar.setValue(0)
+        self.sendButton.setEnabled(False)
+        self.board = self.connect_info.board
+        try:
+            commands = self._build_send_commands()
+        except Exception as ex:
+            self._on_send_failed(str(ex))
+            return
+        self.myLogger.write(
+            'Send hardware settings: %d command(s)' % len(commands)
+        )
+        self._send_worker = SettingsCommandWorker(self.board, commands, self)
+        self._send_worker.progress.connect(self._on_send_progress)
+        self._send_worker.failed.connect(self._on_send_failed)
+        self._send_worker.succeeded.connect(self._on_send_succeeded)
+        self._send_worker.finished.connect(self._on_send_thread_finished)
+        self._send_worker.start()
+
+    def _on_send_progress(self, completed, total):
+        self.progressBar.setValue(10 + int(80.0 * completed / max(1, total)))
+
+    def _on_send_failed(self, message):
+        self.myLogger.write('WARNNING: hardware settings failed: %s' % message)
+        self.progressBar.setFormat('Failed: %s' % message)
+        self.progressBar.setToolTip(message)
+        self.sendButton.setEnabled(True)
+        self.sendButton.repaint()
+
+    def _on_send_succeeded(self):
         self.hardwareInfo.baudRate = self.connect_info.baudRate
         self.myLogger.write(self.sendMode)
-        self.hardwareInfo.SamplingRate = int(hardwareSettingsProtocol.SamplingRate[self.rateComboBox.currentText()])
+        self.hardwareInfo.SamplingRate = int(
+            HardwareSettingsProtocol.SamplingRate[self.rateComboBox.currentText()]
+        )
         if self._chan == 16 and self.sendMode != 'FreeBCI':
             self.hardwareInfo.SamplingRate = int(self.hardwareInfo.SamplingRate / 2)
         self.myLogger.write(self.hardwareInfo.SamplingRate)
         self.hardwareInfo.isSend = True
         if self.connect_info.board_id == 30:
             self.hardwareInfo.sendMode = self.sendcomboBox.currentText()
+        self.progressBar.setValue(100)
         self.sendButton.setEnabled(True)
         self.sendButton.repaint()
-        self.step = 100
-        self.progressBar.setValue(self.step)
-        self.progressBar.repaint()
         self.connect_info.board = self.board
         self._signal.emit(self.hardwareInfo)
         self._signal_con.emit(self.connect_info)
         my_file = [
             self.parent_path + '/settings/send_settings.xml',
             'xml files(*.xml)']
-        self.saveSettings(my_file, True)
+        try:
+            self.saveSettings(my_file, True)
+        except Exception as ex:
+            # A read-only settings directory must not turn a successful board
+            # configuration into a GUI exception.
+            self.myLogger.write('WARNNING: could not save settings: %s' % ex)
+
+    def _on_send_thread_finished(self):
+        worker = getattr(self, '_send_worker', None)
+        if worker is not None and not worker.isRunning():
+            self._send_worker = None
+
+    def closeEvent(self, event):
+        worker = getattr(self, '_send_worker', None)
+        if worker is not None and worker.isRunning():
+            worker.cancel()
+            worker.wait(3000)
+        super(MyHardwareSettings, self).closeEvent(event)
 
     def string_pre(self, s):
         elem = str(s.text).replace(' ', '')
