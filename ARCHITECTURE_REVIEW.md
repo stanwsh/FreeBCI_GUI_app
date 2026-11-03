@@ -21,7 +21,7 @@ USER NOTES:
 | 2 — Device/acquisition decoupling | Complete | 2.1 DeviceManager, 2.2 async settings, and 2.3 async command/start execution landed; only non-blocking board metadata queries remain on the GUI thread. |
 | 3 — Bounded buffers/performance | Complete* | 3.1-3.3 landed and LSL pending counts are in diagnostics; the full 8-hour/64-channel GUI gate is endurance-gated. |
 | 4 — Timestamps/control/sync | Complete* | 4.1 clock-offset exchange, selector-based `start`, and manifest clock section landed; real-board control verification remains hardware-gated. |
-| 5 — GUI state/workflow | Complete* | 5.1 action guards and 5.2 stop/finalize confirmation landed; operator usability testing is external. |
+| 5 — GUI state/workflow | In progress | 5.1 action guards, 5.2 stop confirmation, and 5.3 bounded display history owned by the view model landed; full snapshot rendering of every view and operator usability remain. |
 | 6 — Validation/hardware matrix | Partial | USB 16-channel re-verified on COM3; Wi-Fi 16 verified earlier. Bluetooth, USB high-speed, 8/24/32/64-channel boards, and multi-hour soak remain hardware/time-gated. |
 
 ### Implementation progress
@@ -74,6 +74,7 @@ USER NOTES:
 - **Phase 4.1:** the control protocol added a four-timestamp `time` exchange and `ControlClient.clock_offset()` reports offset plus half-RTT uncertainty. `start` now requires a board selector (`"demo"`, board id, or catalog name); a real selector must match the connected board. `manifest.json` carries a `clock` section with the host timebase and start/stop wall times. README documents the selector and clock semantics.
 - **Phase 5.1:** a single `_sync_action_states()` derives menu/action enablement from the current view-model state: Add Marker only while armed/recording, Demo only while idle, Boards only while idle, Disconnect only while a board is connected, and Hardware settings/electrode settings only while stopped.
 - **Phase 5.2:** stopping a session with acquired samples, or disconnecting while it is recording, asks for confirmation before finalizing; control-plane stop and window close remain unconfirmed so scripts and shutdown are not blocked.
+- **Phase 5.3:** the bounded display history now lives in `SessionViewModel`; `MyMainWindow.data` is a property over that history, and acquisition appends through `append_block()`. Time-series, FFT, band-power, trigger, battery, and topography consumers still read the shared property, so the remaining work is rendering every view directly from an explicit snapshot model.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 

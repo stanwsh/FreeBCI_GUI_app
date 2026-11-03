@@ -1,6 +1,8 @@
 import unittest
 from types import SimpleNamespace
 
+import numpy as np
+
 from freebci.api.session_view_model import SessionViewModel
 from freebci.core.models import SessionState
 
@@ -61,6 +63,12 @@ class SessionViewModelTests(unittest.TestCase):
         marker = self.view_model.add_marker("manual")
         self.assertEqual(marker["sample_index"], 500)
         self.assertEqual(self.controller.markers[0]["source"], "gui")
+
+    def test_history_is_bounded_by_the_view_model(self):
+        self.view_model.append_block(np.array([[99, 1, 2]]))
+        self.assertEqual(self.view_model.history.tolist(), [[1, 2]])
+        self.view_model.append_block(np.array([[99, 3, 4]]), limit=4)
+        self.assertEqual(self.view_model.history.tolist(), [[2, 99, 3, 4]])
 
 
 if __name__ == "__main__":

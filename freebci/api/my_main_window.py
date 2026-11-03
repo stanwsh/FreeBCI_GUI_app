@@ -22,7 +22,6 @@ from freebci.api.session_start_worker import SessionStartWorker
 from freebci.api.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
 from freebci.core.device import DeviceManager
-from freebci.core.history import append_bounded
 from freebci.core.packets import PacketLossCounter
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.my_electrodes_position import ElectrodesPosition
@@ -68,6 +67,19 @@ class MyMainWindow(MainWindowInterface):
                 if not hasattr(MyMainWindow, '_instance'):
                     MyMainWindow._instance = MyMainWindow(*args, **kwargs)
         return MyMainWindow._instance
+
+    @property
+    def data(self):
+        view_model = getattr(self, 'session_view_model', None)
+        return view_model.history if view_model is not None else None
+
+    @data.setter
+    def data(self, value):
+        view_model = getattr(self, 'session_view_model', None)
+        if view_model is not None:
+            view_model.set_history(value)
+        else:
+            self._data = value
 
     def __init__(self, parent=None):
         self._chan = 16
@@ -1542,10 +1554,7 @@ class MyMainWindow(MainWindowInterface):
                         setattr(self, 'LSLbufferData%d' % index, lsl_values.copy())
             self.new_data_len = 0
             self.checkFlag = 0
-            if self.data.shape[1] == 1:
-                self.data = buffer_data[:, 1:]
-            else:
-                self.data = append_bounded(self.data, buffer_data, 60000)
+            self.session_view_model.append_block(buffer_data)
             # The trigger and battery views use the same bounded block history;
             # keeping separate copies doubled memory without adding information.
             self.extri_data = self.data
