@@ -1788,8 +1788,12 @@ Document rules after this realignment:
 | `freebci/core/recording.py`, `freebci/api/my_recording.py` | 1 | Writer thread, manifest, sidecars; keep compatibility wrapper |
 | `freebci/core/clock.py` | 1/4 | Block timestamps, sample index |
 | `freebci/core/catalog.py` | 2 | Shared board table; GUI consumes the legacy row shape |
+| `freebci/core/settings.py` | 2 | Validated atomic channel-settings model |
+| `freebci/core/logging.py` | 2 | Rotating structured `session.log` writer |
+| `freebci/core/actions.py` | 5 | Pure state-to-action availability table |
 | `freebci/core/ring.py` | 3 | Bounded display/processing ring |
-| `freebci/core/gateway.py`, `device.py` | 2 | BrainFlow adapter, state machine |
+| `freebci/core/gateway.py`, `device.py` | 2 | BrainFlow adapter, transport preparation, state manager |
+| `freebci/app.py` | 2/5 | Qt composition root and window bootstrap |
 | `freebci/core/acquisition.py` | 2/3 | Worker and fan-out; no core ring yet |
 | `freebci/api/my_main_window.py` | 2–5 | Remove acquisition/timers; use controller/view model |
 | `freebci/design/main_window_interface.py` | 2/5 | State-driven UI; logger/recording construction moves to app |
