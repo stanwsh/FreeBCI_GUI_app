@@ -22,6 +22,7 @@ from freebci.api.session_start_worker import SessionStartWorker
 from freebci.api.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
 from freebci.core.device import DeviceManager
+from freebci.core.dsp import bandpass_inplace, bandstop_inplace, fft_magnitude, standard_powers
 from freebci.core.packets import PacketLossCounter
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.my_electrodes_position import ElectrodesPosition
@@ -38,9 +39,6 @@ from freebci.core.models import BoardProfile, SessionConfig
 from freebci.core.lsl_queue import LslSampleQueue
 from freebci.core.recording import recover_sessions
 from freebci.core.session import SessionController
-from brainflow import board_shim, data_filter, exit_codes, ml_model
-from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
-from brainflow.data_filter import AggOperations, DataFilter, FilterTypes, WindowFunctions
 from PyQt5.QtGui import QPixmap
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
@@ -248,7 +246,7 @@ class MyMainWindow(MainWindowInterface):
         sp = [ [] for row in range(self._chan) ]
         for k in range(self._chan):
             if self.FFTactiveChannels[k] == True:
-                sp[k] = DataFilter.perform_fft(bp_nf_data[k][-fft_bound:], 2)
+                sp[k] = fft_magnitude(bp_nf_data[k][-fft_bound:], 2)
                 sp[k] = np.absolute(sp[k]) / (self.SamplingRate * 1.0)
                 sp[k][0] = 0.01
                 self.myFFTPlot.fft_plot.plot(pen=pg.mkPen(self.colors[k], width=1)).setData(sp[k])
@@ -362,7 +360,7 @@ class MyMainWindow(MainWindowInterface):
         self.connect_info.isbluetooth = True
         self.connect_info.iswifi = False
         self.connect_info.board_id = board_id
-        self.connect_info.board = BoardShim(self.connect_info.board_id, BrainFlowInputParams())
+        self.connect_info.board = None
         self.connect_info.connect_type = self.connect_info.id_list[self.connect_info.board_id - 2023][2]
         self.connect_info.channel_num = self.connect_info.id_list[self.connect_info.board_id - 2023][8]
 
@@ -376,7 +374,7 @@ class MyMainWindow(MainWindowInterface):
         self.stateLabel.repaint()
         self.connect_info.iswifi = True
         self.connect_info.isbluetooth = False
-        self.connect_info.board = BoardShim(self.connect_info.board_id, BrainFlowInputParams())
+        self.connect_info.board = None
         self.connect_info.connect_type = self.connect_info.id_list[self.connect_info.board_id - 2023][2]
         self.connect_info.channel_num = self.connect_info.id_list[self.connect_info.board_id - 2023][8]
 
@@ -391,7 +389,7 @@ class MyMainWindow(MainWindowInterface):
         self.connect_info.iswifi = False
         self.connect_info.isbluetooth = False
         self.connect_info.board_id = board_id
-        self.connect_info.board = BoardShim(self.connect_info.board_id, BrainFlowInputParams())
+        self.connect_info.board = None
         self.connect_info.connect_type = self.connect_info.id_list[self.connect_info.board_id - 2023][2]
         self.connect_info.channel_num = self.connect_info.id_list[self.connect_info.board_id - 2023][8]
 
@@ -400,7 +398,7 @@ class MyMainWindow(MainWindowInterface):
         self.my_virtual_form.show()
         self.my_virtual_form._signal.connect(self.initLayout)
         self.connect_info.board_id = board_id
-        self.connect_info.board = BoardShim(self.connect_info.board_id, BrainFlowInputParams())
+        self.connect_info.board = None
         self.connect_info.channel_num = self.connect_info.id_list[self.connect_info.board_id - 2023][8]
 
     def actionRelease_click(self):
@@ -981,14 +979,10 @@ class MyMainWindow(MainWindowInterface):
             logging.exception(ex)
 
     def notch_filter(self, val, data, fs):
-        DataFilter.perform_bandstop(data, fs, val, 4.0, 2, FilterTypes.BUTTERWORTH, 0.0)
-        return data
+        return bandstop_inplace(data, fs, val)
 
     def bandpass(self, start, stop, data, fs):
-        centerFreq = (start + stop) / 2.0
-        bandWidth = stop - start
-        DataFilter.perform_bandpass(data, fs, centerFreq, bandWidth, 2, FilterTypes.BUTTERWORTH, 0.0)
-        return data
+        return bandpass_inplace(data, fs, start, stop)
 
     def updater(self):
         try:
@@ -1053,7 +1047,7 @@ class MyMainWindow(MainWindowInterface):
                 self.myFFTPlot.fft_plot.showGrid(x=True, y=True)
                 for k in range(self._chan):
                     if self.FFTactiveChannels[k] == True:
-                        sp[k] = DataFilter.perform_fft(bp_nf_data[k][-fft_bound:], 2)
+                        sp[k] = fft_magnitude(bp_nf_data[k][-fft_bound:], 2)
                         sp[k] = np.absolute(sp[k]) / (self.SamplingRate * 1.0)
                         sp[k][0] = 0.01
                         self.myFFTPlot.fft_plot.plot(pen=pg.mkPen(self.colors[k], width=1)).setData(sp[k])
@@ -1069,7 +1063,7 @@ class MyMainWindow(MainWindowInterface):
                     if self.channals_on[i] == False:
                         tmp.append(i)
                 band_data = np.array(bp_nf_data[0:self._chan])[:, -int(fft_bound):]
-                bands = DataFilter.get_standard_powers(np.array(band_data), tmp, self.SamplingRate, False)
+                bands = standard_powers(np.array(band_data), tmp, self.SamplingRate)
                 target = [ round(np.sqrt(bands[i]), 3) for i in range(5) ]
                 bg1 = pg.BarGraphItem(x=[*(1, 2, 3, 4, 5)], y1=target, width=0.6, brushes=[*('b', 'c', 'g', 'y', 'r')])
                 self.myBandPower.band_plot.clear()

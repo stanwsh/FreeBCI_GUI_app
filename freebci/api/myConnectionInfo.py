@@ -1,4 +1,3 @@
-from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
 from freebci.core.catalog import rows as catalog_rows
 
 
@@ -7,7 +6,7 @@ class connectInfo:
         self.id_list = catalog_rows()
         self.board_id = 2049
         self.connect_type = self.id_list[self.board_id - 2023][2]
-        self.board = BoardShim(self.board_id, BrainFlowInputParams())
+        self.board = None
         self.wifi_address = None
         self.wifi_port = 0
         self.serial_port = None
