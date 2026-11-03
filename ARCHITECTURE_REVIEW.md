@@ -91,6 +91,14 @@ USER NOTES:
 - **Phase 2.10 (F.1):** the time-series view now creates one `PlotDataItem` per active channel and updates it with `setData()`; the per-frame `clear()`/`plot()` recreation is gone. Offscreen demo created 16 stable curves.
 - **Phase 2.11 (D.4):** added `freebci/core/dsp.py`; the main window uses core FFT/notch/band-pass wrappers and no longer imports BrainFlow. `connectInfo` no longer creates a placeholder `BoardShim`; transport dialogs supply the prepared board.
 - **Phase 5.6:** diagnostics now show device id/name, configured rate, written samples, and disk free. Closing the window while recording asks to stop and finalize.
+- **Phase 2.12 (G.5):** control requests now carry client-generated ids that are echoed on success and error responses; failures expose stable `busy` and `no_session` codes, and a pending start rejects a duplicate request.
+- **Phase 2.13 (I.4):** the writer snapshot reports last-write duration/age and the manifest status, and both appear in Session Diagnostics.
+- **Phase 2.14 (D.4):** `prepare_serial_board`/`prepare_wifi_board` in `core/gateway.py` own BrainFlow transport preparation; the serial and Wi-Fi workers no longer import BrainFlow. The old synchronous serial dialog is now a compatibility alias.
+- **Phase 2.15 (D.2):** `freebci/app.py` is the Qt composition root; `FreeBCI_GUI.py` only prepares the data directory and delegates.
+- **Phase 4.3 (G.6):** `ControlClient.from_runtime_file()` and `wait_started()` cover the documented runtime-file and start-wait flow.
+- **Phase 4.4 (G.5):** discovery publishes `schema: freebci.control/1`, host, pid, and creation time alongside the endpoint/token.
+- **Phase 4.5 (G.8):** `status` now includes `clock_id`, `monotonic_ns`, and `wall_ns` for the server clock.
+- **Phase 5.7 (C.4/I.1):** `core/actions.py` is a pure state-to-action table; the window derives marker/demo/board/release/settings enablement from it.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
@@ -1707,7 +1715,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | C.4 state model | Action guards and start/stop confirmation; `core/actions.py` derives menu/connection enablement from state | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded core state machine | P1 |
 | C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
 | C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write rotating structured `session.log` | GUI `MyLogger` still opens a file per message; no top-level correlation IDs | P2 |
-| C.7 tests/packaging | 92 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
+| C.7 tests/packaging | 97 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
 | D.2 layers | Core/application/device boundaries partly exist; catalog, ring, settings, and structured logging now exist in core | Presentation is not BrainFlow-free; no `ui/`, `app.py` | Target |
 | D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
 | D.4 dependency rules | Core is Qt-free; main window no longer imports BrainFlow and uses `core/dsp.py`; serial/Wi-Fi workers prepare boards via `core/gateway.py` | The legacy virtual-connection dialog still imports BrainFlow; `gateway.py` is not yet the only importer | P1 |
