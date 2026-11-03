@@ -1704,7 +1704,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | C.1 dependency map | Core no Qt; writer/acquisition separated; serial and Wi-Fi workers prepare boards through `core/gateway.py` helpers | The legacy virtual-connection dialog still imports BrainFlow; transport dialogs still own lifecycle | P1 |
 | C.2 cohesion | Recording, acquisition, settings apply moved out of the window | `MyMainWindow` still owns timers, filters, plotting, LSL, menus, and state; views still own LSL/protocol choices | P1 |
 | C.3 concurrency | Acquisition, writer, settings, board-command, session-start workers | No core ring; GUI filters/FFTs on its thread; topography queue is unbounded | P1/P2 |
-| C.4 state model | Action guards and start/stop confirmation | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded state machine | P1 |
+| C.4 state model | Action guards and start/stop confirmation; `core/actions.py` derives menu/connection enablement from state | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded core state machine | P1 |
 | C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
 | C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write rotating structured `session.log` | GUI `MyLogger` still opens a file per message; no top-level correlation IDs | P2 |
 | C.7 tests/packaging | 92 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
@@ -1742,7 +1742,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | H.4 gaps/loss | Sample-index gaps and lost counters | Packet counter and sample gap not clearly separated in manifest | P3 |
 | H.5–H.6 durability | Atomic manifest, checkpoint, failed status | No recovery scan for partial chunks; no directory fsync | P2 |
 | H.7 settings schema | XML presets | No schema version, range validation, last-known-good | P2 |
-| I.1 state UI | Initial state fixed; guards added; start disabled while starting | Still flag-driven; no single state-to-enablement table | P1 |
+| I.1 state UI | Initial state fixed; guards added; start disabled while starting; one pure action table | Still flag-driven; no single state-to-enablement contract in the core | P1 |
 | I.2 connection | Async discovery/prepare; fast port list | Dialogs still prepare boards; no DeviceManager.connect; no reconnect prompt | P1 |
 | I.3 streaming | Async start, stop confirmation, window-close stop/finalize confirmation | Error banner is still a status label | P2 |
 | I.4 diagnostics | State, device/id, configured vs effective rate, written samples, disk free, last-write latency, manifest status, counts, loss, queue, files, output, control, LSL, error | Missing clock/sync uncertainty in the GUI | P2 |

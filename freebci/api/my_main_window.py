@@ -21,6 +21,7 @@ from freebci.api.board_worker import BoardOperationWorker
 from freebci.api.session_start_worker import SessionStartWorker
 from freebci.api.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
+from freebci.core.actions import action_availability
 from freebci.core.device import DeviceManager
 from freebci.core.dsp import bandpass_inplace, bandstop_inplace, fft_magnitude, standard_powers
 from freebci.core.packets import PacketLossCounter
@@ -1403,23 +1404,26 @@ class MyMainWindow(MainWindowInterface):
         self.close()
 
     def _sync_action_states(self):
-        active = self.session_view_model.active
         starting = self._start_worker is not None
         snapshot = self.session_view_model.snapshot()
         state = snapshot.state.value if snapshot is not None else ''
-        marker_ok = active and state in ('armed', 'recording')
-        self.actionMarker.setEnabled(marker_ok)
-        self.actionDemo.setEnabled(not active and not starting)
-        self.menu.setEnabled(not active and not starting)
+        actions = action_availability(
+            state,
+            starting=starting,
+            connected=self.device_manager.connected,
+        )
+        self.actionMarker.setEnabled(actions.marker)
+        self.actionDemo.setEnabled(actions.demo)
+        self.menu.setEnabled(actions.boards)
         release = getattr(self, 'actionRelease', None)
         if release is not None:
-            release.setEnabled(self.device_manager.connected and not starting)
+            release.setEnabled(actions.release)
         hardware_button = getattr(self.myTimeSeries, 'hardwareButton', None)
         if hardware_button is not None:
-            hardware_button.setEnabled(not active and not starting)
+            hardware_button.setEnabled(actions.hardware)
         channels_button = getattr(self, 'chan_electrode_settingspushButton', None)
         if channels_button is not None:
-            channels_button.setEnabled(not active and not starting)
+            channels_button.setEnabled(actions.channels)
 
     def marker_click(self):
         if not self.session_view_model.active:
