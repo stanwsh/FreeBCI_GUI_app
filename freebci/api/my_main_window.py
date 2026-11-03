@@ -377,6 +377,8 @@ class MyMainWindow(MainWindowInterface):
 
     def actionRelease_click(self):
         if self.startButton_isclicked == True:
+            if not self._confirm_stop():
+                return
             self.stop_openbci()
             self.startButton_isclicked = False
             self.startButton.setText('Start Session')
@@ -842,6 +844,19 @@ class MyMainWindow(MainWindowInterface):
         self.myLogger.write('WARNNING: session start failed: %s' % message)
         self._sync_action_states()
 
+    def _confirm_stop(self):
+        """Ask before finalizing a session that has acquired samples."""
+        if self.total_len <= 0:
+            return True
+        answer = QtWidgets.QMessageBox.question(
+            self,
+            'Stop session?',
+            'Stop acquisition and finalize the current recording?',
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No,
+        )
+        return answer == QtWidgets.QMessageBox.Yes
+
     def startButton_click(self):
         if self.isSessionOn == False:
             self.stateLabel.setText('Connect to a board first.')
@@ -864,6 +879,8 @@ class MyMainWindow(MainWindowInterface):
             worker.start()
             return
         if self.startButton_isclicked == True:
+            if not self._confirm_stop():
+                return
             self.stop_openbci()
             self.startButton_isclicked = False
             self.total_len = 0

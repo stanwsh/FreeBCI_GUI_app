@@ -21,7 +21,7 @@ USER NOTES:
 | 2 — Device/acquisition decoupling | Complete | 2.1 DeviceManager, 2.2 async settings, and 2.3 async command/start execution landed; only non-blocking board metadata queries remain on the GUI thread. |
 | 3 — Bounded buffers/performance | In progress | 3.1/3.2 done; 3.3 bounded history uses one allocation and a 2-minute 64-channel core soak passed. Full 8-hour/64-channel GUI gate remains. |
 | 4 — Timestamps/control/sync | Complete* | 4.1 clock-offset exchange, selector-based `start`, and manifest clock section landed; real-board control verification remains hardware-gated. |
-| 5 — GUI state/workflow | In progress | 5.1 state-driven action guards landed; stop/finalize and reconnect prompts remain. |
+| 5 — GUI state/workflow | In progress | 5.1 action guards and 5.2 stop/finalize confirmation landed; reconnect/overwrite prompts and usability test remain. |
 | 6 — Validation/hardware matrix | Pending | Hardware matrix and multi-hour soak; depends on available devices. |
 
 ### Implementation progress
@@ -71,6 +71,7 @@ USER NOTES:
 - **Phase 3.3:** `freebci/core/history.py` appends a block with one allocation and trims to the newest 60,000 samples. A 2-minute synthetic 64-channel soak completed 29,504 samples at 244.4 Hz with `lost=0`, `dropped=0`, queue 0, and ~34.4 MB working set; the full 8-hour/64-channel GUI gate remains.
 - **Phase 4.1:** the control protocol added a four-timestamp `time` exchange and `ControlClient.clock_offset()` reports offset plus half-RTT uncertainty. `start` now requires a board selector (`"demo"`, board id, or catalog name); a real selector must match the connected board. `manifest.json` carries a `clock` section with the host timebase and start/stop wall times. README documents the selector and clock semantics.
 - **Phase 5.1:** a single `_sync_action_states()` derives menu/action enablement from the current view-model state: Add Marker only while armed/recording, Demo only while idle, Boards only while idle, Disconnect only while a board is connected, and Hardware settings/electrode settings only while stopped.
+- **Phase 5.2:** stopping a session with acquired samples, or disconnecting while it is recording, asks for confirmation before finalizing; control-plane stop and window close remain unconfirmed so scripts and shutdown are not blocked.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the remaining state-driven view-model refactor.
 
