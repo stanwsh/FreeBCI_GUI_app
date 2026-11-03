@@ -88,6 +88,7 @@ USER NOTES:
 - **Phase 2.7 (E.7):** recordings now create a `.writing` marker and remove it on finalize. `recover_sessions()` reports unfinished sessions without modifying them, and the main window shows the count at startup.
 - **Phase 2.8 (H.2):** the manifest gained the `freebci.session/1` schema string, app version, device/config blocks, start/stop blocks, chunk list, sample count, and stop reason. `freebci/version.py` is now the shared app version and the release tool defaults to it.
 - **Phase 2.9 (D.6/F.2):** added `freebci/core/lsl_queue.py` with a bounded per-stream queue and drop counter; LSL sends chunks instead of one sample per call, and diagnostics reports pending/dropped per stream.
+- **Phase 2.10 (F.1):** the time-series view now creates one `PlotDataItem` per active channel and updates it with `setData()`; the per-frame `clear()`/`plot()` recreation is gone. Offscreen demo created 16 stable curves.
 - **Phase 5.6:** diagnostics now show device id/name, configured rate, written samples, and disk free. Closing the window while recording asks to stop and finalize.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
@@ -1723,7 +1724,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | E.10 View model | `SessionViewModel` with diagnostics, markers, history, display snapshot | Not a `QObject`; no state/stats/error/recording signals; no command queue | P2 |
 | E.11 Settings | `core/settings.py` validates channel files and writes them atomically; the dialog uses it for load/save | No last-known-good fallback; no profile-aware validation; apply is still a command sequence | P2 |
 | E.12/E.13 failure/connection semantics | Worker errors, reconnect test, retries | No unified retry/cancel/multi-device policy; dialogs still own lifecycle | P2 |
-| F.1 bottlenecks | Aux buffers, `gc.collect`, `np.append` removed; decimation added | Per-channel Python filter loops still on GUI thread; plot items recreated each frame | P2 |
+| F.1 bottlenecks | Aux buffers, `gc.collect`, `np.append` removed; decimation added; time-series plot curves are reused | Per-channel Python filter loops still on GUI thread; FFT/band-power/accelerometer items are recreated each frame | P2 |
 | F.2/F.3 pipeline/backpressure | Writer bounded; display may drop; LSL bounded with drop counter | No acquisition ring fan-out, no topography latest-only policy | P2 |
 | F.4 concurrency | Workers and writer threads | Some board commands still serialized through one worker rather than DeviceManager; no thread-stop timeout policy | P2 |
 | F.5 recording format | CSV/TXT + meta + manifest + markers | No `.writing` rename, directory fsync, recovery scan, `session.log` | P2 |

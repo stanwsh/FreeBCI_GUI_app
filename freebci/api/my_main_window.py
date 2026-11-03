@@ -139,6 +139,7 @@ class MyMainWindow(MainWindowInterface):
         self.eeg_scale = 4.5 / float(pow(2, 23) - 1) / 24.0 * 1000000.0
         self.ts_plot_range = int(self.ts_time * self.SamplingRate)
         self.colors = ['r', 'g', 'b', 'y', 'c', 'm', 'w', (210, 180, 140), 'r', 'g', 'b', 'y', 'c', 'm', 'w', (210, 180, 140), 'r', 'g', 'b', 'y', 'c', 'm', 'w', (210, 180, 140), 'r', 'g', 'b', 'y', 'c', 'm', 'w', (210, 180, 140), 'r', 'g', 'b', 'y', 'c', 'm', 'w', (210, 180, 140), 'r', 'g', 'b', 'y', 'c', 'm', 'w', (210, 180, 140), 'r', 'g', 'b', 'y', 'c', 'm', 'w', (210, 180, 140), 'r', 'g', 'b', 'y', 'c', 'm', 'w', (210, 180, 140)]
+        self.ts_curves = {}
         self.reConBoardMenu()
         self.actionHelp.triggered.connect(self.help_click)
         self.startButton.clicked.connect(self.startButton_click)
@@ -447,6 +448,7 @@ class MyMainWindow(MainWindowInterface):
                 self.SamplingRate = 125
                 self.ts_plot_range = 725
             self.device_manager.adopt(self.board, self._board_profile())
+            self.ts_curves = {}
             self.configure_electrodes(self._chan)
             self.activeChannels = [ True for i in range(self._chan) ]
             self.resistanceArray = [ 0 for i in range(self._chan) ]
@@ -1091,6 +1093,14 @@ class MyMainWindow(MainWindowInterface):
             self.stateLabel.setText('Updater stream error! Data stream stopped!')
             self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
 
+    def _ts_curve(self, index):
+        curve = self.ts_curves.get(index)
+        if curve is None:
+            plot = self.myTimeSeries.my_plot_widgets[index].ts_plot
+            curve = plot.plot(pen=pg.mkPen(self.colors[index], width=1))
+            self.ts_curves[index] = curve
+        return curve
+
     def shower_fun(self):
         try:
             view = self.session_view_model.display_snapshot()
@@ -1237,7 +1247,6 @@ class MyMainWindow(MainWindowInterface):
                         else:
                             standardDev = abs(standardDev) * np.sqrt(2.0) / 6e-09 - 3800
                         self.resistanceArray[j] = standardDev
-                    self.myTimeSeries.my_plot_widgets[j].ts_plot.clear()
                     self.myTimeSeries.my_plot_widgets[j].ts_plot.showGrid(x=True, y=False, alpha=2.5)
                     self.myTimeSeries.my_plot_widgets[j].ts_plot.setXRange(0, self.ts_plot_range + 1, padding=0)
                     ax = self.myTimeSeries.my_plot_widgets[j].ts_plot.getAxis('bottom')
@@ -1273,7 +1282,7 @@ class MyMainWindow(MainWindowInterface):
                         else:
                             self.myTimeSeries.my_plot_widgets[j].minLabel.setText(str(format(y_mid - abs(max_data - min_data) / 2, '.2f')) + 'uV')
                     if self.resistanceOn[j]:
-                        self.myTimeSeries.my_plot_widgets[j].ts_plot.plot(pen=pg.mkPen(self.colors[j])).setData(plot_x, plot_data[j])
+                        self._ts_curve(j).setData(plot_x, plot_data[j])
                         self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(f'{round(self.resistanceArray[j] / 1000.0, 3)}kΩ')
                         continue
                     percent = bound_data / RAILED_MAX * 100.0
@@ -1290,7 +1299,7 @@ class MyMainWindow(MainWindowInterface):
                         self.myTimeSeries.my_plot_widgets[j].dataLabelColor = notificationColor
                     std_data = np.std(bp_nf_data[j][-int(fft_bound):])
                     rms_value = np.sqrt(np.mean(np.square(bp_nf_data[j][-int(fft_bound):])))
-                    self.myTimeSeries.my_plot_widgets[j].ts_plot.plot(pen=pg.mkPen(self.colors[j])).setData(plot_x, plot_data[j])
+                    self._ts_curve(j).setData(plot_x, plot_data[j])
                     self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(f'{round(np.average(bp_nf_data[j]), 3)}uV')
                     self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(notification + format(round(std_data, 2), '.2f') + 'uVrms')
             del t_data
