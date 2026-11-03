@@ -1,5 +1,7 @@
+import json
 import os
 import shutil
+import socket
 import time
 import unittest
 
@@ -50,6 +52,28 @@ class ControlPlaneTest(unittest.TestCase):
             self.assertGreater(status["last_sample_time_ns"], 0)
             self.assertEqual(client.stop(), "completed")
             self.assertEqual(controller.snapshot().state.value, "finalized")
+        finally:
+            server.stop()
+
+    def test_request_ids_and_error_codes_are_preserved(self):
+        server = ControlServer(token="test-token")
+        server.start()
+        try:
+            with socket.create_connection((server.host, server.port), timeout=2) as sock:
+                sock.sendall(
+                    ('{"command":"ping","token":"test-token","id":41}\n').encode("utf-8")
+                )
+                response = json.loads(sock.makefile("rb").readline())
+            self.assertEqual(response["id"], 41)
+            self.assertTrue(response["ok"])
+            with socket.create_connection((server.host, server.port), timeout=2) as sock:
+                sock.sendall(
+                    ('{"command":"marker","token":"test-token","id":42,"label":"x"}\n').encode("utf-8")
+                )
+                error = json.loads(sock.makefile("rb").readline())
+            self.assertEqual(error["id"], 42)
+            self.assertFalse(error["ok"])
+            self.assertEqual(error["code"], "no_session")
         finally:
             server.stop()
 
@@ -184,6 +208,18 @@ class ControlPlaneTest(unittest.TestCase):
                 client.marker("not yet")
             with self.assertRaises(ControlError):
                 client.stop()
+        finally:
+            server.stop()
+
+    def test_pending_start_rejects_a_second_request(self):
+        server = ControlServer(None, token="test-token", start_callback=lambda board: None)
+        server.start()
+        try:
+            client = ControlClient(server.host, server.port, "test-token")
+            self.assertEqual(client.start("demo"), "start_requested")
+            with self.assertRaises(ControlError) as caught:
+                client.start("demo")
+            self.assertEqual(caught.exception.code, "busy")
         finally:
             server.stop()
 

@@ -36,6 +36,10 @@ MAX_REQUEST_BYTES = 64 * 1024
 class ControlError(RuntimeError):
     """Raised for invalid control requests or transport failures."""
 
+    def __init__(self, message: str, code: str = "invalid_request") -> None:
+        super().__init__(message)
+        self.code = code
+
 
 def _encode(payload: Dict[str, Any]) -> bytes:
     return (json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8")
@@ -68,11 +72,18 @@ class ControlServer:
         self._socket: Optional[socket.socket] = None
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
+        self._start_pending = threading.Event()
+        self._start_pending_until = 0.0
 
     def active_controller(self) -> Optional[SessionController]:
-        if self.controller_provider is not None:
-            return self.controller_provider()
-        return self.controller
+        controller = (
+            self.controller_provider()
+            if self.controller_provider is not None
+            else self.controller
+        )
+        if controller is not None:
+            self._start_pending.clear()
+        return controller
 
     @property
     def address(self) -> str:
@@ -154,12 +165,20 @@ class ControlServer:
                 continue
             except OSError:
                 return
+            request_id = None
             try:
                 connection.settimeout(2.0)
                 request = self._read_request(connection)
+                request_id = request.get("id")
                 response = self._dispatch(request)
             except Exception as exc:  # noqa: BLE001 - keep the control loop alive
-                response = {"ok": False, "error": str(exc)}
+                response = {
+                    "ok": False,
+                    "error": str(exc),
+                    "code": getattr(exc, "code", "internal_error"),
+                }
+            if request_id is not None:
+                response["id"] = request_id
             try:
                 connection.sendall(_encode(response))
             except OSError:
@@ -219,16 +238,25 @@ class ControlServer:
             if self.start_callback is None:
                 raise ControlError("start is not available for this control endpoint")
             if self.active_controller() is not None:
-                raise ControlError("a session is already active")
+                raise ControlError("a session is already active", code="busy")
+            if self._start_pending.is_set() and time.monotonic() < self._start_pending_until:
+                raise ControlError("a start request is already pending", code="busy")
+            self._start_pending.clear()
             board = request.get("board")
             if board is None or not str(board).strip():
                 raise ControlError("start requires a board selector")
-            self.start_callback(str(board).strip())
+            self._start_pending.set()
+            self._start_pending_until = time.monotonic() + 30.0
+            try:
+                self.start_callback(str(board).strip())
+            except Exception:
+                self._start_pending.clear()
+                raise
             return {"ok": True, "status": "start_requested", "board": str(board).strip()}
         if command == "marker":
             controller = self.active_controller()
             if controller is None:
-                raise ControlError("no active session")
+                raise ControlError("no active session", code="no_session")
             label = request.get("label", "")
             if not isinstance(label, str):
                 raise ControlError("marker label must be a string")
@@ -242,7 +270,7 @@ class ControlServer:
         if command == "stop":
             controller = self.active_controller()
             if controller is None:
-                raise ControlError("no active session")
+                raise ControlError("no active session", code="no_session")
             if self.stop_callback is not None:
                 self.stop_callback()
                 status = "stop_requested"
@@ -265,9 +293,14 @@ class ControlClient:
         self.port = int(port)
         self.token = token
         self.timeout = float(timeout)
+        self._next_id = 0
+        self._id_lock = threading.Lock()
 
     def _request(self, command: str, **fields: Any) -> Dict[str, Any]:
-        payload_fields = {"command": command, "token": self.token}
+        with self._id_lock:
+            self._next_id += 1
+            request_id = self._next_id
+        payload_fields = {"command": command, "token": self.token, "id": request_id}
         payload_fields.update(fields)
         payload = _encode(payload_fields)
         try:
@@ -277,8 +310,13 @@ class ControlClient:
                 response = _read_response(sock)
         except OSError as exc:
             raise ControlError("control connection failed: %s" % exc) from exc
+        if response.get("id") != request_id:
+            raise ControlError("control response id does not match the request")
         if not response.get("ok"):
-            raise ControlError(response.get("error", "control request failed"))
+            raise ControlError(
+                response.get("error", "control request failed"),
+                code=str(response.get("code", "request_failed")),
+            )
         return response
 
     @classmethod

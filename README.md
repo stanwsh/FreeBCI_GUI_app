@@ -508,6 +508,11 @@ stop and returns `"stop_requested"`; the session finalizes on the next GUI event
 board. `marker()` records a labeled event at the current sample offset and returns
 the marker record; it requires an active session.
 
+Requests carry a client-generated `id` and the response echoes it. A failed
+request returns an `error` plus a stable `code`, such as `no_session` when no
+recording is active or `busy` when a session is already running or starting.
+`ControlClient` raises `ControlError` with the same `code` attribute.
+
 `clock_offset()` performs several `time` exchanges and returns the best
 server-minus-client offset in nanoseconds, an `uncertainty_ns` equal to half the
 minimum round trip, the `round_trip_ns`, and the number of samples. This is a
