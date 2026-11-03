@@ -1404,7 +1404,8 @@ class MyMainWindow(MainWindowInterface):
             streamer = getattr(self, 'LSLstreamer%d' % index, None)
             state = 'running' if streamer is not None and streamer.isActive() else 'stopped'
             name = getattr(networking, 'LSLname%d' % index, 'Stream %d' % index)
-            running.append('%s (%s, %s)' % (name, data_type, state))
+            pending = len(getattr(self, 'LSLbufferData%d' % index, []) or [])
+            running.append('%s (%s, %s, pending %d)' % (name, data_type, state, pending))
         return '; '.join(running) if running else 'none configured'
 
     def demo_click(self):
