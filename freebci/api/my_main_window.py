@@ -117,6 +117,7 @@ class MyMainWindow(MainWindowInterface):
         self.is_startBattery = False
         self.start_extri = 0
         self.extri_flag = 1
+        self.extri_seen_total = 0
         self.extri_count = 0
         self.fps_extri = 250
         self.fps_topo = 20
@@ -446,8 +447,7 @@ class MyMainWindow(MainWindowInterface):
             self.channelNames = [ 'eeg' + str(i + 1) for i in range(self._chan) ] + [ 'other' + str(i + 1) for i in range(4) ]
             self.num_rows = self.board.get_num_rows(self.connect_info.board_id)
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.extri_data = self.data
-            self.battery_percentage = self.data
+
             self.initWidget()
             self.reConFuncToWidget()
             self.startButton.setStyleSheet('font: 12pt "等线"; background-color: rgb(204,255,153)')
@@ -1085,8 +1085,13 @@ class MyMainWindow(MainWindowInterface):
             if self.is_myExtrigger and self.is_startExtrigger:
                 if self.extri_count == 0:
                     self.start_extri = time.time()
-                while self.extri_flag < len(self.extri_data[0]):
-                    if self.extri_data[self._chan + 1][self.extri_flag]:
+                previous_flag = self.extri_flag
+                visible_start = max(
+                    0, data.shape[1] - (view.total_samples - self.extri_seen_total)
+                )
+                self.extri_flag = visible_start
+                while self.extri_flag < data.shape[1]:
+                    if data[self._chan + 1][self.extri_flag]:
                         self.myExtrigger.label33.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightblue")
                         self.myExtrigger.label33.setText('1')
                         self.myExtrigger.label33.setAlignment(Qt.AlignCenter)
@@ -1094,7 +1099,7 @@ class MyMainWindow(MainWindowInterface):
                         self.myExtrigger.label33.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.myExtrigger.label33.setText('0')
                         self.myExtrigger.label33.setAlignment(Qt.AlignCenter)
-                    if self.extri_data[self._chan + 2][self.extri_flag]:
+                    if data[self._chan + 2][self.extri_flag]:
                         self.myExtrigger.label34.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightgreen")
                         self.myExtrigger.label34.setText('1')
                         self.myExtrigger.label34.setAlignment(Qt.AlignCenter)
@@ -1102,7 +1107,7 @@ class MyMainWindow(MainWindowInterface):
                         self.myExtrigger.label34.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.myExtrigger.label34.setText('0')
                         self.myExtrigger.label34.setAlignment(Qt.AlignCenter)
-                    if self.extri_data[self._chan + 3][self.extri_flag]:
+                    if data[self._chan + 3][self.extri_flag]:
                         self.myExtrigger.label35.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:lightpurple")
                         self.myExtrigger.label35.setText('1')
                         self.myExtrigger.label35.setAlignment(Qt.AlignCenter)
@@ -1110,7 +1115,7 @@ class MyMainWindow(MainWindowInterface):
                         self.myExtrigger.label35.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.myExtrigger.label35.setText('0')
                         self.myExtrigger.label35.setAlignment(Qt.AlignCenter)
-                    if self.extri_data[self._chan + 4][self.extri_flag]:
+                    if data[self._chan + 4][self.extri_flag]:
                         self.myExtrigger.label36.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(0,255,255)")
                         self.myExtrigger.label36.setText('1')
                         self.myExtrigger.label36.setAlignment(Qt.AlignCenter)
@@ -1118,7 +1123,7 @@ class MyMainWindow(MainWindowInterface):
                         self.myExtrigger.label36.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:grey")
                         self.myExtrigger.label36.setText('0')
                         self.myExtrigger.label36.setAlignment(Qt.AlignCenter)
-                    if self.extri_data[self._chan + 5][self.extri_flag]:
+                    if data[self._chan + 5][self.extri_flag]:
                         self.myExtrigger.label37.setStyleSheet("font: 15pt '黑体';color: black;min-width: 80px; min-height: 80px;max-width:80px; max-height: 80px;border-radius: 40px;  border:1px solid black;background:rgb(210,180,140)")
                         self.myExtrigger.label37.setText('1')
                         self.myExtrigger.label37.setAlignment(Qt.AlignCenter)
@@ -1127,21 +1132,19 @@ class MyMainWindow(MainWindowInterface):
                         self.myExtrigger.label37.setText('0')
                         self.myExtrigger.label37.setAlignment(Qt.AlignCenter)
                     self.extri_flag += 1
-                self.extri_count += self.extri_flag
+                self.extri_count += max(0, self.extri_flag - previous_flag)
+                self.extri_seen_total = view.total_samples
                 if self.extri_count >= 1000:
                     end_extri = time.time()
                     self.fps_extri = int(self.extri_count / float(end_extri - self.start_extri))
                     self.extri_count = 0
-                self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
-                self.extri_flag = 1
             if self.is_myBattery and self.is_startBattery:
                 self.hardwareInfo.dataMode = 'Battery'
-                battery_get = self.battery_percentage[self._chan + 6][-1] * pow(16, 2) + self.battery_percentage[self._chan + 7][-1]
+                battery_get = data[self._chan + 6][-1] * pow(16, 2) + data[self._chan + 7][-1]
                 battery_percent_volt = battery_get / 500
                 battery_percent = battery_percent_volt / 4.2 * 100
                 self.myBattery.bat_widget.setValue(int(battery_percent))
                 self.myBattery.label.setText(str(int(battery_percent)) + '%')
-                self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
             if self.is_myBrainTopography and self.startButton_isclicked == True:
                 topodata1 = bp_nf_data[:, -self.ts_plot_range:]
                 rows = min(len(self.Topography_data), len(self.chanMatched_index), topodata1.shape[0])
@@ -1440,8 +1443,8 @@ class MyMainWindow(MainWindowInterface):
 
     def _build_session_controller(self):
         self.data = np.zeros([self.num_rows, 1], dtype=float64)
-        self.extri_data = self.data
-        self.battery_percentage = self.data
+        self.extri_flag = 1
+        self.extri_seen_total = 0
         profile = self.device_manager.profile or self._board_profile()
         config = SessionConfig(
             session_id=datetime.datetime.now().strftime('FreeBCI_%Y%m%d_%H%M%S'),
@@ -1509,8 +1512,7 @@ class MyMainWindow(MainWindowInterface):
             if self.control_server is not None and self.control_discovery_path:
                 self.control_server.write_discovery(self.control_discovery_path)
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.extri_data = self.data
-            self.battery_percentage = self.data
+
             self.myLogger.write('FreeBCI: stopButton was pressed. Stopping data transfer. wait a few seconds.')
         except Exception as ex:
             self.myLogger.write('WARNNING: could not stop board.')
@@ -1561,8 +1563,7 @@ class MyMainWindow(MainWindowInterface):
             self.session_view_model.append_block(buffer_data)
             # The trigger and battery views use the same bounded block history;
             # keeping separate copies doubled memory without adding information.
-            self.extri_data = self.data
-            self.battery_percentage = self.data
+
             del buffer_data
         except Exception as ex:
             self.myLogger.write('poll data')

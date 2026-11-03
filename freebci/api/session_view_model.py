@@ -27,6 +27,7 @@ class DisplaySnapshot:
     sampling_rate: int
     state: str
     sample_count: int
+    total_samples: int
 
 
 class SessionViewModel:
@@ -42,6 +43,7 @@ class SessionViewModel:
         self._control_provider = control_provider
         self._lsl_provider = lsl_provider
         self._history: Optional[np.ndarray] = None
+        self._total_samples = 0
 
     @property
     def history(self) -> Optional[np.ndarray]:
@@ -49,13 +51,16 @@ class SessionViewModel:
 
     def set_history(self, history: Optional[np.ndarray]) -> None:
         self._history = history
+        self._total_samples = 0 if history is None else int(history.shape[1])
 
     def append_block(self, block: np.ndarray, limit: int = 60000) -> np.ndarray:
         """Append one display block to the bounded history."""
         if self._history is None or self._history.shape[1] <= 1:
             self._history = block[:, 1:]
+            self._total_samples = self._history.shape[1]
         else:
             self._history = append_bounded(self._history, block, limit)
+            self._total_samples += int(block.shape[1])
         return self._history
 
     def display_snapshot(self) -> Optional[DisplaySnapshot]:
@@ -71,6 +76,7 @@ class SessionViewModel:
             sampling_rate=controller.config.sampling_rate,
             state=state_snapshot.state.value,
             sample_count=state_snapshot.sample_count,
+            total_samples=self._total_samples,
         )
 
     @property
