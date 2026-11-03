@@ -30,10 +30,10 @@ class BoardGateway(Protocol):
 class BrainFlowGateway:
     """Adapter around an already-prepared BrainFlow ``BoardShim``.
 
-    Connection dialogs remain responsible for transport preparation because
-    they contain the hardware-specific COM/Wi-Fi/UPnP setup.  Once prepared,
-    the board is handed to this gateway and is only touched by the acquisition
-    worker and the session controller.
+    The module also owns the small transport-preparation helpers below so that
+    dialogs and workers never import BrainFlow themselves.  Preparation is
+    deliberately separate from acquisition: a prepared board is handed to
+    :class:`BrainFlowGateway`, which is the only object the session touches.
     """
 
     def __init__(
@@ -85,3 +85,53 @@ class BrainFlowGateway:
             self._board.release_session()
         except Exception as exc:  # noqa: BLE001
             raise GatewayError("could not release the board session: %s" % exc) from exc
+
+
+def prepare_serial_board(
+    board_id: int,
+    serial_port: str,
+    other_info: str,
+    timeout: float = 3.0,
+):
+    """Open and prepare a serial board, releasing it if preparation fails."""
+    from brainflow.board_shim import BoardShim, BrainFlowInputParams
+
+    params = BrainFlowInputParams()
+    params.serial_port = str(serial_port)
+    params.other_info = str(other_info)
+    params.timeout = float(timeout)
+    board = BoardShim(int(board_id), params)
+    try:
+        board.prepare_session()
+    except Exception:
+        try:
+            board.release_session()
+        except Exception:
+            pass
+        raise
+    return board
+
+
+def prepare_wifi_board(
+    board_id: int,
+    ip_address: str,
+    ip_port: int,
+    timeout: float = 5.0,
+):
+    """Open and prepare a Wi-Fi board, releasing it if preparation fails."""
+    from brainflow.board_shim import BoardShim, BrainFlowInputParams
+
+    params = BrainFlowInputParams()
+    params.ip_address = str(ip_address)
+    params.ip_port = int(ip_port)
+    params.timeout = float(timeout)
+    board = BoardShim(int(board_id), params)
+    try:
+        board.prepare_session()
+    except Exception:
+        try:
+            board.release_session()
+        except Exception:
+            pass
+        raise
+    return board

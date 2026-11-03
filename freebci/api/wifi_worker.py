@@ -2,9 +2,9 @@
 import threading
 
 from PyQt5 import QtCore
-from brainflow.board_shim import BoardShim, BrainFlowInputParams
 
 from freebci.api.wifi_discovery import discover
+from freebci.core.gateway import prepare_wifi_board
 
 
 class WifiDiscoveryWorker(QtCore.QThread):
@@ -59,12 +59,9 @@ class WifiConnectWorker(QtCore.QThread):
                 "Connecting to %s (attempt %d of 3)..." % (self.ip_address, attempt + 1)
             )
             try:
-                params = BrainFlowInputParams()
-                params.ip_address = self.ip_address
-                params.ip_port = self.ip_port
-                params.timeout = 5
-                board = BoardShim(self.board_id, params)
-                board.prepare_session()
+                board = prepare_wifi_board(
+                    self.board_id, self.ip_address, self.ip_port, timeout=5
+                )
                 if self._cancelled.is_set():
                     try:
                         board.release_session()

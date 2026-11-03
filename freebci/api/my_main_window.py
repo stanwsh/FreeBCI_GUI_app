@@ -26,9 +26,8 @@ from freebci.core.dsp import bandpass_inplace, bandstop_inplace, fft_magnitude, 
 from freebci.core.packets import PacketLossCounter
 from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.my_electrodes_position import ElectrodesPosition
-from freebci.api.my_serial_connection import MySerialConnection
-from freebci.api.my_blueTooth import MyBluetoothConnection
 from freebci.api.my_serial_connection_pure import MySerialConnection as MySerialConnectionPure
+from freebci.api.my_blueTooth import MyBluetoothConnection
 from freebci.api.my_virtual_connection import MyVirtualConnection
 from freebci.api.my_hardware_warn import MyHardwareWarning
 from pyqtgraph.Qt import QtWidgets, QtGui, QtCore

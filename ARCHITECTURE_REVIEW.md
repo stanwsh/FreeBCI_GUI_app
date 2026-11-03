@@ -410,7 +410,7 @@ This is a textbook case for an explicit state machine with guarded transitions.
 > **Target only.** This section describes the intended architecture, not the
 > current package layout. Current code keeps the view-model adapter in
 > `freebci/api/session_view_model.py`, has `core/catalog.py`, `core/ring.py`,
-> and `core/settings.py`, and has no `freebci/ui/`, `core/logging.py`, or
+> `core/settings.py`, and `core/logging.py`, and has no `freebci/ui/` or
 > `freebci/app.py`. See Section M before treating any path or contract here as
 > implemented.
 
@@ -1693,52 +1693,52 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | Composition | `FreeBCI_GUI.py` and generated `freebci/design` UI | No `freebci/app.py`; no `freebci/ui/` package |
 | Display data | `SessionViewModel` ring-backed history plus `display_snapshot()` | `core/ring.py` exists; acquisition still feeds it through the view-model adapter, not a core fan-out |
 | Device lifecycle | `DeviceManager` adopts an already-prepared board, creates gateways, releases | No `connect()/prepare()/configure()` state machine |
-| Hardware discovery | Dialogs use `serial_worker`, Wi-Fi discovery workers, Bluetooth worker | Transport preparation is still dialog-owned |
-| Settings | XML load/save inside `my_hardware_settings.py`; apply command sequence in `SettingsCommandWorker` | No `core/settings.py` |
-| Logging | `MyLogger` per-message file append, console window | No structured `core/logging.py` |
+| Hardware discovery | Dialogs use `serial_worker`, Wi-Fi discovery workers, Bluetooth worker; serial/Wi-Fi workers call `core.gateway.prepare_*_board` | Preparation is worker-owned, not a DeviceManager `connect()` transition |
+| Settings | `core/settings.py` validates and atomically saves XML; the dialog loads/saves through it; apply runs in `SettingsCommandWorker` | No last-known-good or profile-aware fallback |
+| Logging | `core/logging.py` writes rotating JSONL `session.log`; `MyLogger` still appends console text | GUI log is not yet a structured queue listener |
 
 ### M.2 Section-by-section gaps
 
 | Section | Landed | Still open / target-only | Priority |
 |---|---|---|---|
-| C.1 dependency map | Core no Qt; writer/acquisition separated | Presentation still imports BrainFlow/pylsl; dialogs prepare boards; `connectInfo` carries a live board | P1 |
+| C.1 dependency map | Core no Qt; writer/acquisition separated; serial and Wi-Fi workers prepare boards through `core/gateway.py` helpers | The legacy virtual-connection dialog still imports BrainFlow; transport dialogs still own lifecycle | P1 |
 | C.2 cohesion | Recording, acquisition, settings apply moved out of the window | `MyMainWindow` still owns timers, filters, plotting, LSL, menus, and state; views still own LSL/protocol choices | P1 |
 | C.3 concurrency | Acquisition, writer, settings, board-command, session-start workers | No core ring; GUI filters/FFTs on its thread; topography queue is unbounded | P1/P2 |
 | C.4 state model | Action guards and start/stop confirmation | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded state machine | P1 |
 | C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
-| C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write structured `session.log` | GUI `MyLogger` still opens a file per message; no top-level correlation IDs | P2 |
-| C.7 tests/packaging | 87 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
+| C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write rotating structured `session.log` | GUI `MyLogger` still opens a file per message; no top-level correlation IDs | P2 |
+| C.7 tests/packaging | 92 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
 | D.2 layers | Core/application/device boundaries partly exist; catalog, ring, settings, and structured logging now exist in core | Presentation is not BrainFlow-free; no `ui/`, `app.py` | Target |
 | D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
-| D.4 dependency rules | Core is Qt-free; main window no longer imports BrainFlow and uses `core/dsp.py` | Transport dialogs and hardware settings still create/prepare `BoardShim`; `gateway` is not the only BrainFlow importer | P1 |
+| D.4 dependency rules | Core is Qt-free; main window no longer imports BrainFlow and uses `core/dsp.py`; serial/Wi-Fi workers prepare boards via `core/gateway.py` | The legacy virtual-connection dialog still imports BrainFlow; `gateway.py` is not yet the only importer | P1 |
 | D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
 | D.6 data flow | Block → writer + display queue + view-model history | No acquisition ring fan-out; LSL now uses a bounded chunk queue with a drop counter; no processing-worker snapshot | P2 |
 | E.1 models | `BoardProfile`, `SessionConfig`, `SampleBlock`, `SessionClock`, `StateSnapshot` | No `DeviceConfig`/`StopReason` as specified; model fields differ from the proposal | Documentation |
 | E.2 catalog | `core/catalog.py` is the board-table source; `connectInfo` consumes its legacy row shape | UI still reads raw row indexes for capability checks | P2 |
-| E.3 gateway | `BrainFlowGateway` wraps a prepared `BoardShim` | No `prepare()/configure()/sampling_rate()/is_prepared()`; no stable error codes; `FakeBoardGateway` is `SimulatedBoard` | P2 |
+| E.3 gateway | `BrainFlowGateway` wraps a prepared `BoardShim`; `prepare_serial_board`/`prepare_wifi_board` own transport preparation | No `configure()/sampling_rate()/is_prepared()` adapter methods; no stable gateway error codes | P2 |
 | E.4 DeviceManager | Adopt/release/replace/gateway creation | No connect/prepare/cancel/start-stop ownership; transport dialogs still prepare | P1 |
 | E.5 AcquisitionService | Worker loop, block assembly, error stop | Takes a callback, not `BlockSink`; no ring; no `stop()` stats contract | P2 |
 | E.6 RingBuffer | `core/ring.py` with bounded, thread-safe `latest()`; used by the view-model history | Acquisition does not fan out into the ring directly; no processing-worker consumer | P2 |
 | E.7 RecordingWriter | Thread, bounded queue, rotation, manifest, checksums, gaps, markers, JSONL `session.log`, `.writing` marker and read-only recovery scan | Resume/repair of a recovered session is not implemented | P2 |
 | E.8 SessionController | Start/stop, markers, snapshots, clock | Start does not return `StartInfo` after first block; no `connect()/prepare()/shutdown()` contract | P2 |
-| E.9 Control API | status/start/stop/marker/shutdown, token, discovery, clock offset | Protocol differs from G.5; no `id`, `cmd`, `params`, request cache, `BUSY`, `prepare`, `connect` | P2 |
+| E.9 Control API | status/start/stop/marker/shutdown, token, discovery, clock offset, request IDs, `busy`/`no_session` error codes | No `cmd`/`params` envelope, idempotent request cache, `prepare`, or `connect` | P2 |
 | E.10 View model | `SessionViewModel` with diagnostics, markers, history, display snapshot | Not a `QObject`; no state/stats/error/recording signals; no command queue | P2 |
 | E.11 Settings | `core/settings.py` validates channel files and writes them atomically; the dialog uses it for load/save | No last-known-good fallback; no profile-aware validation; apply is still a command sequence | P2 |
 | E.12/E.13 failure/connection semantics | Worker errors, reconnect test, retries | No unified retry/cancel/multi-device policy; dialogs still own lifecycle | P2 |
 | F.1 bottlenecks | Aux buffers, `gc.collect`, `np.append` removed; decimation added; time-series plot curves are reused | Per-channel Python filter loops still on GUI thread; FFT/band-power/accelerometer items are recreated each frame | P2 |
 | F.2/F.3 pipeline/backpressure | Writer bounded; display may drop; LSL bounded with drop counter | No acquisition ring fan-out, no topography latest-only policy | P2 |
 | F.4 concurrency | Workers and writer threads | Some board commands still serialized through one worker rather than DeviceManager; no thread-stop timeout policy | P2 |
-| F.5 recording format | CSV/TXT + meta + manifest + markers | No `.writing` rename, directory fsync, recovery scan, `session.log` | P2 |
-| F.6 display | Decimation to ~2,000 points; one topography figure claim | `ts_plot.clear()` + `plot()` creates items per frame; filtering remains on GUI | P2 |
+| F.5 recording format | CSV/TXT + meta + manifest + markers + `session.log` + `.writing` marker + read-only recovery scan | No directory fsync or resume/repair of partial chunks | P2 |
+| F.6 display | Decimation to ~2,000 points; one topography figure claim; time-series curves reused | Other plot items recreated per frame; filtering remains on GUI | P2 |
 | F.7 metrics | Bench/soak tools; 64-channel 2-minute run | No 8-hour/64-channel gate; no measured p99 latency/CPU/fps dashboard | P3 |
 | G.1–G.3 sync/lifecycle | Host block timestamps, markers, manifest clock, READY/STREAMING device states | No `uncertainty_ns`, clock ID, per-sample estimate; no CONNECTING/ARMED lifecycle as drawn | P2 |
-| G.5 protocol | Loopback JSON, token, discovery, selector start, clock exchange | No request IDs/idempotency/BUSY; discovery path/schema differ; no `prepare`/`connect` | P2 |
+| G.5 protocol | Loopback JSON, token, discovery, selector start, clock exchange, request IDs, `busy`/`no_session` codes | No `cmd`/`params` envelope, idempotent request cache, `prepare`/`connect`; discovery schema differs | P2 |
 | G.6 client | `from_discovery`, status/start/stop/marker/clock_offset | No `from_runtime_file()` or `wait_started()` | P3 |
-| G.7 LSL | Three streams, marker outlet, source IDs | `source_id` is `FreeBCI:<name>`, not session id; `push_sample` not `push_chunk`; no channel names/units; no LSL drop counter beyond pending count | P2 |
+| G.7 LSL | Three streams, marker outlet, stable source IDs, bounded chunk queue with pending/drop counters | `source_id` is `FreeBCI:<name>`, not session id; no channel names/units; drop counter is UI-side | P2 |
 | G.8 clock | `time` exchange + half-RTT uncertainty | Status lacks `clock_id`, `monotonic_ns`, `wall_ns`; manifest clock is host wall only | P2 |
 | H.1 logging | Console/file logger exists | Not stdlib `QueueHandler`/JSONL; no levels/context | P2 |
 | H.2 manifest | schema string, schema_version, app version, device, config, start/stop, chunks, sample count, clock, samples, blocks, lost, gaps, markers, files, session log, errors | Firmware/serial and PGA/channel-map fields are not available from the current config; `device.family` is `unknown` | P2 |
-| H.3 layout | CSV/TXT/meta/manifest/markers | No `session.log`; no `.writing` suffix | P2 |
+| H.3 layout | CSV/TXT/meta/manifest/markers/session.log | `.writing` is a JSON marker, not a filename suffix | P2 |
 | H.4 gaps/loss | Sample-index gaps and lost counters | Packet counter and sample gap not clearly separated in manifest | P3 |
 | H.5–H.6 durability | Atomic manifest, checkpoint, failed status | No recovery scan for partial chunks; no directory fsync | P2 |
 | H.7 settings schema | XML presets | No schema version, range validation, last-known-good | P2 |
@@ -1746,7 +1746,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | I.2 connection | Async discovery/prepare; fast port list | Dialogs still prepare boards; no DeviceManager.connect; no reconnect prompt | P1 |
 | I.3 streaming | Async start, stop confirmation, window-close stop/finalize confirmation | Error banner is still a status label | P2 |
 | I.4 diagnostics | State, device/id, configured vs effective rate, written samples, disk free, last-write latency, manifest status, counts, loss, queue, files, output, control, LSL, error | Missing clock/sync uncertainty in the GUI | P2 |
-| I.5 rendering | One timer per concern? Decimation; topography figure reuse | Plot item reuse not implemented; each view still filters its own full buffer | P2 |
+| I.5 rendering | One timer per concern? Decimation; topography figure reuse; time-series plot items reused | Other plot items still recreated; each view still filters its own full buffer | P2 |
 | I.6 UI defects | Channel rebuild, sfreq, LSL streams, async settings | Wildcard imports, console singleton, and some fixed sleeps remain | P2 |
 | I.7 usability | Stop confirmation; destination in diagnostics | No “Connect again”, no remembered last config, no pre-start destination preview | P3 |
 

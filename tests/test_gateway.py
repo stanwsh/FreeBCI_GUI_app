@@ -1,6 +1,12 @@
 import unittest
+from unittest.mock import MagicMock, patch
 
-from freebci.core.gateway import BrainFlowGateway, GatewayError
+from freebci.core.gateway import (
+    BrainFlowGateway,
+    GatewayError,
+    prepare_serial_board,
+    prepare_wifi_board,
+)
 
 
 class FakeBoard:
@@ -58,6 +64,36 @@ class BrainFlowGatewayTest(unittest.TestCase):
             board.calls,
             [("start_stream",), ("config_board", chr(34) + ','), ("stop_stream",)],
         )
+
+    def test_serial_preparation_sets_transport_parameters(self):
+        board = MagicMock()
+        with patch("brainflow.board_shim.BoardShim", return_value=board) as ctor:
+            prepared = prepare_serial_board(2037, "COM3", "2000000", timeout=3)
+        self.assertIs(prepared, board)
+        board.prepare_session.assert_called_once()
+        params = ctor.call_args[0][1]
+        self.assertEqual(params.serial_port, "COM3")
+        self.assertEqual(params.other_info, "2000000")
+        self.assertEqual(params.timeout, 3.0)
+
+    def test_wifi_preparation_sets_transport_parameters(self):
+        board = MagicMock()
+        with patch("brainflow.board_shim.BoardShim", return_value=board) as ctor:
+            prepared = prepare_wifi_board(2038, "192.168.4.1", 8899)
+        self.assertIs(prepared, board)
+        board.prepare_session.assert_called_once()
+        params = ctor.call_args[0][1]
+        self.assertEqual(params.ip_address, "192.168.4.1")
+        self.assertEqual(params.ip_port, 8899)
+        self.assertEqual(params.timeout, 5.0)
+
+    def test_preparation_failure_releases_the_board(self):
+        board = MagicMock()
+        board.prepare_session.side_effect = RuntimeError("no board")
+        with patch("brainflow.board_shim.BoardShim", return_value=board):
+            with self.assertRaises(RuntimeError):
+                prepare_wifi_board(2038, "192.168.4.1", 8899)
+        board.release_session.assert_called_once()
 
 
 if __name__ == "__main__":

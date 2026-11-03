@@ -7,7 +7,8 @@ uses this worker and reports the prepared board back through Qt signals.
 import time
 
 from PyQt5 import QtCore
-from brainflow.board_shim import BoardShim, BrainFlowInputParams
+
+from freebci.core.gateway import prepare_serial_board
 
 
 _BAUD_INDEX = {
@@ -20,12 +21,7 @@ _BAUD_INDEX = {
 
 
 def _open_board(board_id, serial_port, other_info):
-    params = BrainFlowInputParams()
-    params.serial_port = serial_port
-    params.timeout = 3
-    params.other_info = other_info
-    board = BoardShim(board_id, params)
-    board.prepare_session()
+    board = prepare_serial_board(board_id, serial_port, other_info)
     board.config_board('g')
     time.sleep(0.2)
     return board

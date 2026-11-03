@@ -1,5 +1,4 @@
 import os
-import time
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
 from freebci.core.settings import ChannelSettings, HardwareSettings, load_settings, save_settings
@@ -8,9 +7,6 @@ from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.api.settings_worker import SettingsCommandWorker
 from functools import partial
 import xml.etree.ElementTree as ET
-from brainflow import board_shim, data_filter, exit_codes, ml_model
-from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
-from brainflow.data_filter import AggOperations, DataFilter, FilterTypes, WindowFunctions
 
 
 class MyHardwareSettings(hardwareSettings_interface):
@@ -413,36 +409,3 @@ class MyHardwareSettings(hardwareSettings_interface):
             self.myLogger.write('Save xml: ' + my_file[0])
         self.saveSettings(my_file, False)
 
-    def prepare_openbci(self, connect_type, boardID=0, wifi_address=None, wifi_port=0, serial_port=None, other_info='115200'):
-        if connect_type == 1:
-            try:
-                params = BrainFlowInputParams()
-                params.ip_port = wifi_port
-                params.ip_address = wifi_address
-                params.timeout = 3
-                board_id = boardID
-                self.board = BoardShim(board_id, params)
-                self.myLogger.write('preparing......')
-                self.board.prepare_session()
-                self.myLogger.write('prepared')
-            except board_shim.BrainFlowError as ex:
-                self.board.release_session()
-                self.board = BoardShim(5, BrainFlowInputParams())
-                raise ex
-        elif connect_type == 2:
-            try:
-                self.myLogger.write('imported')
-                params = BrainFlowInputParams()
-                params.serial_port = serial_port
-                params.timeout = 3
-                params.other_info = other_info
-                board_id = boardID
-                self.board = BoardShim(board_id, params)
-                self.myLogger.write('preparing......')
-                self.board.prepare_session()
-                time.sleep(0.2)
-                self.myLogger.write('prepared')
-            except board_shim.BrainFlowError as ex:
-                self.board.release_session()
-                self.board = BoardShim(5, BrainFlowInputParams())
-                raise ex

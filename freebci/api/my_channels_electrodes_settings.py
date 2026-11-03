@@ -8,9 +8,6 @@ from freebci.design.channels_electrodes_settings_interface import channels_elect
 from freebci.api.my_hardware_warn import MyHardwareWarning
 from functools import partial
 import xml.etree.ElementTree as ET
-from brainflow import board_shim, data_filter, exit_codes, ml_model
-from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
-from brainflow.data_filter import AggOperations, DataFilter, FilterTypes, WindowFunctions
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import mne
