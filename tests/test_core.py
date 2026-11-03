@@ -104,6 +104,14 @@ class SessionControllerTest(unittest.TestCase):
         self.assertEqual(len(manifest["markers"]), 1)
         self.assertEqual(manifest["markers"][0]["label"], "stimulus on")
         self.assertEqual(manifest["markers"][0]["source"], "test")
+        self.assertEqual(manifest["session_log"], "session.log")
+        self.assertFalse(os.path.exists(os.path.join(session_dir, ".writing")))
+        log_path = os.path.join(session_dir, "session.log")
+        with open(log_path, encoding="utf-8") as handle:
+            events = [json.loads(line)["event"] for line in handle if line.strip()]
+        self.assertIn("recording.started", events)
+        self.assertIn("recording.closed", events)
+        self.assertIn("recording.marker", events)
         markers_path = os.path.join(session_dir, "markers.jsonl")
         with open(markers_path, encoding="utf-8") as handle:
             marker_lines = handle.readlines()

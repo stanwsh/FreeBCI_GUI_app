@@ -29,6 +29,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from freebci.core.logging import StructuredLogger
 from freebci.core.models import SampleBlock, SessionConfig, SessionStatus
 
 CHUNK_SAMPLES = 10_000
@@ -59,6 +60,9 @@ class RecordingWriter:
         self.gaps: List[dict] = []
         self.markers: List[dict] = []
         self.markers_path: Optional[str] = None
+        self.writing_path: Optional[str] = None
+        self.logger: Optional[StructuredLogger] = None
+        self.log_path: Optional[str] = None
         self.lost_samples = 0
         self._errors: List[str] = []
         self._next_sample_index: Optional[int] = None
@@ -82,8 +86,28 @@ class RecordingWriter:
         os.makedirs(self.record_root, exist_ok=True)
         self.session_dir = self._make_session_dir()
         self.markers_path = os.path.join(self.session_dir, "markers.jsonl")
+        self.writing_path = os.path.join(self.session_dir, ".writing")
+        _atomic_json(
+            self.writing_path,
+            {
+                "pid": os.getpid(),
+                "session_id": self.config.session_id,
+                "started_wall_ns": self.config.started_wall_ns or _wall_ns(),
+            },
+        )
         with open(self.markers_path, "w", encoding="utf-8", newline="\n"):
             pass
+        self.log_path = os.path.join(self.session_dir, "session.log")
+        self.logger = StructuredLogger(self.log_path)
+        self._log(
+            "info",
+            "recording.started",
+            "recording writer started",
+            session_id=self.config.session_id,
+            board_id=self.config.board_id,
+            channel_count=self.config.channel_count,
+            sampling_rate=self.config.sampling_rate,
+        )
         self._started_ns = self.config.started_wall_ns or _wall_ns()
         self._last_checkpoint = time.monotonic()
         self._write_manifest(SessionStatus.RECORDING)
@@ -113,6 +137,14 @@ class RecordingWriter:
                 }
             )
             self.lost_samples += missing
+            self._log(
+                "warning",
+                "recording.gap",
+                "sample-index gap",
+                start_sample=self._next_sample_index,
+                end_sample=block.sample_index,
+                missing_samples=missing,
+            )
         self._next_sample_index = block.sample_index + block.sample_count
         try:
             self._queue.put_nowait(block)
@@ -122,6 +154,7 @@ class RecordingWriter:
                 "silently losing samples"
             )
             self._errors.append(self.error)
+            self._log("error", "recording.queue_full", self.error)
             raise RecordingError(self.error) from exc
 
     def add_marker(
@@ -158,6 +191,14 @@ class RecordingWriter:
             raise RecordingError("could not write marker: %s" % exc) from exc
         with self._marker_lock:
             self.markers.append(marker)
+        self._log(
+            "info",
+            "recording.marker",
+            "marker added",
+            label=marker["label"],
+            source=marker["source"],
+            sample_index=marker["sample_index"],
+        )
         return marker
 
     def close(self, status: SessionStatus = SessionStatus.COMPLETED) -> str:
@@ -174,10 +215,27 @@ class RecordingWriter:
         except Exception as exc:  # noqa: BLE001 - preserve the manifest on a full disk
             self.error = "recording failed while flushing: %s" % exc
             self._errors.append(self.error)
+            self._log("error", "recording.flush_failed", self.error)
         self._close_file()
         if self.error:
             status = SessionStatus.FAILED
+        self._log(
+            "info" if status != SessionStatus.FAILED else "error",
+            "recording.closed",
+            "recording writer closed",
+            status=status.value,
+            samples_written=self.samples_written,
+            blocks_received=self.blocks_received,
+            lost_samples=self.lost_samples,
+        )
         self._write_manifest(status)
+        if self.writing_path:
+            try:
+                os.unlink(self.writing_path)
+            except OSError:
+                pass
+        if self.logger is not None:
+            self.logger.close()
         return self.session_dir or ""
 
     def wait(self, timeout: float = 30.0) -> None:
@@ -202,6 +260,14 @@ class RecordingWriter:
         }
 
     # -------------------------------------------------------------- internal
+    def _log(self, level: str, event: str, message: str = "", **fields) -> None:
+        if self.logger is None:
+            return
+        try:
+            self.logger.log(level, event, message, **fields)
+        except Exception:  # noqa: BLE001 - logging must never stop acquisition
+            pass
+
     def _run(self) -> None:
         while True:
             block = self._queue.get()
@@ -212,6 +278,7 @@ class RecordingWriter:
             except Exception as exc:  # noqa: BLE001 - keep the thread alive to report
                 self.error = "recording failed: %s" % exc
                 self._errors.append(self.error)
+                self._log("error", "recording.write_failed", self.error)
                 self._drain_queue()
                 return
 
@@ -403,9 +470,45 @@ class RecordingWriter:
             "gaps": self.gaps,
             "markers": markers,
             "files": self.files,
+            "session_log": "session.log",
             "errors": self._errors,
         }
         _atomic_json(os.path.join(self.session_dir, "manifest.json"), manifest)
+
+
+def recover_sessions(output_root: str) -> List[dict]:
+    """Return sessions that have a ``.writing`` marker and were not finalized.
+
+    Recovery is read-only: files stay where they are, so a user or a later
+    repair tool can decide whether to import, resume, or discard the data.
+    """
+    found: List[dict] = []
+    root = os.path.join(output_root, "Recordings")
+    try:
+        names = sorted(os.listdir(root))
+    except OSError:
+        return found
+    for name in names:
+        session_dir = os.path.join(root, name)
+        marker = os.path.join(session_dir, ".writing")
+        if not os.path.isfile(marker):
+            continue
+        manifest: dict = {}
+        try:
+            with open(os.path.join(session_dir, "manifest.json"), encoding="utf-8") as handle:
+                manifest = json.load(handle)
+        except (OSError, ValueError):
+            pass
+        found.append(
+            {
+                "session_dir": session_dir,
+                "session_id": manifest.get("session_id", ""),
+                "status": manifest.get("status", "unknown"),
+                "samples_recorded": manifest.get("samples_recorded", 0),
+                "manifest": manifest,
+            }
+        )
+    return found
 
 
 def _wall_ns() -> int:

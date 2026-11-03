@@ -84,6 +84,8 @@ USER NOTES:
 - **Phase 3.6 (D.2/E.6):** added `freebci/core/ring.py` with a thread-safe fixed-capacity ring and wrap-safe `latest()`. The session view model now stores its bounded history in the ring.
 - **Phase 2.4 (D.2/E.2):** added `freebci/core/catalog.py` as the board-table source; `connectInfo.id_list` is now a legacy-shaped copy of the catalog.
 - **Phase 2.5 (D.3/E.11):** added `freebci/core/settings.py`; channel XML load/save is validated and atomically replaced. The hardware-settings dialog uses the typed model and no longer hand-builds XML.
+- **Phase 2.6 (D.5/E.7):** added `freebci/core/logging.py`; each recording writes JSON-lines `session.log` with start/close/marker/gap/error events and size rotation.
+- **Phase 2.7 (E.7):** recordings now create a `.writing` marker and remove it on finalize. `recover_sessions()` reports unfinished sessions without modifying them, and the main window shows the count at startup.
 - **Phase 5.6:** diagnostics now show device id/name, configured rate, written samples, and disk free. Closing the window while recording asks to stop and finalize.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
@@ -1700,9 +1702,9 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | C.3 concurrency | Acquisition, writer, settings, board-command, session-start workers | No core ring; GUI filters/FFTs on its thread; topography queue is unbounded | P1/P2 |
 | C.4 state model | Action guards and start/stop confirmation | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded state machine | P1 |
 | C.5 data ownership | Duplicate trigger/battery buffers removed; display history owned by the view model and ring-backed | Acquisition does not fan out into the ring; `Topography_data` still copied through a queue; `MyRecording` legacy path remains | P2 |
-| C.6 errors/logging | Start failure restores the UI; session errors carry text | No structured logging, correlation IDs, or severity; `MyLogger` still opens per message | P2 |
-| C.7 tests/packaging | 74 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
-| D.2 layers | Core/application/device boundaries partly exist; catalog, ring, and settings now exist in core | Presentation is not BrainFlow-free; no `logging.py`, `ui/`, `app.py` | Target |
+| C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write structured `session.log` | GUI `MyLogger` still opens a file per message; no top-level correlation IDs | P2 |
+| C.7 tests/packaging | 80 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
+| D.2 layers | Core/application/device boundaries partly exist; catalog, ring, settings, and structured logging now exist in core | Presentation is not BrainFlow-free; no `ui/`, `app.py` | Target |
 | D.3 module names | `api/session_view_model.py` exists | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
 | D.4 dependency rules | Core is Qt-free | `ui` still imports BrainFlow and `pylsl`; `gateway` is not the only BrainFlow importer (dialogs and settings still use it) | P1 |
 | D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
@@ -1713,7 +1715,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | E.4 DeviceManager | Adopt/release/replace/gateway creation | No connect/prepare/cancel/start-stop ownership; transport dialogs still prepare | P1 |
 | E.5 AcquisitionService | Worker loop, block assembly, error stop | Takes a callback, not `BlockSink`; no ring; no `stop()` stats contract | P2 |
 | E.6 RingBuffer | `core/ring.py` with bounded, thread-safe `latest()`; used by the view-model history | Acquisition does not fan out into the ring directly; no processing-worker consumer | P2 |
-| E.7 RecordingWriter | Thread, bounded queue, rotation, manifest, checksums, gaps, markers | Chunk `status`/`.writing` rename and recovery scan not implemented | P2 |
+| E.7 RecordingWriter | Thread, bounded queue, rotation, manifest, checksums, gaps, markers, JSONL `session.log`, `.writing` marker and read-only recovery scan | Resume/repair of a recovered session is not implemented | P2 |
 | E.8 SessionController | Start/stop, markers, snapshots, clock | Start does not return `StartInfo` after first block; no `connect()/prepare()/shutdown()` contract | P2 |
 | E.9 Control API | status/start/stop/marker/shutdown, token, discovery, clock offset | Protocol differs from G.5; no `id`, `cmd`, `params`, request cache, `BUSY`, `prepare`, `connect` | P2 |
 | E.10 View model | `SessionViewModel` with diagnostics, markers, history, display snapshot | Not a `QObject`; no state/stats/error/recording signals; no command queue | P2 |

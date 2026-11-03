@@ -35,6 +35,7 @@ import pyqtgraph as pg
 from freebci.api.myConnectionInfo import HardwareInfo, connectInfo
 from freebci.core.control import ControlError, ControlServer
 from freebci.core.models import BoardProfile, SessionConfig
+from freebci.core.recording import recover_sessions
 from freebci.core.session import SessionController
 from brainflow import board_shim, data_filter, exit_codes, ml_model
 from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
@@ -172,6 +173,16 @@ class MyMainWindow(MainWindowInterface):
         except Exception as ex:
             self.control_server = None
             self.myLogger.write('WARNNING: could not start control API: %s' % ex)
+        try:
+            unfinished = recover_sessions(self.myRecording.doc_path)
+        except Exception as ex:
+            unfinished = []
+            self.myLogger.write('WARNNING: could not scan unfinished sessions: %s' % ex)
+        if unfinished:
+            self.stateLabel.setText(
+                '%d unfinished recording(s) found; files were left in place.'
+                % len(unfinished)
+            )
 
     def configure_electrodes(self, channel_count):
         """Build channel names, montage and topography buffers for a board."""
@@ -509,10 +520,7 @@ class MyMainWindow(MainWindowInterface):
             start_worker = getattr(self, '_start_worker', None)
             if start_worker is not None and start_worker.isRunning():
                 start_worker.wait(5000)
-            if (
-                self.session_controller is not None
-                or self.startButton_isclicked
-            ):
+            if self.startButton_isclicked:
                 self.stop_openbci()
                 self.stopThread()
             self._stop_control_server()

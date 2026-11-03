@@ -373,6 +373,8 @@ logs\
       1.meta.json
       manifest.json
       markers.jsonl
+      session.log
+      .writing
       2.csv
       2.txt
       2.meta.json
@@ -387,6 +389,12 @@ whole session and is finalized when the session stops. It is also written at
 session start and refreshed every few seconds, so an interrupted session leaves
 a manifest with `status: recording` instead of no metadata. It records
 `lost_samples` and a `gaps` list if the board skipped samples.
+
+`session.log` is a JSON-lines diagnostic log for the recording writer (start,
+close, markers, gaps, queue failures, write errors). `.writing` exists only
+while the writer is active; the application removes it on a clean stop. If the
+application or machine stops unexpectedly, the next launch reports how many
+unfinished sessions were found and leaves their files untouched for inspection.
 
 ### Markers
 
