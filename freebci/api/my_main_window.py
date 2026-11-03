@@ -152,6 +152,7 @@ class MyMainWindow(MainWindowInterface):
         self.fftuvLen = 2
         self.fftLogMode = True
         self.reConFuncToWidget()
+        self._sync_action_states()
         try:
             self._start_control_server()
         except Exception as ex:
@@ -388,6 +389,7 @@ class MyMainWindow(MainWindowInterface):
         self.myLogger.write('Board Session stopped')
         self.changeLayout(0)
         self.refreshBoardMenu()
+        self._sync_action_states()
         self.stateLabel.setText('Board Session stopped')
         self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(192, 192, 192)')
 
@@ -458,6 +460,7 @@ class MyMainWindow(MainWindowInterface):
             else:
                 self.myExtrigger.DateModepushButton.setEnabled(False)
                 self.myExtrigger.DateModepushButton.setText('Start Extrigger')
+            self._sync_action_states()
 
     def stopThread(self):
         for attribute in ('timer', 'processor', 'shower'):
@@ -810,6 +813,7 @@ class MyMainWindow(MainWindowInterface):
         self.processor.timeout.connect(self.processor_fun)
         self.processor.start(50)
         self.myLogger.write('Data stream started')
+        self._sync_action_states()
 
     def _on_session_started(self, controller):
         self._start_worker = None
@@ -835,6 +839,7 @@ class MyMainWindow(MainWindowInterface):
         self.startButton_isclicked = False
         self.stateLabel.setText('session error: %s' % message)
         self.myLogger.write('WARNNING: session start failed: %s' % message)
+        self._sync_action_states()
 
     def startButton_click(self):
         if self.isSessionOn == False:
@@ -871,6 +876,7 @@ class MyMainWindow(MainWindowInterface):
             self.startButton.setStyleSheet('font: 12pt "黑体";background-color: rgb(204,255,153)')
             self.stopThread()
             self.myLogger.write('Data stream stopped.')
+            self._sync_action_states()
 
     def Topo_plot(self, Topography_data):
         self.myBrainTopography.plotfig(Topography_data, self.info, self.montage)
@@ -1314,6 +1320,25 @@ class MyMainWindow(MainWindowInterface):
     def _shutdown_from_control(self):
         self.myLogger.write('FreeBCI: shutdown requested by control client')
         self.close()
+
+    def _sync_action_states(self):
+        active = self.session_view_model.active
+        starting = self._start_worker is not None
+        snapshot = self.session_view_model.snapshot()
+        state = snapshot.state.value if snapshot is not None else ''
+        marker_ok = active and state in ('armed', 'recording')
+        self.actionMarker.setEnabled(marker_ok)
+        self.actionDemo.setEnabled(not active and not starting)
+        self.menu.setEnabled(not active and not starting)
+        release = getattr(self, 'actionRelease', None)
+        if release is not None:
+            release.setEnabled(self.device_manager.connected and not starting)
+        hardware_button = getattr(self.myTimeSeries, 'hardwareButton', None)
+        if hardware_button is not None:
+            hardware_button.setEnabled(not active and not starting)
+        channels_button = getattr(self, 'chan_electrode_settingspushButton', None)
+        if channels_button is not None:
+            channels_button.setEnabled(not active and not starting)
 
     def marker_click(self):
         if not self.session_view_model.active:
