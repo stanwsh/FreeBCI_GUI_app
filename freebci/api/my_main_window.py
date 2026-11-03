@@ -2,7 +2,6 @@ from enum import Flag
 import sys
 import math
 import os
-import gc
 import numpy as np
 import logging
 import pylsl
@@ -430,9 +429,8 @@ class MyMainWindow(MainWindowInterface):
             self.channelNames = [ 'eeg' + str(i + 1) for i in range(self._chan) ] + [ 'other' + str(i + 1) for i in range(4) ]
             self.num_rows = self.board.get_num_rows(self.connect_info.board_id)
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
+            self.extri_data = self.data
+            self.battery_percentage = self.data
             self.initWidget()
             self.reConFuncToWidget()
             self.startButton.setStyleSheet('font: 12pt "等线"; background-color: rgb(204,255,153)')
@@ -1134,6 +1132,11 @@ class MyMainWindow(MainWindowInterface):
             if self.is_myTimeSeries:
                 t_data = np.array(t_data)[:, -self.ts_plot_range:]
                 bp_nf_data = bp_nf_data[:, -self.ts_plot_range:]
+                # Draw at most ~2000 points per trace.  Filtering and RMS
+                # statistics still use the full-rate block.
+                plot_stride = max(1, bp_nf_data.shape[1] // 2000)
+                plot_data = bp_nf_data[:, ::plot_stride]
+                plot_x = np.arange(0, bp_nf_data.shape[1], plot_stride)
                 for j in range(self._chan):
                     if self.activeChannels[j] == False:
                         continue
@@ -1185,7 +1188,7 @@ class MyMainWindow(MainWindowInterface):
                         else:
                             self.myTimeSeries.my_plot_widgets[j].minLabel.setText(str(format(y_mid - abs(max_data - min_data) / 2, '.2f')) + 'uV')
                     if self.resistanceOn[j]:
-                        self.myTimeSeries.my_plot_widgets[j].ts_plot.plot(pen=pg.mkPen(self.colors[j])).setData(bp_nf_data[j])
+                        self.myTimeSeries.my_plot_widgets[j].ts_plot.plot(pen=pg.mkPen(self.colors[j])).setData(plot_x, plot_data[j])
                         self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(f'{round(self.resistanceArray[j] / 1000.0, 3)}kΩ')
                         continue
                     percent = bound_data / RAILED_MAX * 100.0
@@ -1202,13 +1205,12 @@ class MyMainWindow(MainWindowInterface):
                         self.myTimeSeries.my_plot_widgets[j].dataLabelColor = notificationColor
                     std_data = np.std(bp_nf_data[j][-int(fft_bound):])
                     rms_value = np.sqrt(np.mean(np.square(bp_nf_data[j][-int(fft_bound):])))
-                    self.myTimeSeries.my_plot_widgets[j].ts_plot.plot(pen=pg.mkPen(self.colors[j])).setData(bp_nf_data[j])
+                    self.myTimeSeries.my_plot_widgets[j].ts_plot.plot(pen=pg.mkPen(self.colors[j])).setData(plot_x, plot_data[j])
                     self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(f'{round(np.average(bp_nf_data[j]), 3)}uV')
                     self.myTimeSeries.my_plot_widgets[j].dataLabel.setText(notification + format(round(std_data, 2), '.2f') + 'uVrms')
             del t_data
             del bp_nf_data
             del nf_data
-            gc.collect(generation=1)
             end_time = datetime.datetime.now()
         except Exception as ex:
             self.myLogger.write('Updater error!')
@@ -1361,9 +1363,8 @@ class MyMainWindow(MainWindowInterface):
 
     def _build_session_controller(self):
         self.data = np.zeros([self.num_rows, 1], dtype=float64)
-        self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
-        self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
-        self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
+        self.extri_data = self.data
+        self.battery_percentage = self.data
         profile = self.device_manager.profile or self._board_profile()
         config = SessionConfig(
             session_id=datetime.datetime.now().strftime('FreeBCI_%Y%m%d_%H%M%S'),
@@ -1431,9 +1432,8 @@ class MyMainWindow(MainWindowInterface):
             if self.control_server is not None and self.control_discovery_path:
                 self.control_server.write_discovery(self.control_discovery_path)
             self.data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.extri_data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.topo_data = np.zeros([self.num_rows, 1], dtype=float64)
-            self.battery_percentage = np.zeros([self.num_rows, 1], dtype=float64)
+            self.extri_data = self.data
+            self.battery_percentage = self.data
             self.myLogger.write('FreeBCI: stopButton was pressed. Stopping data transfer. wait a few seconds.')
         except Exception as ex:
             self.myLogger.write('WARNNING: could not stop board.')
@@ -1465,8 +1465,6 @@ class MyMainWindow(MainWindowInterface):
                 return
             buffer_data = np.concatenate([block.data for block in blocks], axis=1)
             self.new_data_len = buffer_data.shape[1]
-            self.extri_data = np.append(self.extri_data, buffer_data, axis=1)
-            self.battery_percentage = np.append(self.battery_percentage, buffer_data, axis=1)
             if self.stop_count == 0:
                 self.total_len += int(buffer_data.shape[1])
                 self.packet_counter.add(buffer_data[0])
@@ -1489,10 +1487,10 @@ class MyMainWindow(MainWindowInterface):
                 self.data = np.append(self.data, buffer_data, axis=1)
             if self.data.shape[1] > 60000:
                 self.data = self.data[:, -60000:]
-            if self.extri_data.shape[1] > 60000:
-                self.extri_data = self.extri_data[:, -60000:]
-            if self.battery_percentage.shape[1] > 60000:
-                self.battery_percentage = self.battery_percentage[:, -60000:]
+            # The trigger and battery views use the same bounded block history;
+            # keeping separate copies doubled memory without adding information.
+            self.extri_data = self.data
+            self.battery_percentage = self.data
             del buffer_data
         except Exception as ex:
             self.myLogger.write('poll data')

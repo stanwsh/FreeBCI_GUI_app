@@ -19,7 +19,7 @@ USER NOTES:
 | 0 — Baseline/packaging | Accepted | Source release zip is the supported distribution; no wheel package planned. |
 | 1 — Recording integrity | Code complete | Endurance gate merged into Phase 6. |
 | 2 — Device/acquisition decoupling | Complete | 2.1 DeviceManager, 2.2 async settings, and 2.3 async command/start execution landed; only non-blocking board metadata queries remain on the GUI thread. |
-| 3 — Bounded buffers/performance | Pending | Auxiliary buffers, decimation, and 64-channel gate. |
+| 3 — Bounded buffers/performance | In progress | 3.1 auxiliary buffers removed and 3.2 display decimation added; 64-channel performance gate remains. |
 | 4 — Timestamps/control/sync | Partial | Clock offset and selector-based real-board `start` remain. |
 | 5 — GUI state/workflow | Partial | Full state-driven view model and workflow prompts remain. |
 | 6 — Validation/hardware matrix | Pending | Hardware matrix and multi-hour soak; depends on available devices. |
@@ -67,6 +67,7 @@ USER NOTES:
 - **Phase 2.1:** `freebci/core/device.py` adds `DeviceManager` with explicit `READY`/`STREAMING`/`DISCONNECTED` states, single-owner adoption, replacement-release, and gateway creation. The GUI adopts prepared boards, obtains its gateway from the manager, and releases through it; start/stop no longer sleep on the GUI thread.
 - **Phase 2.2:** hardware-settings sends run in `SettingsCommandWorker`; progress is per command, a rejected command stops the sequence with a visible error, the dialog stays responsive, and a read-only settings directory no longer turns a successful board update into an exception.
 - **Phase 2.3:** `BoardOperationWorker` serializes impedance, channel-enable, timing, and data-mode commands; `SessionStartWorker` starts the session stream off the GUI thread. The Start button is disabled while starting, failure restores it, and close waits for an in-flight start.
+- **Phase 3.1/3.2:** trigger and battery views now share the bounded `self.data` history instead of duplicating two 60,000-sample buffers; the unused topography buffer and periodic `gc.collect()` were removed; time-series traces are decimated to about 2,000 points for rendering while filtering and RMS statistics still use the full-rate block.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the remaining state-driven view-model refactor.
 
