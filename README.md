@@ -521,6 +521,8 @@ minimum round trip, the `round_trip_ns`, and the number of samples. This is a
 host-clock estimate for local coordination, not a hardware synchronization claim.
 
 `status()` returns the session state, sample and block counts, elapsed time,
+lost samples, markers, the latest block's host timestamps, and the server
+`clock_id` with its current `monotonic_ns` and `wall_ns`.
 
 ## Troubleshooting
 

@@ -448,6 +448,9 @@ def _snapshot_payload(controller: SessionController) -> Dict[str, Any]:
         "markers": snapshot.markers,
         "last_block_wall_ns": snapshot.last_block_wall_ns,
         "last_sample_time_ns": snapshot.last_sample_time_ns,
+        "clock_id": "host-monotonic",
+        "monotonic_ns": time.monotonic_ns(),
+        "wall_ns": time.time_ns(),
         "error": snapshot.error,
         "output_path": snapshot.output_path,
     }
@@ -468,6 +471,9 @@ def _idle_snapshot_payload() -> Dict[str, Any]:
         "markers": 0,
         "last_block_wall_ns": 0,
         "last_sample_time_ns": 0,
+        "clock_id": "host-monotonic",
+        "monotonic_ns": time.monotonic_ns(),
+        "wall_ns": time.time_ns(),
         "error": "",
         "output_path": "",
     }

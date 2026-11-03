@@ -1735,7 +1735,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | G.5 protocol | Loopback JSON, token, selector start, clock exchange, request IDs, `busy`/`no_session` codes; discovery publishes `freebci.control/1`, host/pid | No `cmd`/`params` envelope, idempotent request cache, `prepare`/`connect`; discovery lives in the data folder, not `runtime/` | P2 |
 | G.6 client | `from_discovery`/`from_runtime_file`, `wait_started`, status/start/stop/marker/clock_offset | No reconnect/backoff helper | P3 |
 | G.7 LSL | Three streams, marker outlet, stable source IDs, bounded chunk queue with pending/drop counters | `source_id` is `FreeBCI:<name>`, not session id; no channel names/units; drop counter is UI-side | P2 |
-| G.8 clock | `time` exchange + half-RTT uncertainty | Status lacks `clock_id`, `monotonic_ns`, `wall_ns`; manifest clock is host wall only | P2 |
+| G.8 clock | `time` exchange + half-RTT uncertainty; status exposes `clock_id`, `monotonic_ns`, `wall_ns` | Manifest clock is host wall only; no per-sample hardware estimate | P2 |
 | H.1 logging | Console/file logger exists | Not stdlib `QueueHandler`/JSONL; no levels/context | P2 |
 | H.2 manifest | schema string, schema_version, app version, device, config, start/stop, chunks, sample count, clock, samples, blocks, lost, gaps, markers, files, session log, errors | Firmware/serial and PGA/channel-map fields are not available from the current config; `device.family` is `unknown` | P2 |
 | H.3 layout | CSV/TXT/meta/manifest/markers/session.log | `.writing` is a JSON marker, not a filename suffix | P2 |

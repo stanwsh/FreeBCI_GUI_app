@@ -50,6 +50,9 @@ class ControlPlaneTest(unittest.TestCase):
             self.assertGreaterEqual(status["seconds_since_block"], 0.0)
             self.assertGreater(status["last_block_wall_ns"], 0)
             self.assertGreater(status["last_sample_time_ns"], 0)
+            self.assertEqual(status["clock_id"], "host-monotonic")
+            self.assertGreater(status["monotonic_ns"], 0)
+            self.assertGreater(status["wall_ns"], 0)
             self.assertEqual(client.stop(), "completed")
             self.assertEqual(controller.snapshot().state.value, "finalized")
         finally:
