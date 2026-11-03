@@ -333,7 +333,6 @@ class RecordingWriter:
             dtype=np.float64,
             copy=True,
         )
-        aux = np.rint(aux).astype(np.float64)
         return np.vstack([rows, aux])
 
     def _take_pending(self, count: int) -> np.ndarray:
@@ -366,17 +365,9 @@ class RecordingWriter:
         assert self._handle_txt is not None
         samples = values.shape[1]
         for column in values.T:
-            self._csv_writer.writerow(
-                ["%.6f" % float(v) for v in column[: self.config.channel_count]]
-                + [str(int(v)) for v in column[self.config.channel_count :]]
-            )
-            self._handle_txt.write(
-                ",".join(
-                    ["%.6f" % float(v) for v in column[: self.config.channel_count]]
-                    + [str(int(v)) for v in column[self.config.channel_count :]]
-                )
-                + "\n"
-            )
+            row = ["%.6f" % float(value) for value in column]
+            self._csv_writer.writerow(row)
+            self._handle_txt.write(",".join(row) + "\n")
         self._file_samples += samples
         self.samples_written += samples
         self._chunks_in_file += 1

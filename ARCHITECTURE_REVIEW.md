@@ -105,6 +105,7 @@ USER NOTES:
 - **Phase 2.19 (D.2–D.4):** the remaining `freebci/api` modules were removed: the adapter is now `freebci/ui/session_view_model.py`, and hardware command constants live in `freebci/core/hardware_settings_protocol.py`. No presentation module imports BrainFlow; only `core/gateway.py` does.
 - **Phase 5.9 (UI theme):** switched all presentation text to Segoe UI with a system-font fallback, added a shared dark theme and compact toolbar, introduced a first-run workspace card, tightened panel gutters, softened plot backgrounds/grids, and moved diagnostics into a two-column layout.
 - **Phase 4.6 (G.6/G.7):** added `examples/control_client.py`, `examples/raw_control.py`, and `examples/lsl_receive.py` with an integration guide, plus tests for discovery resolution and the raw control wire format. The examples use the implemented flat control envelope and the Time Series/marker LSL streams; the guide calls out asynchronous start/stop and the host-clock limits.
+- **Phase 2.20 (H.2):** recording no longer rounds AUX rows with `np.rint` or formats them with `%d`; every CSV/TXT column is written with six decimals, so accelerometer components keep fractional values. A regression test covers fractional X/Y/Z through the real `RecordingWriter`.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
@@ -1000,6 +1001,7 @@ Writer rules:
 - On close, rename `*.partial` to final only after checksum and row-count validation.
 - Track `first_sample_index`, `n_samples`, `last_sample_index`, `expected_samples`, `gaps`.
 - Never mutate the caller’s block; convert AUX values on a copy or during formatting.
+- Keep AUX rows as floating point. Accelerometer components are not counters: never round them with `np.rint` or format them as integers.
 
 Why keep CSV/TXT: downstream users already parse it; changing columns breaks them. A binary format can be added later as an optional `--format fbc2` with an exporter, not as the default.
 

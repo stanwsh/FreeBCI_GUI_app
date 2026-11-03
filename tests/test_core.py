@@ -131,7 +131,7 @@ class SessionControllerTest(unittest.TestCase):
         self.assertTrue(lines[0].startswith("channel1,channel2,channel3,channel4,<AUX 0>"))
         first_row = lines[1].rstrip("\r\n").split(",")
         self.assertEqual(first_row[0], "1.000000")
-        self.assertEqual(first_row[-1], "7")
+        self.assertEqual(first_row[-1], "7.000000")
 
     def test_rotates_csv_after_nine_chunks(self):
         profile = BoardProfile(board_id=999, name="FakeBoard", channels=4, sampling_rate=250)
@@ -177,6 +177,36 @@ class SessionControllerTest(unittest.TestCase):
         second = controller.stop()
         self.assertEqual(second, SessionStatus.COMPLETED)
         self.assertEqual(controller.snapshot().state.value, "finalized")
+
+    def test_accelerometer_channels_keep_fractional_values(self):
+        profile = BoardProfile(board_id=999, name="FakeBoard", channels=4, sampling_rate=250)
+        config = SessionConfig(
+            session_id="test-accelerometer",
+            board=profile,
+            sampling_rate=250,
+            output_root=self.root,
+            channel_count=4,
+        )
+        writer = RecordingWriter(config)
+        writer.start()
+        now = time.time_ns()
+        data = np.zeros((1 + 4 + 3, 2), dtype=np.float64)
+        data[1:5, :] = 1
+        data[5:, 0] = [-0.987654, 0.123456, 0.5]
+        data[5:, 1] = [-1.0, 0.0, 1.0]
+        writer.submit(SampleBlock(0, 0, data, 250, now, now, now))
+        writer.close()
+
+        with open(os.path.join(writer.session_dir, "1.csv"), encoding="utf-8") as handle:
+            rows = [line.rstrip("\r\n").split(",") for line in handle]
+        self.assertEqual(rows[0][-3:], ["<AUX 0>", "<AUX 1>", "<AUX 2>"])
+        self.assertEqual(rows[1][-3:], ["-0.987654", "0.123456", "0.500000"])
+        self.assertEqual(rows[2][-3:], ["-1.000000", "0.000000", "1.000000"])
+
+        with open(os.path.join(writer.session_dir, "1.txt"), encoding="utf-8") as handle:
+            txt_rows = [line.rstrip("\r\n") for line in handle]
+        self.assertTrue(txt_rows[-2].endswith("-0.987654,0.123456,0.500000"))
+        self.assertTrue(txt_rows[-1].endswith("-1.000000,0.000000,1.000000"))
 
     def test_manifest_reports_missing_samples(self):
         profile = BoardProfile(board_id=999, name="FakeBoard", channels=4, sampling_rate=250)

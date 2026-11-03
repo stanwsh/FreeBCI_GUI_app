@@ -440,7 +440,9 @@ channel1,channel2,...,channel32,<AUX 0>,<AUX 1>,<AUX 2>
 ```
 
 EEG values are in microvolts. Auxiliary values depend on the selected data mode
-(accelerometer, trigger, or battery).
+(accelerometer, trigger, or battery). Both signal and auxiliary columns are
+written with six decimal places; auxiliary values are not rounded to integers,
+so accelerometer components keep their fractional values.
 
 ### TXT files
 
