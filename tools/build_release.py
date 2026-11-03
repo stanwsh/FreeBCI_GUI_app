@@ -30,7 +30,7 @@ REQUIRED_FILES = (
     "electrodes_pos_32.png",
     "electrodes_pos_64.png",
 )
-REQUIRED_DIRS = ("freebci", "brainflow", "settings", "docs")
+REQUIRED_DIRS = ("freebci", "brainflow", "settings", "docs", "examples")
 EXCLUDED_DIRS = {
     ".git",
     ".venv",

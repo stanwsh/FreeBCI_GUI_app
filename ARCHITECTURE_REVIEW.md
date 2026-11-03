@@ -104,6 +104,7 @@ USER NOTES:
 - **Phase 2.18 (D.1–D.3):** the presentation layer moved from `freebci/api/my_*` and `w_*` modules to `freebci/ui/*` and `freebci/ui/views/*`; classes lost the `My` prefix (`MainWindow`, `DiagnosticsDialog`, `TimeSeriesView`, `NetworkView`, and peers), workers moved under `freebci/ui/workers/`, and the generated window/interface imports were updated. The GUI was imported and instantiated offscreen, and the full suite remained 97/97.
 - **Phase 2.19 (D.2–D.4):** the remaining `freebci/api` modules were removed: the adapter is now `freebci/ui/session_view_model.py`, and hardware command constants live in `freebci/core/hardware_settings_protocol.py`. No presentation module imports BrainFlow; only `core/gateway.py` does.
 - **Phase 5.9 (UI theme):** switched all presentation text to Segoe UI with a system-font fallback, added a shared dark theme and compact toolbar, introduced a first-run workspace card, tightened panel gutters, softened plot backgrounds/grids, and moved diagnostics into a two-column layout.
+- **Phase 4.6 (G.6/G.7):** added `examples/control_client.py`, `examples/raw_control.py`, and `examples/lsl_receive.py` with an integration guide, plus tests for discovery resolution and the raw control wire format. The examples use the implemented flat control envelope and the Time Series/marker LSL streams; the guide calls out asynchronous start/stop and the host-clock limits.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
@@ -1128,6 +1129,14 @@ Use TCP for commands/status; use LSL for physiological streams and optional mark
 
 ### G.5 Control protocol
 
+> **Implemented subset.** The running GUI uses `command` plus flat fields
+> (`board`, `label`, `client_send_ns`) and a top-level `error`/`code` pair.
+> The `cmd`/`params` envelope, nested error object, idempotency cache,
+> `connect`, and `prepare` below are target-only and are not accepted by the
+> current server. [`examples/README.md`](examples/README.md) documents the
+> wire format that works today; use it rather than this target sketch when
+> building an external client.
+
 Transport: TCP on `127.0.0.1`, one JSON object per line. Discovery: write `%FREEBCI_HOME%\runtime\control.json`:
 
 ```json
@@ -1177,16 +1186,29 @@ Semantics:
 ### G.6 Python client
 
 ```python
-client = ControlClient.from_runtime_file()
+client = ControlClient.from_runtime_file(r"C:\Users\me\Documents\FreeBCI\control.json")
 status = client.status()
-info = client.start()
-client.marker("stimulus_onset", timestamp_ns=time.monotonic_ns())
-final = client.stop()
+client.start("demo")
+started = client.wait_started(timeout=15)
+marker = client.marker("stimulus_onset")
+stop_status = client.stop()
+final = client.status()
 ```
 
-The client should expose `wait_started(timeout_s)` if `start` is asynchronous. The returned `StartInfo` is the contract external applications use for alignment.
+`from_runtime_file()` is an alias for `from_discovery()` and still requires the
+discovery path. The current `start` returns `"start_requested"`, not a
+`StartInfo`; poll `wait_started()` and then `status()`, and treat the marker's
+`sample_index`/`elapsed_seconds` fields as the session-relative anchor.
+`examples/control_client.py` implements this complete flow, including waiting
+for the asynchronous stop to finalize the manifest.
 
 ### G.7 LSL integration
+
+> **Implemented subset.** The current Networking view publishes up to three
+> Time Series outlets (FFT and Band Power choices are removed). The source id is
+> `FreeBCI:<stream name>`, not the session id, and the stream description does
+> not yet carry channel names/units. `FreeBCI_Markers` is created when the LSL
+> session starts. `examples/lsl_receive.py` reads this implemented shape.
 
 - Create one outlet per enabled stream; stream 1/2/3 must actually publish their selected type.
 - Set `source_id` to the session ID so consumers can group streams from the same session.

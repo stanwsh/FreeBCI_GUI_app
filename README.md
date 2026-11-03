@@ -11,6 +11,7 @@ Bluetooth, shows the signals live, and writes the raw data to disk.
 - Brain topography on a 10-20 electrode map
 - Accelerometer, external-trigger, and battery views (on supported boards)
 - LSL output for use with other acquisition software
+- External Python/LSL integration examples for online experiments
 - Automatic CSV/TXT recording while streaming
 - Per-channel hardware settings and electrode mapping
 - Eight window layouts
@@ -169,10 +170,10 @@ application, the bundled BrainFlow build, settings, documentation, and setup
 scripts. It is not a Python wheel.
 
 ```
-.venv\Scripts\python.exe tools\build_release.py --version 0.1.0
+.venv\Scripts\python.exe tools\build_release.py --version X.Y.Z
 ```
 
-The archive is written to `dist\FreeBCI_GUI-0.1.0.zip`, with a SHA-256 sidecar
+The archive is written to `dist\FreeBCI_GUI-X.Y.Z.zip`, with a SHA-256 sidecar
 next to it. Unpack the zip on the target computer and run `setup_env.cmd` once,
 then `run.cmd`. The build script refuses to create an archive if a required
 file or directory is missing.
@@ -356,7 +357,9 @@ signal. The markers are still written to `markers.jsonl` and the manifest even
 when no LSL marker stream is running.
 
 The streams appear in LSL-aware applications such as LabRecorder, OpenViBE, or
-MNE.
+MNE. For a runnable receiver that also prints markers, see
+[`examples/lsl_receive.py`](examples/lsl_receive.py) and the
+[integration guide](examples/README.md).
 
 ## Recording
 
@@ -486,9 +489,14 @@ Use it from another Python process to read status, start a session for a selecte
 board, add a marker, stop the recording, or close the application:
 
 ```python
+from pathlib import Path
+
 from freebci.core import ControlClient
 
-client = ControlClient.from_discovery(r"logs\control.json")
+# FREEBCI_HOME/control.json when the data folder is overridden; otherwise
+# %USERPROFILE%\Documents\FreeBCI\control.json.
+discovery = Path.home() / "Documents" / "FreeBCI" / "control.json"
+client = ControlClient.from_discovery(str(discovery))
 # from_runtime_file(path) is an equivalent alias.
 print(client.status())          # {"state": "idle", ...} before a session
 client.start("demo")            # synthetic demo session
@@ -524,6 +532,36 @@ host-clock estimate for local coordination, not a hardware synchronization claim
 `status()` returns the session state, sample and block counts, elapsed time,
 lost samples, markers, the latest block's host timestamps, and the server
 `clock_id` with its current `monotonic_ns` and `wall_ns`.
+
+### External integration examples
+
+The [`examples/`](examples/) directory contains runnable clients for the two
+integration paths described above:
+
+```bat
+python examples\control_client.py status
+python examples\control_client.py demo --duration 5 --marker baseline
+python examples\control_client.py marker "stimulus onset"
+python examples\control_client.py stop
+
+python examples\raw_control.py ping
+python examples\raw_control.py status
+
+python examples\lsl_receive.py --discover
+python examples\lsl_receive.py --name FreeBCI_EEG1 --duration 10 --json
+```
+
+`control_client.py` uses `freebci.core.ControlClient`; `raw_control.py` shows
+the newline-delimited JSON wire format with only the Python standard library,
+so it can be ported to another language. `lsl_receive.py` reads EEG chunks and
+`FreeBCI_Markers` events, reports LSL timestamps and consumer latency, and can
+emit JSON lines.
+
+The [integration guide](examples/README.md) covers discovery-file locations,
+the request/response shape, asynchronous start/stop behavior, LSL stream
+metadata, and how to correlate control markers with LSL data. Start/stop are
+queued onto the GUI thread: wait for `finalized` before opening the recording
+folder, and use LSL rather than the control socket for continuous samples.
 
 ## Troubleshooting
 
