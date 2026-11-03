@@ -25,7 +25,7 @@ USER NOTES:
 | 5 — GUI state/workflow | Complete* | 5.1-5.5 landed: action guards, stop confirmation, view-model history, immutable display snapshot, and trigger/battery snapshot rendering. Operator usability testing is external. |
 | 6 — Validation/hardware matrix | Partial | USB 16-channel re-verified on COM3 and release/reconnect lifecycle covered by tests. Bluetooth, USB high-speed, 8/24/32/64-channel boards, and multi-hour soak remain hardware/time-gated. |
 
-**Document realignment:** Sections A–I mix the original assessment (written before the reconstruction) with the proposed target architecture. Section D is a **target**, not a description of the current code. The authoritative current status is this phase tracker plus Section M; Appendix A is a planning map, not a file inventory. `freebci/core/catalog.py`, `freebci/core/ring.py`, `freebci/core/settings.py`, `freebci/core/logging.py`, `freebci/ui/`, and `freebci/app.py` now exist; the presentation package was renamed from `freebci/api/my_*`/`w_*` modules to `freebci/ui/*` and `freebci/ui/views/*`. The implemented adapter is `freebci/api/session_view_model.py`, and the bounded display history is ring-backed there rather than in the acquisition fan-out. See Section M for the section-by-section gap register.
+**Document realignment:** Sections A–I mix the original assessment (written before the reconstruction) with the proposed target architecture. Section D is a **target**, not a description of the current code. The authoritative current status is this phase tracker plus Section M; Appendix A is a planning map, not a file inventory. `freebci/core/catalog.py`, `freebci/core/ring.py`, `freebci/core/settings.py`, `freebci/core/logging.py`, `freebci/ui/`, and `freebci/app.py` now exist; the presentation package was renamed from `freebci/api/my_*`/`w_*` modules to `freebci/ui/*` and `freebci/ui/views/*`. The implemented adapter is `freebci/ui/session_view_model.py`, and the bounded display history is ring-backed there rather than in the acquisition fan-out. See Section M for the section-by-section gap register.
 
 ### Implementation progress
 
@@ -65,7 +65,7 @@ USER NOTES:
 - Real Wi-Fi control verification: `status` reported positive host timing for the latest block, `marker` succeeded, and `shutdown` closed the GUI and removed `control.json`.
 - `tools/build_release.py` creates a self-contained source release zip (application, bundled BrainFlow, settings, docs, setup scripts) with a SHA-256 sidecar; the archive was built, extracted, and smoke-tested from the extracted copy.
 - The control endpoint now has an application lifetime: one stable address/token and `control.json` while idle or recording, controller lookup through a provider, and a `start` command that queues the synthetic demo session onto the GUI thread (`start_requested`), then reports `recording` through `status`. Re-verified on the real Wi-Fi board: status, marker, and shutdown still work through the persistent endpoint.
-- A first presentation view model (`freebci/api/session_view_model.py`) now owns the diagnostics and marker lookups, so the window no longer reaches into the controller/writer for those surfaces. State-driven enable/disable and the command queue are still open.
+- A first presentation view model (`freebci/ui/session_view_model.py`) now owns the diagnostics and marker lookups, so the window no longer reaches into the controller/writer for those surfaces. State-driven enable/disable and the command queue are still open.
 - A five-minute synthetic soak (16 channels, 250 Hz) completed 73,624 samples at 244.3 Hz effective, with `lost=0`, `dropped=0`, queue 0, and ~34.4 MB working set; this is a stability check, not the multi-hour soak gate.
 - **Phase 2.1:** `freebci/core/device.py` adds `DeviceManager` with explicit `READY`/`STREAMING`/`DISCONNECTED` states, single-owner adoption, replacement-release, and gateway creation. The GUI adopts prepared boards, obtains its gateway from the manager, and releases through it; start/stop no longer sleep on the GUI thread.
 - **Phase 2.2:** hardware-settings sends run in `SettingsCommandWorker`; progress is per command, a rejected command stops the sequence with a visible error, the dialog stays responsive, and a read-only settings directory no longer turns a successful board update into an exception.
@@ -102,6 +102,7 @@ USER NOTES:
 - **Phase 2.17 (D.4):** `core/gateway.py` is now the only BrainFlow importer; `core/dsp.py` delegates FFT/filter/power calls to it, and the virtual-connection dialog also uses the gateway preparation helpers.
 
 - **Phase 2.18 (D.1–D.3):** the presentation layer moved from `freebci/api/my_*` and `w_*` modules to `freebci/ui/*` and `freebci/ui/views/*`; classes lost the `My` prefix (`MainWindow`, `DiagnosticsDialog`, `TimeSeriesView`, `NetworkView`, and peers), workers moved under `freebci/ui/workers/`, and the generated window/interface imports were updated. The GUI was imported and instantiated offscreen, and the full suite remained 97/97.
+- **Phase 2.19 (D.2–D.4):** the remaining `freebci/api` modules were removed: the adapter is now `freebci/ui/session_view_model.py`, and hardware command constants live in `freebci/core/hardware_settings_protocol.py`. No presentation module imports BrainFlow; only `core/gateway.py` does.
 
 Still intentionally open from the roadmap: the full hardware acceptance matrix (Bluetooth, USB high-speed, 8/24/32/64-channel boards), a multi-hour soak run, and the full snapshot-driven rendering refactor.
 
@@ -420,10 +421,11 @@ This is a textbook case for an explicit state machine with guarded transitions.
 
 > **Target only.** This section describes the intended architecture, not the
 > current package layout. Current code keeps the view-model adapter in
-> `freebci/api/session_view_model.py`, has `core/catalog.py`, `core/ring.py`,
+> `freebci/ui/session_view_model.py`, has `core/catalog.py`, `core/ring.py`,
 > `core/settings.py`, `core/logging.py`, and an `app.py` Qt bootstrap, and has
-> no `freebci/ui/`. See Section M before treating any path or contract here as
-> implemented.
+> an implemented `freebci/ui/` presentation package. The QObject view model and
+> LSL ownership remain target-only; see Section M before treating any path or
+> contract here as implemented.
 
 ### D.1 Principles
 
@@ -1700,7 +1702,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | Area | Current implementation | Status |
 |---|---|---|
 | Core | `freebci/core`: models, clock, board catalog, gateway adapter, acquisition worker, ring buffer, recording writer, session controller, control server, diagnostics formatter, history helper, device adoption manager | Landed |
-| GUI | `freebci/ui`: `MainWindow`, connection dialogs, `views/`, `workers/`, hardware settings, console/logging, recording paths; `freebci/api/session_view_model.py` remains | Landed, still a large coordinator |
+| GUI | `freebci/ui`: `MainWindow`, connection dialogs, `views/`, `workers/`, hardware settings, console/logging, recording paths, session view model | Landed, still a large coordinator |
 | Composition | `FreeBCI_GUI.py` prepares the data directory; `freebci/app.py` owns Qt application/window bootstrap; `freebci/ui/` is the presentation layer; generated `freebci/design` UI remains | Landed |
 | Display data | `SessionViewModel` ring-backed history plus `display_snapshot()` | `core/ring.py` exists; acquisition still feeds it through the view-model adapter, not a core fan-out |
 | Device lifecycle | `DeviceManager` adopts an already-prepared board, creates gateways, releases | No `connect()/prepare()/configure()` state machine |
@@ -1712,7 +1714,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 
 | Section | Landed | Still open / target-only | Priority |
 |---|---|---|---|
-| C.1 dependency map | Core no Qt; writer/acquisition separated; serial, Wi-Fi, and virtual dialogs prepare boards through `core/gateway.py`; no `freebci/api` module imports BrainFlow | `ConnectionInfo` still carries a live board handle; views own LSL outlets | P1 |
+| C.1 dependency map | Core no Qt; writer/acquisition separated; serial, Wi-Fi, and virtual dialogs prepare boards through `core/gateway.py`; no `freebci/ui` module imports BrainFlow | `ConnectionInfo` still carries a live board handle; views own LSL outlets | P1 |
 | C.2 cohesion | Recording, acquisition, settings apply moved out of the window | `MainWindow` still owns timers, filters, plotting, LSL, menus, and state; views still own LSL/protocol choices | P1 |
 | C.3 concurrency | Acquisition, writer, settings, board-command, session-start workers | No core ring; GUI filters/FFTs on its thread; topography queue is unbounded | P1/P2 |
 | C.4 state model | Action guards and start/stop confirmation; `core/actions.py` derives menu/connection enablement from state | `isSessionOn`, `startButton_isclicked`, data-mode and view flags still coexist; no single guarded core state machine | P1 |
@@ -1720,7 +1722,7 @@ This section is authoritative when A–I disagree with the code. It distinguishe
 | C.6 errors/logging | Start failure restores the UI; session errors carry text; sessions write rotating structured `session.log` | GUI `ConsoleLogger` still opens a file per message; no top-level correlation IDs | P2 |
 | C.7 tests/packaging | 97 tests, CI, fake board, release zip; BrainFlow vendored | No installable `pyproject.toml` (decision: source release accepted) | Accepted |
 | D.2 layers | Core/application/device boundaries exist; catalog, ring, settings, logging, and an `app.py` bootstrap exist; `freebci/ui/` now owns the main window, dialogs, views, and workers | Presentation still owns LSL outlets and view state; a QObject view model is still target-only | P1 |
-| D.3 module names | `freebci/ui/main_window.py`, `freebci/ui/diagnostics.py`, `freebci/ui/views/`, and `freebci/ui/workers/` are the real inventory; `freebci/api/session_view_model.py` remains | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
+| D.3 module names | `freebci/ui/main_window.py`, `freebci/ui/diagnostics.py`, `freebci/ui/session_view_model.py`, `freebci/ui/views/`, and `freebci/ui/workers/` are the real inventory; the old `freebci/api` package is gone | D names `freebci/ui/viewmodel.py`; do not treat D paths as file inventory | Documentation |
 | D.4 dependency rules | Core is Qt-free; `freebci/ui` imports no BrainFlow; dialogs prepare boards through `core/gateway.py`, the only BrainFlow importer | LSL outlets still live in views | P1 |
 | D.5 thread model | Device/settings/start workers, acquisition, writer, control server | No LSL sender thread or log listener; control server owns no request queue | P2 |
 | D.6 data flow | Block → writer + display queue + view-model history | No acquisition ring fan-out; LSL now uses a bounded chunk queue with a drop counter; no processing-worker snapshot | P2 |
@@ -1805,7 +1807,7 @@ Document rules after this realignment:
 | `freebci/ui/views/topography.py` | 3 | One figure, update-in-place, profile sfreq/channels |
 | `freebci/ui/views/networking.py` | 3/4 | Real streams 2/3, timestamps, source IDs |
 | `freebci/ui/console_logger.py`, `console_window.py` | 2 | Queue logging; singleton fix |
-| `freebci/core/control.py`, `freebci/api/session_view_model.py` | 4/5 | Control server/client; current view-model adapter (D's `freebci/ui/viewmodel.py` is target-only) |
+| `freebci/core/control.py`, `freebci/ui/session_view_model.py` | 4/5 | Control server/client; current view-model adapter (D's `freebci/ui/viewmodel.py` is target-only) |
 | `README.md` | 6 | Data format, control API, limitations, troubleshooting |
 
 ## Appendix B: Evidence Index

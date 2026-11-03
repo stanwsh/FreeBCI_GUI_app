@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from freebci.api.session_view_model import SessionViewModel
+from freebci.ui.session_view_model import SessionViewModel
 from freebci.core.models import SessionState
 
 

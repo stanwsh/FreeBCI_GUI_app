@@ -2,7 +2,7 @@ import serial
 import sys
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from freebci.design.virtual_connection import Ui_VirtualDialog
-from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
+from freebci.core.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.ui.connection_info import ConnectionInfo
 from freebci.core.gateway import prepare_serial_board, prepare_wifi_board
 from PyQt5.QtCore import Qt

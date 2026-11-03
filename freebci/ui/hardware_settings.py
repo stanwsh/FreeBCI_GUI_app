@@ -3,7 +3,7 @@ from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from freebci.ui.connection_info import HardwareInfo, ConnectionInfo
 from freebci.core.settings import ChannelSettings, HardwareSettings, load_settings, save_settings
 from freebci.design.hardware_settings_interface import hardwareSettings_interface
-from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
+from freebci.core.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.ui.workers.settings_commands import SettingsCommandWorker
 from functools import partial
 import xml.etree.ElementTree as ET

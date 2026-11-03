@@ -19,13 +19,13 @@ from freebci.ui.wifi_connection import WifiConnectionDialog
 from freebci.ui.diagnostics import DiagnosticsDialog
 from freebci.ui.workers.board_operations import BoardOperationWorker
 from freebci.ui.workers.session_start import SessionStartWorker
-from freebci.api.session_view_model import SessionViewModel
+from freebci.ui.session_view_model import SessionViewModel
 from freebci.core import SimulatedBoard
 from freebci.core.actions import action_availability
 from freebci.core.device import DeviceManager
 from freebci.core.dsp import bandpass_inplace, bandstop_inplace, fft_magnitude, standard_powers
 from freebci.core.packets import PacketLossCounter
-from freebci.api.hardware_settings_protocol import HardwareSettingsProtocol
+from freebci.core.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.ui.electrodes_position import ElectrodesPosition
 from freebci.ui.serial_connection import SerialConnectionDialog as SerialConnectionDialog
 from freebci.ui.bluetooth_connection import BluetoothConnectionDialog
