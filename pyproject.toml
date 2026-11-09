@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "freebci-gui"
+version = "0.1.11"
+description = "Desktop GUI for FreeBCI EEG acquisition boards"
+readme = "README.md"
+requires-python = ">=3.9,<3.10"
+dependencies = [
+    "PyQt5==5.15.2",
+    "pyqtgraph==0.13.3",
+    "matplotlib==3.7.2",
+    "mne==1.6.0",
+    "nptyping==1.4.4",
+    "numpy==1.26.1",
+    "pandas==2.0.3",
+    "scipy==1.11.1",
+    "pylsl==1.16.1",
+    "pyperclip==1.9.0",
+    "pyserial==3.5",
+    "upnpclient",
+    "pywin32; sys_platform == 'win32'",
+    "setuptools<81",
+]
+
+[project.scripts]
+freebci-gui = "FreeBCI_GUI:main"
+
+[tool.setuptools]
+py-modules = ["FreeBCI_GUI"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["freebci*", "brainflow*"]
+
+[tool.setuptools.package-data]
+brainflow = ["lib/*"]
+"freebci.design" = ["*.png"]

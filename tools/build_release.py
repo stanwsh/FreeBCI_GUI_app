@@ -23,10 +23,12 @@ from freebci.version import VERSION  # noqa: E402
 REQUIRED_FILES = (
     "FreeBCI_GUI.py",
     "README.md",
+    "pyproject.toml",
     "requirements.txt",
     "run.cmd",
     "setup_env.cmd",
     "setup_env.py",
+    "uv.lock",
     "electrodes_pos_32.png",
     "electrodes_pos_64.png",
 )
