@@ -4,6 +4,11 @@ FreeBCI GUI is a Windows desktop application for recording and viewing EEG and
 other biosignals from FreeBCI acquisition boards. It connects over Wi-Fi, USB, or
 Bluetooth, shows the signals live, and writes the raw data to disk.
 
+Current release: **0.1.12**. See [changes](CHANGELOG.md) and the
+[Python 3.10 / PySide6 migration plan](docs/PYTHON310_PYSIDE6_MIGRATION.md).
+This release continues to use Python 3.9 and PyQt5. The default display filters
+are **60 Hz notch** and **no bandpass**.
+
 ## Features
 
 - Live multi-channel traces with adjustable time window and vertical scale
@@ -622,6 +627,41 @@ If the status bar shows `Waiting for data from the board...`, the connection is
 up but no samples are arriving. Check the board's own web page or indicator,
 power-cycle the board, and try the USB serial connection. The Terminal log shows
 whether the transport is timing out.
+
+If only some channels become constant, inspect the **unfiltered saved values**.
+For the 24× ADS1299 conversion, `-187500.022352` µV is the negative ADC limit.
+Floating inputs can saturate there while acquisition and other channels continue.
+Use a controlled input to compare computers/adapters: floating inputs do not
+provide a repeatable signal. The investigation in
+[the November 9 diagnostic report](docs/ACQUISITION_DEBUG_2026_11_09.md)
+includes a real-board reproduction and an internal-shorted-input comparison.
+
+Analyze a recording without changing it:
+
+```
+.venv\Scripts\python.exe tools\analyze_recording.py logs\Recordings\Stream_2026_11_09_144645
+```
+
+The analyzer reports constant runs, assumed ADC-limit matches, and file integrity.
+Use `--gain` to select the assumed conversion gain and `--json` for detailed output.
+The manifest's `lost_samples` counts recording-index gaps; zero does not establish
+lossless Wi-Fi delivery. Saved timestamps are extrapolated and cannot measure
+network jitter.
+
+For a **FreeBCI Wi-Fi 16 I (board 2038)**, disconnect the GUI from the board, then
+capture SDK rows, receive times, frame-counter diagnostics, and a normal recording:
+
+```
+.venv\Scripts\python.exe tools\diagnose_wifi.py --seconds 65
+.venv\Scripts\python.exe tools\diagnose_wifi.py --input-mode shorted --seconds 65
+```
+
+These probes use 250 Hz and the normal SDK initialization, which resets channel
+settings to board defaults. The second probe selects internal shorted inputs
+after startup, discards transitional samples, and restores board defaults on exit.
+Outputs are under `logs\diagnostics`. The probe duration is limited to 120 seconds
+because it retains unfiltered SDK blocks in memory. Frame-counter loss is a
+heuristic; repeated counters and resets are ambiguous.
 
 ### Recordings are missing
 

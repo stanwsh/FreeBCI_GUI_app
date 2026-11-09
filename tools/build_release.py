@@ -23,6 +23,7 @@ from freebci.version import VERSION  # noqa: E402
 REQUIRED_FILES = (
     "FreeBCI_GUI.py",
     "README.md",
+    "CHANGELOG.md",
     "pyproject.toml",
     "requirements.txt",
     "run.cmd",
@@ -32,7 +33,7 @@ REQUIRED_FILES = (
     "electrodes_pos_32.png",
     "electrodes_pos_64.png",
 )
-REQUIRED_DIRS = ("freebci", "brainflow", "settings", "docs", "examples")
+REQUIRED_DIRS = ("freebci", "brainflow", "settings", "docs", "examples", "tools", "tests")
 EXCLUDED_DIRS = {
     ".git",
     ".venv",

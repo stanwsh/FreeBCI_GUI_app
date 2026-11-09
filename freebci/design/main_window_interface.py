@@ -149,8 +149,8 @@ class MainWindowInterface(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def initWidget(self):
         self.is_fft_plot = False
-        self.NotchComboBox.setCurrentIndex(1)
-        self.BPFiltComboBox.setCurrentIndex(1)
+        self.NotchComboBox.setCurrentIndex(2)
+        self.BPFiltComboBox.setCurrentIndex(0)
         self.startButton.setStyleSheet('background-color: #64748B; color: #FFFFFF;')
         settings = {
             'channel': self._chan, 'activeChannels': self.FFTactiveChannels}
