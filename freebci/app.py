@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from typing import Optional, Sequence
 
-from PyQt5 import QtWidgets
+from freebci.qt import QtWidgets
 
 from freebci.ui.theme import apply_theme
 
@@ -33,4 +33,4 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
     window = create_window()
     window.setWindowTitle("FreeBCI GUI")
     window.showMaximized()
-    return app.exec_()
+    return app.exec()

@@ -12,19 +12,23 @@ if errorlevel 1 (
   goto :failed
 )
 
-if exist ".venv\Scripts\python.exe" (
-  echo [setup] .venv already exists - remove it first to rebuild from scratch.
+if not defined FREEBCI_VENV set "FREEBCI_VENV=.venv"
+
+if exist "%FREEBCI_VENV%\Scripts\python.exe" (
+  echo [setup] %FREEBCI_VENV% already exists.
+  echo [setup] To keep an older environment, set FREEBCI_VENV=.venv310 and run setup again.
   goto :failed
 )
 
-echo [setup] creating .venv with CPython 3.9 ...
-uv venv --python 3.9 .venv || goto :failed
+echo [setup] creating %FREEBCI_VENV% with CPython 3.10 ...
+uv venv --python 3.10 "%FREEBCI_VENV%" || goto :failed
 
-echo [setup] installing requirements.txt ...
-uv pip install --python .venv\Scripts\python.exe -r requirements.txt || goto :failed
+echo [setup] installing locked dependencies ...
+set "UV_PROJECT_ENVIRONMENT=%FREEBCI_VENV%"
+uv sync --frozen --python "%FREEBCI_VENV%\Scripts\python.exe" || goto :failed
 
 echo [setup] finishing environment setup ...
-.venv\Scripts\python.exe setup_env.py || goto :failed
+"%FREEBCI_VENV%\Scripts\python.exe" setup_env.py || goto :failed
 
 echo.
 echo [setup] done. Start the GUI with:  run.cmd

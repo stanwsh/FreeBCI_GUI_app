@@ -4,10 +4,11 @@ FreeBCI GUI is a Windows desktop application for recording and viewing EEG and
 other biosignals from FreeBCI acquisition boards. It connects over Wi-Fi, USB, or
 Bluetooth, shows the signals live, and writes the raw data to disk.
 
-Current release: **0.1.12**. See [changes](CHANGELOG.md) and the
+Prerelease: **0.2.0rc1**. See [changes](CHANGELOG.md) and the
 [Python 3.10 / PySide6 migration plan](docs/PYTHON310_PYSIDE6_MIGRATION.md).
-This release continues to use Python 3.9 and PyQt5. The default display filters
-are **60 Hz notch** and **no bandpass**.
+This version uses **Python 3.10-3.12 and PySide6 6.8.3 (Qt 6)**. The last stable
+Python 3.9 / PyQt5 release is v0.1.12. The default display filters remain
+**60 Hz notch** and **no bandpass**.
 
 ## Features
 
@@ -53,8 +54,8 @@ try the USB serial path. The Terminal log records the exact connection error.
 ## Requirements
 
 - Windows 10 or 11, 64-bit
-- Python 3.9, 64-bit
-- About 700 MB of free disk space for the Python environment
+- Python 3.10 or 3.12, 64-bit (both validated; project range is 3.10-3.12)
+- About 2 GB of free disk space for the Python environment and installation cache
 - The FreeBCI board, its power supply, and electrodes
 - An internet connection while installing
 
@@ -76,7 +77,7 @@ connections. Bluetooth boards must be paired in Windows before you connect.
    ```
 2. In Explorer, double-click **`setup_env.cmd`**.
 
-   The script creates a `.venv` folder, downloads Python 3.9 and the required
+   The script creates a `.venv` folder, downloads Python 3.10 and the locked
    packages, and finishes the environment setup. This can take several minutes.
 
 3. Double-click **`run.cmd`** to start the application.
@@ -86,14 +87,16 @@ connections. Bluetooth boards must be paired in Windows before you connect.
 Open Command Prompt in this folder and run:
 
 ```bat
-py -3.9 -m venv .venv
+py -3.10 -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe setup_env.py
 ```
 
-If `py -3.9` is not available, install Python 3.9 (64-bit) from
-[python.org](https://www.python.org/downloads/) first.
+If `py -3.10` is not available, use `uv venv --python 3.10 .venv` to install a
+managed interpreter, or use an installed Python 3.12 interpreter. For an exact
+locked installation, use `uv sync --frozen --python .venv\Scripts\python.exe`
+instead of the pip dependency-install step.
 
 Then start the GUI:
 
@@ -110,6 +113,32 @@ or:
 Keep the application files together. The program loads its images, settings,
 and bundled BrainFlow library from the repository folder, so moving only the
 program files will not work.
+
+### Keep an older environment and choose an interpreter
+
+Do not install the Qt 6 dependencies over an old Python 3.9 / PyQt5 environment.
+Keep that environment for the v0.1.12 checkout, and use a fresh `.venv310` or
+`.venv312` for this version. In PowerShell, automatic setup can use a separate path:
+
+```powershell
+$env:FREEBCI_VENV = ".venv310"
+.\setup_env.cmd
+.\run.cmd
+```
+
+For existing migration environments, activation is optional:
+
+```powershell
+.\.venv310\Scripts\python.exe .\FreeBCI_GUI.py
+.\.venv312\Scripts\python.exe .\FreeBCI_GUI.py
+```
+
+`run.cmd` uses `FREEBCI_VENV` when set, otherwise prefers `.venv310` if present
+and falls back to `.venv`. Select Python 3.12 with
+`$env:FREEBCI_VENV = ".venv312"` before running it. Only one GUI should own a board.
+The new interpreter may need a separate Windows Firewall permission because
+the Wi-Fi board connects back to the PC on TCP port 8899. See the migration
+document before changing firewall rules.
 
 ## Quick start
 
@@ -601,7 +630,7 @@ requirements.
 ### `pyqtgraph` reports a Qt binding error
 
 Run `.venv\Scripts\python.exe setup_env.py` again, then start with `run.cmd`. If
-you launch Python directly from another shell, set `PYQTGRAPH_QT_LIB=PyQt5`
+you launch Python directly from another shell, set `PYQTGRAPH_QT_LIB=PySide6`
 first.
 
 ### No COM port is listed

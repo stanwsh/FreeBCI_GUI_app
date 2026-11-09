@@ -1,7 +1,7 @@
 from concurrent.futures import thread
 import os
 import sys
-from PyQt5 import QtCore, QtGui, QtWidgets
+from freebci.qt import QtCore, QtGui, QtWidgets
 import pyperclip
 from freebci.design.console_window import Ui_TerminalDialog
 from freebci.ui.console_logger import ConsoleLogger

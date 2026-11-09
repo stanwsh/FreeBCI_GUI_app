@@ -1,15 +1,15 @@
 import os
 import time
 import xml.dom.minidom as minidom
-from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+from freebci.qt import QtGui, QtCore, QtWidgets
 from freebci.ui.connection_info import HardwareInfo, ConnectionInfo
 from freebci.ui.electrodes_position import ElectrodesPosition
 from freebci.design.channels_electrodes_settings_interface import channels_electrodes_Settings_interface
 from freebci.ui.hardware_warning import HardwareWarningDialog
 from functools import partial
 import xml.etree.ElementTree as ET
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
+from freebci.qt import QPixmap
+from freebci.qt import Qt
 import mne
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,8 +17,8 @@ import pandas as pd
 
 
 class ChannelSettingsDialog(channels_electrodes_Settings_interface):
-    _signal = QtCore.pyqtSignal(HardwareInfo)
-    _signal_con = QtCore.pyqtSignal(ConnectionInfo)
+    _signal = QtCore.Signal(HardwareInfo)
+    _signal_con = QtCore.Signal(ConnectionInfo)
 
     def __init__(self, connect_info, hardwareInfo):
         super(ChannelSettingsDialog, self).__init__(hardwareInfo)
@@ -33,13 +33,17 @@ class ChannelSettingsDialog(channels_electrodes_Settings_interface):
                 self.electrodeNameComboBoxs[i].activated.connect(partial(self.electrodeNameComboBoxs_click, i))
 
         self.parent_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        self.system_xml = ET.parse(self.parent_path + '\\settings\\channels_electrodes_settings' + str(self._chan) + '.xml').getroot()
+        default_map = os.path.join(self.parent_path, 'settings', 'channels_electrodes_settings%d.xml' % self._chan)
+        if not os.path.isfile(default_map):
+            # The distributed maps cover 32/64 channels; smaller boards use
+            # the corresponding prefix rather than a missing 8/16-channel file.
+            base = 32 if self._chan <= 32 else 64
+            default_map = os.path.join(self.parent_path, 'settings', 'channels_electrodes_settings%d.xml' % base)
+        self.system_xml = ET.parse(default_map).getroot()
         selected_file = [
             self.parent_path + '/settings/chanels_electrodes_apply_settings.xml',
             'xml files(*.xml)']
-        self.loadApplyXML([
-            self.parent_path + '/settings/channels_electrodes_settings' + str(self._chan) + '.xml',
-            'xml files(*.xml)'])
+        self.loadApplyXML([default_map, 'xml files(*.xml)'])
         if self.hardwareInfo.isApply == True:
             self.loadApplyXML(selected_file)
             self.saveSettings(selected_file, True)
@@ -68,7 +72,10 @@ class ChannelSettingsDialog(channels_electrodes_Settings_interface):
             0.08609924,
             0.0,
             -0.04014873])
-        self.label.setPixmap(QPixmap(f'.\\electrodes_pos_{str(self.hardwareInfo.channel_num)}.png'))
+        image = os.path.join(self.parent_path, 'electrodes_pos_%d.png' % self._chan)
+        if not os.path.isfile(image):
+            image = os.path.join(self.parent_path, 'electrodes_pos_%d.png' % (32 if self._chan <= 32 else 64))
+        self.label.setPixmap(QPixmap(image))
         self.label.setScaledContents(True)
         self.electrodeNameIndex = [ None for i in range(self.hardwareInfo.channel_num) ]
         self.barTimer = QtCore.QBasicTimer()
@@ -95,7 +102,7 @@ class ChannelSettingsDialog(channels_electrodes_Settings_interface):
             return False
         return True
 
-    def electrodeNameComboBoxs_click(self, channel):
+    def electrodeNameComboBoxs_click(self, channel, _index=None):
         if self.compareLine(channel):
             if self.isActiveSetting[channel] == True:
                 self.change_line_color(channel)
@@ -161,7 +168,7 @@ class ChannelSettingsDialog(channels_electrodes_Settings_interface):
         if load_xml_path[0] != '':
             tree = ET.parse(load_xml_path[0])
             root = tree.getroot()
-            for row in range(len(root)):
+            for row in range(min(len(root), self._chan)):
                 if self.ischanClick[row]:
                     combobox_index = self.electrodeNameComboBoxs[row].findText(self.string_pre(root[row][0]), QtCore.Qt.MatchFixedString)
                     if combobox_index >= 0:
@@ -179,7 +186,7 @@ class ChannelSettingsDialog(channels_electrodes_Settings_interface):
         if load_xml_path[0] != '':
             tree = ET.parse(load_xml_path[0])
             root = tree.getroot()
-            for row in range(len(root)):
+            for row in range(min(len(root), self._chan)):
                 if self.ischanClick[row]:
                     combobox_index = self.electrodeNameComboBoxs[row].findText(self.string_pre(root[row][0]), QtCore.Qt.MatchFixedString)
                     if combobox_index >= 0:

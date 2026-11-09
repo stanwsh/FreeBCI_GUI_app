@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt5 import QtWidgets
+from freebci.qt import QtWidgets
 
 from freebci.ui.diagnostics import DiagnosticsDialog
 from freebci.core.diagnostics import diagnostics_fields, idle_fields

@@ -6,7 +6,7 @@ uses this worker and reports the prepared board back through Qt signals.
 """
 import time
 
-from PyQt5 import QtCore
+from freebci.qt import QtCore
 
 from freebci.core.gateway import prepare_serial_board
 
@@ -30,8 +30,8 @@ def _open_board(board_id, serial_port, other_info):
 class BluetoothConnectWorker(QtCore.QThread):
     """Prepare a Bluetooth serial board without blocking the dialog."""
 
-    succeeded = QtCore.pyqtSignal(object, str)
-    failed = QtCore.pyqtSignal(str)
+    succeeded = QtCore.Signal(object, str)
+    failed = QtCore.Signal(str)
 
     def __init__(self, board_id, serial_port, baud_rate, parent=None):
         super(BluetoothConnectWorker, self).__init__(parent)
@@ -58,8 +58,8 @@ class BluetoothConnectWorker(QtCore.QThread):
 class SerialConnectWorker(QtCore.QThread):
     """Prepare a board on a worker thread, then hand it to the dialog."""
 
-    succeeded = QtCore.pyqtSignal(object, str)
-    failed = QtCore.pyqtSignal(str)
+    succeeded = QtCore.Signal(object, str)
+    failed = QtCore.Signal(str)
 
     def __init__(self, board_id, serial_port, initial_baud, target_baud, channel_num, parent=None):
         super(SerialConnectWorker, self).__init__(parent)

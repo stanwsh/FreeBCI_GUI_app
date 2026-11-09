@@ -1,6 +1,6 @@
 from pickle import FALSE
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt
+from freebci.qt import QtCore, QtGui, QtWidgets
+from freebci.qt import Qt
 from pyqtgraph import PlotWidget, TextItem
 import pyqtgraph as pg
 

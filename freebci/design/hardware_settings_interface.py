@@ -1,5 +1,5 @@
 import sys
-from PyQt5 import QtCore, QtGui, QtWidgets
+from freebci.qt import QtCore, QtGui, QtWidgets
 from freebci.design.hardware_settings_base import Ui_Hardware_settings
 
 

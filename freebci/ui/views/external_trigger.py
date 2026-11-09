@@ -1,6 +1,6 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPixmap, QPainter
-from PyQt5.QtCore import Qt
+from freebci.qt import QtCore, QtGui, QtWidgets
+from freebci.qt import QPixmap, QPainter
+from freebci.qt import Qt
 from pyqtgraph import PlotWidget
 
 class ExternalTriggerView(QtWidgets.QWidget):

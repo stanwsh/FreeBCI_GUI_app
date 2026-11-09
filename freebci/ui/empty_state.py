@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PyQt5 import QtCore, QtWidgets
+from freebci.qt import QtCore, QtWidgets
 
 
 class EmptyState(QtWidgets.QWidget):

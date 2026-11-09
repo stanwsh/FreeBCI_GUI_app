@@ -1,11 +1,9 @@
+from freebci.qt import QColor, QFont, QPainter, QPen, Qt
 import sys
 import math
-from PyQt5 import QtCore, QtGui, QtWidgets
+from freebci.qt import QtCore, QtGui, QtWidgets
 from pyqtgraph import PlotWidget
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D

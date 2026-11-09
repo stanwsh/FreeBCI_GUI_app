@@ -1,4 +1,4 @@
-from pyqtgraph.Qt import QtWidgets
+from freebci.qt import QtWidgets
 from freebci.design.hardware_warning import Ui_hardware_warning
 
 class HardwareWarningDialog(QtWidgets.QDialog, Ui_hardware_warning):

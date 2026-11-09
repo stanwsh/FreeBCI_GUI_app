@@ -8,12 +8,12 @@ button presses from interleaving their stop/start pairs.
 
 import queue
 
-from PyQt5 import QtCore
+from freebci.qt import QtCore
 
 
 class BoardOperationWorker(QtCore.QThread):
-    succeeded = QtCore.pyqtSignal(str, object)
-    failed = QtCore.pyqtSignal(str, str)
+    succeeded = QtCore.Signal(str, object)
+    failed = QtCore.Signal(str, str)
 
     def __init__(self, parent=None):
         super(BoardOperationWorker, self).__init__(parent)

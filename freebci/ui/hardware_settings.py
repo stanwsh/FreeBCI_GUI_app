@@ -1,5 +1,5 @@
 import os
-from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+from freebci.qt import QtGui, QtCore, QtWidgets
 from freebci.ui.connection_info import HardwareInfo, ConnectionInfo
 from freebci.core.settings import (
     ChannelSettings,
@@ -17,8 +17,8 @@ import xml.etree.ElementTree as ET
 
 
 class HardwareSettingsDialog(hardwareSettings_interface):
-    _signal = QtCore.pyqtSignal(HardwareInfo)
-    _signal_con = QtCore.pyqtSignal(ConnectionInfo)
+    _signal = QtCore.Signal(HardwareInfo)
+    _signal_con = QtCore.Signal(ConnectionInfo)
 
     def __init__(self, connect_info, hardwareInfo, Logger):
         super(HardwareSettingsDialog, self).__init__(hardwareInfo)
@@ -151,21 +151,21 @@ class HardwareSettingsDialog(hardwareSettings_interface):
             return False
         return True
 
-    def PCAGainComboBoxs_click(self, channel):
+    def PCAGainComboBoxs_click(self, channel, _index=None):
         if self.compareLine(channel):
             if self.isActiveSetting[channel] == True:
                 self.change_line_color(channel)
         elif self.isActiveSetting[channel] == False:
             self.change_line_color(channel)
 
-    def InputComboBoxs_click(self, channel):
+    def InputComboBoxs_click(self, channel, _index=None):
         if self.compareLine(channel):
             if self.isActiveSetting[channel] == True:
                 self.change_line_color(channel)
         elif self.isActiveSetting[channel] == False:
             self.change_line_color(channel)
 
-    def BiasComboBoxs_click(self, channel):
+    def BiasComboBoxs_click(self, channel, _index=None):
         if self.compareLine(channel):
             if self.isActiveSetting[channel] == True:
                 self.change_line_color(channel)
@@ -176,7 +176,7 @@ class HardwareSettingsDialog(hardwareSettings_interface):
         else:
             self.BiasComboBoxs[channel].setStyleSheet('font: 12pt "Segoe UI"; background: rgb(255, 240, 245);')
 
-    def SRB1ComboBoxs_click(self, channel):
+    def SRB1ComboBoxs_click(self, channel, _index=None):
         if self.compareLine(channel):
             if self.isActiveSetting[channel] == True:
                 self.change_line_color(channel)
@@ -187,7 +187,7 @@ class HardwareSettingsDialog(hardwareSettings_interface):
         else:
             self.SRB1ComboBoxs[channel].setStyleSheet('font: 12pt "Segoe UI"; background: rgb(255, 240, 245);')
 
-    def SRB2ComboBoxs_click(self, channel):
+    def SRB2ComboBoxs_click(self, channel, _index=None):
         if self.compareLine(channel):
             if self.isActiveSetting[channel] == True:
                 self.change_line_color(channel)

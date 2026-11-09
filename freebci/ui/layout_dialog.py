@@ -1,9 +1,9 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
+from freebci.qt import QtCore, QtGui, QtWidgets
 from pyqtgraph import PlotWidget
 from freebci.design.layout_window import Ui_Layout
 
 class LayoutDialog(QtWidgets.QDialog, Ui_Layout):
-    _signal = QtCore.pyqtSignal(int)
+    _signal = QtCore.Signal(int)
     
     def __init__(self, parent_path):
         super(LayoutDialog, self).__init__()

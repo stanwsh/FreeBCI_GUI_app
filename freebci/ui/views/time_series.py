@@ -1,14 +1,14 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
+from freebci.qt import QtCore, QtGui, QtWidgets
 from pyqtgraph import PlotWidget
 from freebci.design.plotWidget import plot_widget
-from PyQt5.QtCore import Qt
+from freebci.qt import Qt
 import math
 from freebci.ui.hardware_settings import HardwareSettingsDialog
 from freebci.ui.hardware_warning import HardwareWarningDialog
 from functools import partial
 
 class TimeSeriesView(QtWidgets.QWidget):
-    _signal = QtCore.pyqtSignal(int)
+    _signal = QtCore.Signal(int)
     
     def __init__(self, settings, parent=None):
         super(TimeSeriesView, self).__init__(parent)

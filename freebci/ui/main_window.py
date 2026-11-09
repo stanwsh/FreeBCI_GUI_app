@@ -31,7 +31,7 @@ from freebci.ui.serial_connection import SerialConnectionDialog as SerialConnect
 from freebci.ui.bluetooth_connection import BluetoothConnectionDialog
 from freebci.ui.virtual_connection import VirtualConnectionDialog
 from freebci.ui.hardware_warning import HardwareWarningDialog
-from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
+from freebci.qt import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 from freebci.ui.connection_info import HardwareInfo, ConnectionInfo
 from freebci.core.control import ControlError, ControlServer
@@ -39,13 +39,10 @@ from freebci.core.models import BoardProfile, SessionConfig
 from freebci.core.lsl_queue import LslSampleQueue
 from freebci.core.recording import recover_sessions
 from freebci.core.session import SessionController
-from PyQt5.QtGui import QPixmap
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from freebci.qt import QPixmap
+from freebci.qt import QtCore, QtGui, QtWidgets
+from freebci.qt import Qt, QThread, Signal
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import multiprocessing
 import threading
 import mne
@@ -142,15 +139,15 @@ class MainWindow(MainWindowInterface):
         self.actionHelp.triggered.connect(self.help_click)
         self.startButton.clicked.connect(self.startButton_click)
         self.actionOpen.triggered.connect(self.open_click)
-        self.actionMarker = QtWidgets.QAction('Add Marker', self)
+        self.actionMarker = QtGui.QAction('Add Marker', self)
         self.actionMarker.setShortcut('Ctrl+M')
         self.actionMarker.triggered.connect(self.marker_click)
         self.menu_2.addAction(self.actionMarker)
-        self.actionDiagnostics = QtWidgets.QAction('Session Diagnostics...', self)
+        self.actionDiagnostics = QtGui.QAction('Session Diagnostics...', self)
         self.actionDiagnostics.setShortcut('Ctrl+D')
         self.actionDiagnostics.triggered.connect(self.diagnostics_click)
         self.menu_2.addAction(self.actionDiagnostics)
-        self.actionDemo = QtWidgets.QAction('Start Demo Session', self)
+        self.actionDemo = QtGui.QAction('Start Demo Session', self)
         self.actionDemo.setShortcut('Ctrl+Shift+D')
         self.actionDemo.triggered.connect(self.demo_click)
         self.menu_2.addAction(self.actionDemo)
@@ -281,7 +278,7 @@ class MainWindow(MainWindowInterface):
             self.menu.removeAction(self.menuFreeBCI_WiFi_24.menuAction())
             self.menu.removeAction(self.menuFreeBCI_WiFi_32.menuAction())
             self.menu.removeAction(self.menuFreeBCI_WiFi_64.menuAction())
-            self.actionRelease = QtWidgets.QAction()
+            self.actionRelease = QtGui.QAction()
             self.actionRelease.setObjectName('actionRelease')
             self.actionRelease.setText('Disconnect')
             self.actionRelease.triggered.connect(self.actionRelease_click)
@@ -1374,7 +1371,7 @@ class MainWindow(MainWindowInterface):
             QtCore.Q_ARG(str, selector),
         )
 
-    @QtCore.pyqtSlot(str)
+    @QtCore.Slot(str)
     def _start_from_control(self, board):
         if board == 'demo':
             self.demo_click()
@@ -1389,7 +1386,7 @@ class MainWindow(MainWindowInterface):
             QtCore.Qt.QueuedConnection,
         )
 
-    @QtCore.pyqtSlot()
+    @QtCore.Slot()
     def _stop_from_control(self):
         if self.session_controller is None:
             return
@@ -1408,7 +1405,7 @@ class MainWindow(MainWindowInterface):
             QtCore.Qt.QueuedConnection,
         )
 
-    @QtCore.pyqtSlot()
+    @QtCore.Slot()
     def _shutdown_from_control(self):
         self.logger.write('FreeBCI: shutdown requested by control client')
         self._force_close = True
@@ -1642,7 +1639,7 @@ class LogStringAxis(pg.AxisItem):
 
 
 class PlotThread(QThread):
-    update_signal = pyqtSignal(object)
+    update_signal = Signal(object)
 
     def __init__(self, data_queue):
         super(PlotThread, self).__init__()

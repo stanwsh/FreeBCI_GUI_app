@@ -1,4 +1,4 @@
-from PyQt5 import QtCore, QtWidgets
+from freebci.qt import QtCore, QtWidgets
 
 
 class Ui_wifiDialog(object):

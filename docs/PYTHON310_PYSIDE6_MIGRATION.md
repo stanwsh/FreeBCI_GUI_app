@@ -1,9 +1,69 @@
 # Python 3.10 and PySide6 migration plan
 
-Status: **planned; not implemented in v0.1.12**. Current supported installation
-remains Windows x64 with Python 3.9 and PyQt5 5.15.2. Target the Qt/runtime work
-at the next minor release, tentatively v0.2.0, with hardware acceptance before
-changing the default installation.
+Status: **implemented and released as the 0.2.0rc1 prerelease** on branch
+`migration/python310-pyside6`. The last stable release, v0.1.12, retains Python
+3.9 / PyQt5. This candidate uses PySide6 6.8.3 and Python 3.10-3.12. Hardware
+acceptance is still required before promotion to a stable release. The user
+reported manual testing and authorized publication on November 9, 2026; the
+exact manual hardware/interpreter matrix was not specified.
+
+## Implementation and validation status
+
+| Area | Result |
+|---|---|
+| Isolated environments | `.venv310`: Python 3.10.22; `.venv312`: Python 3.12.16; old `.venv` preserved |
+| Qt | PySide6 / Qt 6.8.3, selected through `freebci/qt.py`; no PyQt5 objects loaded |
+| Scientific stack | NumPy 1.26.4, SciPy 1.11.4, pandas 2.2.3, matplotlib 3.9.4, MNE 1.6.0, pyqtgraph 0.13.7 |
+| SDK | Bundled native DLL loads and board-2038 metadata/filter calls succeed on both Python versions |
+| Automated tests | 123 pass on each Python version |
+| GUI | All eight layouts render; dialogs, custom signals, combo callbacks, demo start, plots, markers, and stop/finalization tested |
+| Setup and CI | Frozen lock, single Qt binding, configurable launch environment, Windows 3.10/3.12 matrix |
+| Manual acceptance | User reported testing and authorized prerelease publication on November 9, 2026 |
+| Wi-Fi hardware | Independent migrated-runtime capture was blocked by a firewall rule; exact user test coverage unspecified |
+| USB/Bluetooth | Not reverified on the migrated runtime; hardware availability required |
+| Stable release promotion | Deferred until hardware and operator acceptance |
+
+The combo-box smoke tests exposed a PySide6 difference: `activated(int)` passes
+its index through `partial()` callbacks. Hardware settings, electrode selection,
+and layout handlers now accept that index. The electrode-dialog smoke test also
+found absent 8/16-channel map/image resources; smaller boards now use the
+existing larger-map prefix. These fixes do not write or replace user settings.
+
+### Launch the migration environments
+
+```powershell
+.\.venv310\Scripts\python.exe .\FreeBCI_GUI.py
+.\.venv312\Scripts\python.exe .\FreeBCI_GUI.py
+```
+
+Or set `$env:FREEBCI_VENV = ".venv312"` and run `.\run.cmd`. Without an override,
+the launcher prefers `.venv310` and otherwise uses `.venv`. The old Python 3.9
+environment is for the old release, not this source tree. Close the active board
+connection before switching interpreters.
+
+### Hardware acceptance and Wi-Fi permissions
+
+On the inspected machine, `FreeBCI-1018` is connected on a Public network.
+The SDK can read board metadata but times out when configuring the board's
+connection back to the PC. Read-only firewall inspection found explicit inbound
+TCP and UDP block rules for the newly downloaded Python 3.10.22 executable;
+the old Python 3.9 interpreter has allow rules. Subsequent board HTTP requests
+also timed out, so the board was requested to be power-cycled before retesting.
+
+The board opens a connection back to the PC on TCP 8899. A new Python executable
+may need its own Windows Firewall permission, scoped to the board's address
+(`192.168.4.1`) and that port. An allow rule alone cannot override an explicit
+block rule. Review the active executable and network profile before changing
+machine security settings. Setup and launch do not apply such changes, and
+**no firewall settings were changed by the migration work**.
+
+The user subsequently reported successful manual testing and requested
+publication. This authorizes the prerelease but is not an independently measured
+hardware matrix: no new automated Wi-Fi capture is claimed, and USB/Bluetooth
+remain unverified on the migrated runtime. Keep the remaining acceptance gates
+before a stable release.
+
+The staged acceptance plan below remains the checklist for remaining work.
 
 ## Target and constraints
 

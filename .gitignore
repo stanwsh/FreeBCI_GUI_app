@@ -1,5 +1,7 @@
 # Python
 .venv/
+.venv310/
+.venv312/
 __pycache__/
 *.py[cod]
 *.egg-info/

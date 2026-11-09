@@ -1,7 +1,7 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtWidgets import QSizePolicy
+from freebci.qt import QtCore, QtGui, QtWidgets
+from freebci.qt import QPixmap
+from freebci.qt import Qt, QThread, Signal
+from freebci.qt import QSizePolicy
 from freebci.design.batterywidget import BatteryWidget
 
 class BatteryView(QtWidgets.QWidget):

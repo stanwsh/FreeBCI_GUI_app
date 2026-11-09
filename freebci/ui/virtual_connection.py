@@ -1,14 +1,14 @@
 import serial
 import sys
-from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+from freebci.qt import QtGui, QtCore, QtWidgets
 from freebci.design.virtual_connection import Ui_VirtualDialog
 from freebci.core.hardware_settings_protocol import HardwareSettingsProtocol
 from freebci.ui.connection_info import ConnectionInfo
 from freebci.core.gateway import prepare_serial_board, prepare_wifi_board
-from PyQt5.QtCore import Qt
+from freebci.qt import Qt
 
 class VirtualConnectionDialog(QtWidgets.QDialog, Ui_VirtualDialog):
-    _signal = QtCore.pyqtSignal(ConnectionInfo)
+    _signal = QtCore.Signal(ConnectionInfo)
     
     def __init__(self, connect_info, board_id, Logger, parent=None):
         super(VirtualConnectionDialog, self).__init__(parent)

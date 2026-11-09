@@ -1,15 +1,15 @@
-# FreeBCI GUI dependencies (Python 3.9, 64-bit).
+# FreeBCI GUI dependencies (Python 3.10-3.12, 64-bit).
 # Install with:  python -m pip install -r requirements.txt
 # BrainFlow itself is bundled in brainflow/; nptyping is its dependency.
 
-PyQt5==5.15.2
-pyqtgraph==0.13.3
-matplotlib==3.7.2
+PySide6==6.8.3
+pyqtgraph==0.13.7
+matplotlib==3.9.4
 mne==1.6.0
 nptyping==1.4.4
-numpy==1.26.1
-pandas==2.0.3
-scipy==1.11.1
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.11.4
 pylsl==1.16.1
 pyperclip==1.9.0
 pyserial==3.5

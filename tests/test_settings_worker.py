@@ -3,7 +3,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt5 import QtWidgets
+from freebci.qt import QtWidgets
 
 from freebci.ui.workers.settings_commands import SettingsCommandWorker
 

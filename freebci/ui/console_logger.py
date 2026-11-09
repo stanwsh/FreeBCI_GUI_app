@@ -1,10 +1,10 @@
 import sys
 import os
-from PyQt5 import QtCore, QtGui, QtWidgets
+from freebci.qt import QtCore, QtGui, QtWidgets
 
 
 class ConsoleLogger(QtWidgets.QWidget):
-    _signal = QtCore.pyqtSignal(str)
+    _signal = QtCore.Signal(str)
 
     def __init__(self, filename='Default.log'):
         super(ConsoleLogger, self).__init__()
@@ -15,12 +15,12 @@ class ConsoleLogger(QtWidgets.QWidget):
 
     def write(self, message):
         try:
-            self.log = open(self.file, 'a')
-            self.log.write(message + '\n')
-            self.log.close()
+            message = str(message)
+            with open(self.file, 'a', encoding='utf-8') as log:
+                log.write(message + '\n')
             self._signal.emit(message)
             print(message)
-        except:
+        except Exception:
             pass
 
     def flush(self):

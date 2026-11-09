@@ -7,15 +7,14 @@ control treatment.
 """
 from __future__ import annotations
 
-from PyQt5 import QtGui, QtWidgets
+from freebci.qt import QtGui, QtWidgets
 
 
 def font_family() -> str:
     """Return the preferred UI family, falling back to the system font."""
-    database = QtGui.QFontDatabase()
-    if "Segoe UI" in set(database.families()):
+    if "Segoe UI" in set(QtGui.QFontDatabase.families()):
         return "Segoe UI"
-    return database.systemFont(QtGui.QFontDatabase.GeneralFont).family() or "Sans Serif"
+    return QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.SystemFont.GeneralFont).family() or "Sans Serif"
 
 
 STYLESHEET = """

@@ -7,13 +7,13 @@ settings dialog stays responsive and can report per-command progress.
 
 import threading
 
-from PyQt5 import QtCore
+from freebci.qt import QtCore
 
 
 class SettingsCommandWorker(QtCore.QThread):
-    progress = QtCore.pyqtSignal(int, int)
-    failed = QtCore.pyqtSignal(str)
-    succeeded = QtCore.pyqtSignal()
+    progress = QtCore.Signal(int, int)
+    failed = QtCore.Signal(str)
+    succeeded = QtCore.Signal()
 
     def __init__(self, board, commands, parent=None):
         super(SettingsCommandWorker, self).__init__(parent)

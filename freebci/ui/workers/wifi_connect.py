@@ -1,7 +1,7 @@
 """Background Wi-Fi discovery and board preparation."""
 import threading
 
-from PyQt5 import QtCore
+from freebci.qt import QtCore
 
 from freebci.ui.workers.wifi_discovery import discover
 from freebci.core.gateway import prepare_wifi_board
@@ -10,8 +10,8 @@ from freebci.core.gateway import prepare_wifi_board
 class WifiDiscoveryWorker(QtCore.QThread):
     """Find boards on the local network without blocking the dialog."""
 
-    found = QtCore.pyqtSignal(object)
-    failed = QtCore.pyqtSignal(str)
+    found = QtCore.Signal(object)
+    failed = QtCore.Signal(str)
 
     def __init__(self, extra_addresses=(), parent=None):
         super(WifiDiscoveryWorker, self).__init__(parent)
@@ -35,9 +35,9 @@ class WifiDiscoveryWorker(QtCore.QThread):
 class WifiConnectWorker(QtCore.QThread):
     """Prepare a Wi-Fi board, retrying the first connection a few times."""
 
-    succeeded = QtCore.pyqtSignal(object, str)
-    failed = QtCore.pyqtSignal(str)
-    progress = QtCore.pyqtSignal(str)
+    succeeded = QtCore.Signal(object, str)
+    failed = QtCore.Signal(str)
+    progress = QtCore.Signal(str)
 
     def __init__(self, board_id, ip_address, ip_port, parent=None):
         super(WifiConnectWorker, self).__init__(parent)

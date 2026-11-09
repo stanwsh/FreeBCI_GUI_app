@@ -1,6 +1,6 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from freebci.qt import QtCore, QtGui, QtWidgets
+from freebci.qt import QPixmap
+from freebci.qt import Qt, QThread, Signal
 from freebci.ui.electrodes_position import ElectrodesPosition
 import sys
 import numpy as np
@@ -8,7 +8,7 @@ import random
 import time
 import matplotlib
 matplotlib.use('Qt5Agg')
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation

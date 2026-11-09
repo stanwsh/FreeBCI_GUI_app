@@ -5,7 +5,7 @@ from functools import partial
 import platform
 from freebci.design.main_window_ui import Ui_MainWindow
 from freebci.design.plotWidget import plot_widget
-from pyqtgraph.Qt import QtWidgets, QtGui, QtCore
+from freebci.qt import QtWidgets, QtGui, QtCore
 from freebci.ui.views.fft_plot import FFTPlotView
 from freebci.ui.views.band_power import BandPowerView
 from freebci.ui.views.topography import TopographyView
@@ -22,7 +22,7 @@ from freebci.ui.recording_paths import RecordingPaths
 
 
 class MainWindowInterface(Ui_MainWindow, QtWidgets.QMainWindow):
-    resized = QtCore.pyqtSignal()
+    resized = QtCore.Signal()
 
     def __init__(self, channel, parent=None):
         super(MainWindowInterface, self).__init__(parent)
@@ -251,7 +251,7 @@ class MainWindowInterface(Ui_MainWindow, QtWidgets.QMainWindow):
             return self.is_time_series
         self.logger.write('Find widget fail2:' + widgetText)
 
-    def changeSubWidget(self, old_sub_text, layoutBox):
+    def changeSubWidget(self, old_sub_text, layoutBox, _index=None):
         self.logger.write('---------')
         self.logger.write(self.layoutdic)
         new_sub_text = layoutBox.currentText()

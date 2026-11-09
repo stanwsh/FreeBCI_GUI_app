@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.0rc1 - 2026-11-09 (prerelease)
+
+- Migrate the presentation layer from PyQt5 to PySide6 6.8.3 / Qt 6 through
+  `freebci/qt.py`; update signals, slots, QtGui actions, event loops, and the
+  matplotlib Qt backend. PyQt5 and PySide6 are not mixed in one process.
+- Support Python 3.10-3.12 with a new dependency lock; preserve the bundled
+  FreeBCI native SDK, data formats, hardware commands, and display-filter defaults.
+- Update setup, launch scripts, and CI for isolated environments and a Python
+  3.10 / 3.12 test matrix. `run.cmd` accepts `FREEBCI_VENV` and detects `.venv310`.
+- Fix combo-box callbacks that receive an extra signal index under PySide6.
+- Fix the 16-channel electrode dialog's missing map/image lookup by using the
+  existing larger map prefix; leave user settings files unchanged.
+- Close console log handles even when messages are not strings.
+- Add real Qt regression tests for eight layouts, dialogs, paint paths, custom
+  signals, queued session startup, channel buttons, markers, and finalization.
+- Validation: 123 tests pass on Python 3.10.22 and Python 3.12.16, including
+  native SDK metadata and filtering. The user reported manual testing and
+  authorized publication on November 9. The precise manual test matrix was not
+  recorded; independent migrated-runtime Wi-Fi/USB/Bluetooth acceptance remains
+  unverified. This is a prerelease; v0.1.12 remains the stable rollback release.
+- Wi-Fi connection setup may require separate inbound firewall permission for
+  a new Python executable. Setup and launch scripts do not change firewall rules.
+
 ## 0.1.12 - 2026-11-09
 
 ### Changed

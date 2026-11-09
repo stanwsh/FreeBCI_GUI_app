@@ -1,6 +1,6 @@
 from serial.tools import list_ports
-from pyqtgraph.Qt import QtCore, QtWidgets
-from PyQt5.QtCore import Qt
+from freebci.qt import QtCore, QtWidgets
+from freebci.qt import Qt
 
 from freebci.ui.connection_info import ConnectionInfo
 from freebci.ui.workers.serial_connect import BluetoothConnectWorker
@@ -8,7 +8,7 @@ from freebci.design.bluetooth_connection import Ui_BluetoothDialog
 
 
 class BluetoothConnectionDialog(QtWidgets.QDialog, Ui_BluetoothDialog):
-    _signal = QtCore.pyqtSignal(ConnectionInfo)
+    _signal = QtCore.Signal(ConnectionInfo)
 
     def __init__(self, connect_info, board_id, Logger, parent=None):
         super(BluetoothConnectionDialog, self).__init__(parent)

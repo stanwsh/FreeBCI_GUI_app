@@ -1,6 +1,6 @@
 """Value objects shared by the acquisition core and the GUI.
 
-These types are deliberately free of PyQt5 and BrainFlow.  A block contains
+These types are deliberately free of Qt and BrainFlow.  A block contains
 the raw board rows exactly as BrainFlow returned them; channel extraction is
 left to the consumer.
 """

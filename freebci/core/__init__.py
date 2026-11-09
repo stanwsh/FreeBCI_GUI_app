@@ -1,6 +1,6 @@
 """Qt-free acquisition core for FreeBCI GUI.
 
-The modules in this package do not import PyQt5.  The GUI talks to the core
+The modules in this package do not import Qt.  The GUI talks to the core
 through a small number of data objects (``SessionConfig``, ``SampleBlock``,
 ``StateSnapshot``) and the ``SessionController`` facade.
 """

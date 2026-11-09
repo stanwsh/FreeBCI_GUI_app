@@ -1,7 +1,7 @@
 import ipaddress
 import os
 
-from pyqtgraph.Qt import QtCore, QtWidgets
+from freebci.qt import QtCore, QtWidgets
 
 from freebci.ui.connection_info import ConnectionInfo
 from freebci.ui.workers.wifi_discovery import (
@@ -15,7 +15,7 @@ from freebci.design.wifi_connection import Ui_wifiDialog
 
 
 class WifiConnectionDialog(QtWidgets.QDialog, Ui_wifiDialog):
-    _signal = QtCore.pyqtSignal(ConnectionInfo)
+    _signal = QtCore.Signal(ConnectionInfo)
 
     def __init__(self, connect_info, board_id, Logger, parent=None):
         super(WifiConnectionDialog, self).__init__(parent)

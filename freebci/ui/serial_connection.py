@@ -1,5 +1,5 @@
 from serial.tools import list_ports
-from pyqtgraph.Qt import QtCore, QtWidgets
+from freebci.qt import QtCore, QtWidgets
 
 from freebci.ui.connection_info import ConnectionInfo
 from freebci.ui.workers.serial_connect import SerialConnectWorker
@@ -7,7 +7,7 @@ from freebci.design.serial_connection import Ui_SerialDialog
 
 
 class SerialConnectionDialog(QtWidgets.QDialog, Ui_SerialDialog):
-    _signal = QtCore.pyqtSignal(ConnectionInfo)
+    _signal = QtCore.Signal(ConnectionInfo)
 
     def __init__(self, connect_info, board_id, Logger, parent=None):
         super(SerialConnectionDialog, self).__init__(parent)

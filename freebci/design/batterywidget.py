@@ -1,5 +1,5 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import pyqtSignal
+from freebci.qt import QtCore, QtGui, QtWidgets
+from freebci.qt import Signal
 
 class BatteryWidget(QtWidgets.QWidget):
     
@@ -46,7 +46,7 @@ class BatteryWidget(QtWidgets.QWidget):
         self.lvl_5.setObjectName('lvl_5')
         self.setValue(50)
 
-    @QtCore.pyqtSlot(int)
+    @QtCore.Slot(int)
     def setValue(self, value):
         self.value = value
         if self.value > 100:
